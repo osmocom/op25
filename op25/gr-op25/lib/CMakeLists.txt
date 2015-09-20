@@ -53,6 +53,13 @@ list(APPEND op25_sources
     value_string.cc
     pickle.cc
     pcap_source_b_impl.cc
+    bch.cc
+    ldu.cc
+    crypto.cc
+    crypto_module_du_handler.cc
+    deskey.c
+    desport.c
+    dessp.c
 )
 
 add_library(gnuradio-op25 SHARED ${op25_sources})

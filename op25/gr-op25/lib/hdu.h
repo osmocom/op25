@@ -25,11 +25,12 @@
 #define INCLUDED_HDU_H
 
 #include "abstract_data_unit.h"
+#include "crypto.h"
 
 /**
  * P25 header data unit (HDU).
  */
-class hdu : public abstract_data_unit
+class hdu : public abstract_data_unit, public crypto_state_provider
 {
 
 public:
@@ -96,7 +97,9 @@ protected:
     */
    virtual uint16_t frame_size_max() const;
 
-private:
+public:
+
+  uint8_t algid() const;
 
    /**
     * Return a string describing the encryption algorithm ID (ALGID).
@@ -104,6 +107,8 @@ private:
     * \return A string identifying the ALGID.
     */
    std::string algid_str() const;
+
+   virtual uint16_t kid() const;
 
    /**
     * Returns a string describing the key id (KID).
@@ -118,6 +123,8 @@ private:
     * \return A string identifying the MFID
     */
    virtual std::string mfid_str() const;
+
+   virtual std::vector<uint8_t> mi() const;
 
    /**
     * Returns a string describing the message indicator (MI).
@@ -139,6 +146,10 @@ private:
     * \return A string identifying the TGID.
     */
    virtual std::string tgid_str() const;
+
+public:
+
+  struct CryptoState crypto_state() const;
 };
 
 #endif /* INCLUDED_HDU_H */

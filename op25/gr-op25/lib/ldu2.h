@@ -24,13 +24,22 @@
 #ifndef INCLUDED_LDU2_H
 #define INCLUDED_LDU2_H
 
-#include "voice_data_unit.h"
+#include "ldu.h"
+#include "crypto.h"
 
 /**
  * P25 Logical Data Unit 2.
  */
-class ldu2 : public voice_data_unit
+class ldu2 : public ldu, public crypto_state_provider
 {
+private:
+
+    struct CryptoState m_crypto_state;
+
+protected:
+
+    void do_correct_errors(bit_vector& frame_body);
+
 public:
 
    /**
@@ -49,6 +58,10 @@ public:
     * Returns a string describing the Data Unit ID (DUID).
     */
    std::string duid_str() const;
+
+   virtual std::string snapshot() const;
+
+   struct CryptoState crypto_state() const;
 };
 
 #endif /* INCLUDED_LDU2_H */
