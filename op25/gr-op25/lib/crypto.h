@@ -1,6 +1,7 @@
 #ifndef INCLUDED_CRYPTO_H
 #define INCLUDED_CRYPTO_H
 
+#include <stdint.h>
 #include <vector>
 #include <map>
 #include <boost/shared_ptr.hpp>

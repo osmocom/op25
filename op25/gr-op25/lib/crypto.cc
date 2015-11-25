@@ -3,6 +3,8 @@
 #include <sstream>
 #include <boost/format.hpp>
 #include <iostream>
+#include <stdio.h>
+#include <memory.h>
 
 extern "C" {
 #include "des.h"
@@ -182,7 +184,7 @@ public:
 		generate(3 * 8);	// Use remaining 3 bytes for LC
 	}
 
-	unsigned long long generate(size_t count)	// 1..64
+	uint64_t generate(size_t count)	// 1..64
 	{
 		unsigned long long ullCurrent = swap_bytes(m_ks);
 		const int max_len = 64;

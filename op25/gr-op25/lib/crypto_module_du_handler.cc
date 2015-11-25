@@ -4,6 +4,7 @@
 
 #include <boost/format.hpp>
 #include <sstream>
+#include <stdio.h>
 
 crypto_module_du_handler::crypto_module_du_handler(data_unit_handler_sptr next, crypto_module::sptr crypto_mod)
 	: data_unit_handler(next)

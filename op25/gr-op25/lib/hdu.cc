@@ -29,6 +29,7 @@
 #include <iomanip>
 #include <sstream>
 #include <boost/format.hpp>
+#include <stdio.h>
 
 using namespace std;
 

@@ -27,6 +27,7 @@
 #include <map>
 #include <iostream>
 #include <boost/format.hpp>
+#include <stdio.h>
 
 #include <itpp/base/vec.h>
 #include <itpp/base/mat.h>

@@ -1,5 +1,7 @@
 #include "ldu.h"
 
+#include <stdio.h>
+
 #include <itpp/base/vec.h>
 #include <itpp/base/mat.h>
 #include <itpp/base/binary.h>
