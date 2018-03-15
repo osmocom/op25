@@ -1,5 +1,5 @@
 
-# Copyright 2011, 2012, 2013, 2014, 2015, 2016, 2017 Max H. Parke KA1RBI
+# Copyright 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018 Max H. Parke KA1RBI
 # 
 # This file is part of OP25
 # 
@@ -25,6 +25,7 @@ import collections
 import json
 sys.path.append('tdma')
 import lfsr
+from tsvfile import make_config, load_tsv
 
 def crc16(dat,len):	# slow version
     poly = (1<<12) + (1<<5) + (1<<0)
@@ -38,12 +39,6 @@ def crc16(dat,len):	# slow version
                 crc = (crc & 0xffff) ^ poly
     crc = crc ^ 0xffff
     return crc
-
-def get_frequency(f):	# return frequency in Hz
-    if f.find('.') == -1:	# assume in Hz
-        return int(f)
-    else:     # assume in MHz due to '.'
-        return int(float(f) * 1000000)
 
 class trunked_system (object):
     def __init__(self, debug=0, config=None):
@@ -252,7 +247,7 @@ class trunked_system (object):
             f2 = self.channel_id_to_frequency(ch2)
             if f1 and f2:
                 self.adjacent[f1] = 'rfid: %d stid:%d uplink:%f' % (rfid, stid, f2 / 1000000.0)
-                self.adjacent_data[f1] = {'rfid': rfid, 'stid':stid, 'uplink': f2, 'table': None}
+                self.adjacent_data[f1] = {'rfid': rfid, 'stid':stid, 'uplink': f2, 'table': None, 'sysid': syid}
             if self.debug > 10:
                 print "mbt3c adjacent sys %x rfid %x stid %x ch1 %x ch2 %x f1 %s f2 %s" %(syid, rfid, stid, ch1, ch2, self.channel_id_to_string(ch1), self.channel_id_to_string(ch2))
         elif opcode == 0x3b:  # network status
@@ -486,6 +481,7 @@ class trunked_system (object):
             if self.debug > 10:
                 print "tsbk3b net stat: wacn %x syid %x ch1 %x(%s)" %(wacn, syid, ch1, self.channel_id_to_string(ch1))
         elif opcode == 0x3c:   # adjacent status
+            syid = (tsbk >> 56) & 0xfff
             rfid = (tsbk >> 48) & 0xff
             stid = (tsbk >> 40) & 0xff
             ch1  = (tsbk >> 24) & 0xffff
@@ -493,7 +489,7 @@ class trunked_system (object):
             f1 = self.channel_id_to_frequency(ch1)
             if f1 and table in self.freq_table:
                 self.adjacent[f1] = 'rfid: %d stid:%d uplink:%f tbl:%d' % (rfid, stid, (f1 + self.freq_table[table]['offset']) / 1000000.0, table)
-                self.adjacent_data[f1] = {'rfid': rfid, 'stid':stid, 'uplink': f1 + self.freq_table[table]['offset'], 'table': table}
+                self.adjacent_data[f1] = {'rfid': rfid, 'stid':stid, 'uplink': f1 + self.freq_table[table]['offset'], 'table': table, 'sysid':syid}
             if self.debug > 10:
                 print "tsbk3c adjacent: rfid %x stid %d ch1 %x(%s)" %(rfid, stid, ch1, self.channel_id_to_string(ch1))
                 if table in self.freq_table:
@@ -511,11 +507,6 @@ class trunked_system (object):
             self.cc_list_index = 0
         self.trunk_cc = self.cc_list[self.cc_list_index]
         sys.stderr.write('%f set trunk_cc to %s\n' % (curr_time, self.trunk_cc))
-
-def get_int_dict(s):
-    if s[0].isdigit():
-        return dict.fromkeys([int(d) for d in s.split(',')])
-    return dict.fromkeys([int(d) for d in open(s).readlines()])
 
 class rx_ctl (object):
     def __init__(self, debug=0, frequency_set=None, conf_file=None, logfile_workers=None):
@@ -550,6 +541,7 @@ class rx_ctl (object):
         self.working_frequencies = {}
         self.xor_cache = {}
         self.last_garbage_collect = 0
+        self.last_command = {'command': None, 'time': time.time()}
         if self.logfile_workers:
             self.input_rate = self.logfile_workers[0]['demod'].input_rate
 
@@ -587,38 +579,13 @@ class rx_ctl (object):
 
     def add_trunked_system(self, nac):
         assert nac not in self.trunked_systems	# duplicate nac not allowed
-        blacklist = {}
-        whitelist = None
-        tgid_map = {}
         cfg = None
         if nac in self.configs:
             cfg = self.configs[nac]
         self.trunked_systems[nac] = trunked_system(debug = self.debug, config=cfg)
 
     def build_config_tsv(self, tsv_filename):
-        import csv
-        hdrmap = []
-        configs = {}
-        with open(tsv_filename, 'rb') as csvfile:
-            sreader = csv.reader(csvfile, delimiter='\t', quotechar='"', quoting=csv.QUOTE_ALL)
-            for row in sreader:
-                if not hdrmap:
-                    # process first line of tsv file - header line
-                    for hdr in row:
-                        hdr = hdr.replace(' ', '_')
-                        hdr = hdr.lower()
-                        hdrmap.append(hdr)
-                    continue
-                fields = {}
-                for i in xrange(len(row)):
-                    if row[i]:
-                        fields[hdrmap[i]] = row[i]
-                        if hdrmap[i] != 'sysname':
-                            fields[hdrmap[i]] = fields[hdrmap[i]].lower()
-                nac = int(fields['nac'], 0)
-                configs[nac] = fields
-            
-        self.setup_config(configs)
+        self.setup_config(load_tsv(tsv_filename))
 
     def build_config(self, config_filename):
         import ConfigParser
@@ -662,30 +629,8 @@ class rx_ctl (object):
             self.nacs.append(nac)
 
     def setup_config(self, configs):
-        for nac in configs:
-            self.configs[nac] = {'cclist':[], 'offset':0, 'whitelist':None, 'blacklist':{}, 'tgid_map':{}, 'sysname': configs[nac]['sysname'], 'center_frequency': None}
-            for f in configs[nac]['control_channel_list'].split(','):
-                self.configs[nac]['cclist'].append(get_frequency(f))
-            if 'offset' in configs[nac]:
-                self.configs[nac]['offset'] = int(configs[nac]['offset'])
-            if 'modulation' in configs[nac]:
-                self.configs[nac]['modulation'] = configs[nac]['modulation']
-            else:
-                self.configs[nac]['modulation'] = 'cqpsk'
-            for k in ['whitelist', 'blacklist']:
-                if k in configs[nac]:
-                    self.configs[nac][k] = get_int_dict(configs[nac][k])
-            if 'tgid_tags_file' in configs[nac]:
-                import csv
-                with open(configs[nac]['tgid_tags_file'], 'rb') as csvfile:
-                    sreader = csv.reader(csvfile, delimiter='\t', quotechar='"', quoting=csv.QUOTE_ALL)
-                    for row in sreader:
-                        tgid = int(row[0])
-                        txt = row[1]
-                        self.configs[nac]['tgid_map'][tgid] = txt
-            if 'center_frequency' in configs[nac]:
-                self.configs[nac]['center_frequency'] = get_frequency(configs[nac]['center_frequency'])
-
+        self.configs = make_config(configs)
+        for nac in self.configs.keys():
             self.add_trunked_system(nac)
 
     def find_next_tsys(self):
@@ -695,9 +640,15 @@ class rx_ctl (object):
         return self.nacs[self.current_id]
 
     def to_json(self):
+        current_time = time.time()
         d = {'json_type': 'trunk_update'}
         for nac in self.trunked_systems.keys():
             d[nac] = json.loads(self.trunked_systems[nac].to_json())
+        d['data'] = {'last_command': self.last_command['command'],
+                     'last_command_time': int(self.last_command['time'] - current_time),
+                     'tgid_hold': self.tgid_hold,
+                     'tgid_hold_until': int(self.tgid_hold_until - current_time),
+                     'hold_mode': self.hold_mode}
         return json.dumps(d)
 
     def to_string(self):
@@ -934,6 +885,7 @@ class rx_ctl (object):
         elif command == 'duid7' or command == 'duid12':
             pass
         elif command == 'hold':
+            self.last_command = {'command': command, 'time': curr_time}
             if self.hold_mode is False and self.current_tgid:
                 self.tgid_hold = self.current_tgid
                 self.tgid_hold_until = curr_time + 86400 * 10000
@@ -946,18 +898,21 @@ class rx_ctl (object):
                 self.tgid_hold_until = curr_time
                 self.hold_mode = False
         elif command == 'set_hold':
+            self.last_command = {'command': command, 'time': curr_time}
             if self.current_tgid:
                 self.tgid_hold = self.current_tgid
                 self.tgid_hold_until = curr_time + 86400 * 10000
                 self.hold_mode = True
                 print 'set hold until %f' % self.tgid_hold_until
         elif command == 'unset_hold':
+            self.last_command = {'command': command, 'time': curr_time}
             if self.current_tgid:
                 self.current_tgid = None
                 self.tgid_hold = None
                 self.tgid_hold_until = curr_time
                 self.hold_mode = False
         elif command == 'skip' or command == 'lockout':
+            self.last_command = {'command': command, 'time': curr_time}
             if self.current_tgid:
                 end_time = None
                 if command == 'skip':

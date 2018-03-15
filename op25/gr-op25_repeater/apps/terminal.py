@@ -2,7 +2,7 @@
 
 # Copyright 2008-2011 Steve Glass
 # 
-# Copyright 2011, 2012, 2013, 2014, 2015, 2016, 2017 Max H. Parke KA1RBI
+# Copyright 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018 Max H. Parke KA1RBI
 # 
 # This file is part of OP25
 # 
@@ -132,7 +132,7 @@ class curses_terminal(threading.Thread):
         # return true signifies end of main event loop
         msg = json.loads(js)
         if msg['json_type'] == 'trunk_update':
-            nacs = [x for x in msg.keys() if x != 'json_type']
+            nacs = [x for x in msg.keys() if x != 'json_type' and x != 'data']
             if not nacs:
                 return
             times = {msg[nac]['last_tsbk']:nac for nac in nacs}
