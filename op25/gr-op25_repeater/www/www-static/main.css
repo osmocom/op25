@@ -153,6 +153,11 @@ div.adjacent {
 	font-size: 24px;
 }
 
+.boxtitle {
+	font-weight: bold;
+	text-align: left;
+}
+
 /* the whole NAC string... NAC, freq tsbks, etc. */
 
 .nac {
@@ -250,4 +255,90 @@ div.adjacent {
 .nav-button-active:hover {
 	background-color: #699;
 	background: linear-gradient(#588, #699);
+}
+
+#div_settings table {
+	border-color:	black;
+}
+
+#div_settings tr {
+	border-top:	none;
+	border-bottom:	solid;
+}
+
+#div_settings th.boxtitle-th {
+	text-align:  left;
+}
+
+.div_settings th {
+	max-width: 75px;
+	border-style: none;
+	padding: 3px;
+	font-family: Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	color: #000;
+	background: #eee;
+	text-align:  right;
+	font-weight:	normal;
+}
+
+#div_settings td {
+	max-width: 75px;
+	border-style: none;
+	font-weight: bold;
+	text-align:  right;
+}
+
+#div_settings input[type=text] {
+	max-width: 75px;
+	border-top: none;
+	border-bottom-width: 1;
+	border-bottom: dotted;
+	border-right: none;
+	border-left: none;
+	text-align:  right;
+}
+
+#div_settings input[type=button] {
+	max-width: 75px;
+	padding: 10px;
+	color: blue;
+	border: 0;
+}
+
+#div_settings select {
+	max-width: 100px;
+	padding: 0;
+	border: 0;
+}
+
+#div_settings option {
+	max-width: 100px;
+	padding: 0;
+	border: 0;
+}
+
+.boxtitle {
+	text-align: left;
+}
+
+div#cfg_list_area select {
+	width: 250px;
+	max-width: 250px;
+}
+
+#div_rx_opts td {
+	font-family: Arial, Helvetica, sans-serif;
+	font-size: 12px;
+        border-style: none;
+}
+
+#div_rx_opts input[type=text] {
+	max-width: 75px;
+	border-top: none;
+	border-bottom-width: 1;
+	border-bottom: dotted;
+	border-right: none;
+	border-left: none;
+	text-align:  right;
 }
