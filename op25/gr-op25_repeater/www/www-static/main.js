@@ -299,8 +299,6 @@ function trunk_update(d) {
     var do_hex = {"syid":0, "sysid":0, "wacn": 0};
     var do_float = {"rxchan":0, "txchan":0};
     var html = "";
-    var msg = JSON.stringify(d);
-    document.getElementById("answer_area").innerHTML = msg;msg;
     for (var nac in d) {
         if (!is_digit(nac.charAt(0)))
             continue;
@@ -531,6 +529,8 @@ function read_write_sel(sel_node, def) {
 	for (var e in elist) {
 		var ele = elist[e];
 		if (def) {
+			if (!def[sel_node.name])
+				return;
 			var options = def[sel_node.name].split(",");
 			var opts = {};
 			for (var o in options)
