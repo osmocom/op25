@@ -49,6 +49,17 @@ _def_symbol_rate = 4800
 # The P25 receiver
 #
 
+def byteify(input):	# thx so
+    if isinstance(input, dict):
+        return {byteify(key): byteify(value)
+                for key, value in input.iteritems()}
+    elif isinstance(input, list):
+        return [byteify(element) for element in input]
+    elif isinstance(input, unicode):
+        return input.encode('utf-8')
+    else:
+        return input
+
 class device(object):
     def __init__(self, config):
         speeds = [250000, 1000000, 1024000, 1800000, 1920000, 2000000, 2048000, 2400000, 2560000]
@@ -172,17 +183,6 @@ class rx_block (gr.top_block):
 
 class rx_main(object):
     def __init__(self):
-        def byteify(input):	# thx so
-            if isinstance(input, dict):
-                return {byteify(key): byteify(value)
-                        for key, value in input.iteritems()}
-            elif isinstance(input, list):
-                return [byteify(element) for element in input]
-            elif isinstance(input, unicode):
-                return input.encode('utf-8')
-            else:
-                return input
-
         self.keep_running = True
 
         # command line argument parsing
