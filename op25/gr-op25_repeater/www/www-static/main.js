@@ -79,7 +79,7 @@ function edit_d(d, to_ui) {
 	for (var k in d) {
 		if (!to_ui) {
 			if (d[k] == "None")
-				new_d[k] = null;
+				new_d[k] = "";
 			else
 				new_d[k] = d[k];
 			if (k == "plot" && !d[k].length)
@@ -641,6 +641,10 @@ function f_save() {
 function f_list() {
 	var inp = document.getElementById("include_tsv");
 	send_command("config-list", (inp.checked) ? "tsv" : "");
+}
+
+function f_stop() {
+	send_command("rx-stop", "");
 }
 
 function f_start() {
