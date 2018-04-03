@@ -116,6 +116,7 @@
 <br>
 <input type="button" name="load" value="Edit" onclick="javascript:f_load();"></input> - Open configuration editor (any previous unsaved work will be lost)<br>
 <input type="button" name="start" value="Start" onclick="javascript:f_start();"></input> - Run flowgraph using selected configuration<br>
+<input type="button" name="stop" value="Stop" onclick="javascript:f_stop();"></input> - End running flowgraph<br>
 <br>
 <div id="answer_area">
 </div>
@@ -260,7 +261,7 @@
 <td colspan=3>&nbsp;</td>
 <td colspan=6>
 	<div>
-	<table border=1>
+	<table class="trtable" border=1>
 	<tr>
 	<th colspan=2 class="boxtitle-th"><span class="boxtitle">Trunking Info</span></th>
 	<th>NAC</th>
@@ -277,7 +278,24 @@
 	<td><input type="text" name="cclist" value="0"></td>
 	<td><input type="text" name="whitelist" value="None"></td>
 	<td><input type="text" name="blacklist" value="None"></td>
-	<td><input type="button" name="tgid-tags" value="Show"></input></td>
+	<td><input type="button" name="tgid-tags" value="Show" onclick="javascript:f_tags(this);"></input></td>
+	</tr>
+	</table>
+	<table class="tgtable" border=1 style="display: none">
+	<tr>
+	<th colspan=2 class="boxtitle-th"><span class="boxtitle">Tags</span></th>
+	<th>TG ID</th>
+	<th>TG Text</th>
+	<th>Priority</th>
+	<th colspan=2>&nbsp</th>
+	<th><input type=button name="add_tag" value="New" onclick="javascript:f_command(this, &quot;new&quot;);"</th>
+	</tr>
+	<tr class="tgrow" style="display: none">
+	<td colspan=2>&nbsp;</td>
+	<td><input type="text" name="tg_id" value="None"></input></td>
+	<td><input type="text" name="tg_tag" value=""> </td>
+	<td><input type="text" name="tg_priority" value=""> </td>
+	<td colspan=3>&nbsp</td>
 	</tr>
 	</table>
 	</div>

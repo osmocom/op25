@@ -172,24 +172,29 @@ function amend_d(myrow, mytbl, command) {
     } else if (command == "new") {
         var newrow = null;
         var parent = null;
+        var pfx = "id_";
         if (mytbl.id == "chtable") {
             newrow = document.getElementById("chrow").cloneNode(true);
             parent = document.getElementById("chrow").parentNode;
         } else if (mytbl.id == "devtable") {
             newrow = document.getElementById("devrow").cloneNode(true);
             parent = document.getElementById("devrow").parentNode;
+        } else if (mytbl.className == "tgtable") {
+            newrow = mytbl.querySelector(".tgrow").cloneNode(true);
+            parent = mytbl.querySelector(".tgrow").parentNode;
+            pfx = "tg_";
         } else {
             return null;
         }
         newrow.style['display'] = '';
-	newrow.id = find_free_id("id_");
+	newrow.id = find_free_id(pfx);
         parent.appendChild(newrow);
         if (mytbl.id == "chtable") {
             var newrow2 = document.getElementById("trrow").cloneNode(true);
 	    newrow2.id = "tr_" + newrow.id.substring(3);
             parent.appendChild(newrow2);
         }
-        return newrow.id;
+        return newrow;
     }
 }
 
@@ -372,9 +377,9 @@ function config_data(d) {
     var chrow = document.getElementById("chrow");
     var devrow = document.getElementById("devrow");
     for (var device in cfg['devices'])
-        rollup_row("dev", document.getElementById(amend_d(devrow, devtable, "new")), cfg['devices'][device]);
+        rollup_row("dev", amend_d(devrow, devtable, "new"), cfg['devices'][device]);
     for (var channel in cfg['channels'])
-        rollup_row("ch", document.getElementById(amend_d(chrow, chtable, "new")), cfg['channels'][channel]);
+        rollup_row("ch", amend_d(chrow, chtable, "new"), cfg['channels'][channel]);
     rollup_rx_rows(cfg['backend-rx']);
 }
 
@@ -588,15 +593,37 @@ function rollup_row(which, row, def) {
 	var elements = Array.from(row.querySelectorAll("input,select"));
 	if (which == "ch") {
 		var trrow = document.getElementById("tr_" + row.id.substring(3));
-		elements = elements.concat(Array.from(trrow.querySelectorAll("input,select")));
+		var trtable = trrow.querySelector("table.trtable");
+		elements = elements.concat(Array.from(trtable.querySelectorAll("input,select")));
+		if (def)
+			trrow.style["display"] = (def["trunked"]) ? "" : "none";
 	}
 	else if (which == "rx") {
 		var advrow = document.getElementById("rx_2");
 		elements = elements.concat(Array.from(advrow.querySelectorAll("input,select")));
 	}
-	if (def && which == "ch")
-		trrow.style["display"] = (def["trunked"]) ? "" : "none";
 	var result = read_write(elements, def);
+	if (which == "ch") {
+		var tgtable = trrow.querySelector("table.tgtable");
+		var tgrow = trrow.querySelector("tr.tgrow");
+		if (def) {
+			for (var i=0; i<def["tgids"].length; i++) {
+				var newrow = amend_d(tgrow, tgtable, "new");
+				var inputs = newrow.querySelectorAll("input");
+				read_write(inputs, def["tgids"][i]);
+			}
+		} else {
+			var tgids = [];
+			var rows = tgtable.querySelectorAll("tr.tgrow");
+			for (var i=0; i<rows.length; i++) {
+				if (rows[i].id == null || rows[i].id.substring(0,3) != "tg_")
+					continue;
+				var inputs = rows[i].querySelectorAll("input");
+				tgids.push(read_write(inputs, null));
+			}
+			result['tgids'] = tgids;
+		}
+	}
 	if (!def)
 		return result;
 }
@@ -608,7 +635,7 @@ function rollup(which, def) {
 	for (var e in elements) {
 		var row = elements[e];
 		if (row.id != null && row.id.substring(0,3) == "id_")
-			result.push(rollup_row(which, row));
+			result.push(rollup_row(which, row, def));
 	}
 	if (!def)
 		return result;
@@ -682,11 +709,22 @@ function f_load() {
 function show_advanced(o) {
     var tbl = find_parent(o, "TABLE");
     var row = tbl.querySelector(".advrow");
+    toggle_show_hide(o, row);
+
+}
+
+function toggle_show_hide(o, ele) {
     if (o.value == "Show") {
         o.value = "Hide";
-        row.style["display"] = "";
+        ele.style["display"] = "";
     } else {
         o.value = "Show";
-        row.style["display"] = "none";
+        ele.style["display"] = "none";
     }
+}
+
+function f_tags(o) {
+    var mydiv = find_parent(o, "DIV");
+    var tbl = mydiv.querySelector(".tgtable");
+    toggle_show_hide(o, tbl);
 }
