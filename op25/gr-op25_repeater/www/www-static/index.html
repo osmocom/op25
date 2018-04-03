@@ -16,38 +16,21 @@
 <!-- nav bar -->
 
 <div class="nav-bar">
-<ul class="nav-ul">
-<li id="li1" class="nav-li"><input id="b1" class="nav-button" type="button" name="B1" value="Home" method="post" action="" onclick="javascript:f_select(&quot;status&quot;);"></li>
-<li id="li2" class="nav-li"><input id="b2" class="nav-button" type="button" name="B2" value="Plot" method="post" action="" onclick="javascript:f_select(&quot;plot&quot;);"></li>
-<li id="li3" class="nav-li"><input id="b3" class="nav-button" type="button" name="B3" value="Configuration" method="post" action="" onclick="javascript:f_select(&quot;settings&quot;);"></li>
-<li id="li4" class="nav-li"><input id="b4" class="nav-button" type="button" name="B4" value="RX" method="post" action="" onclick="javascript:f_select(&quot;rx&quot;);"></li>
-<li id="li5" class="nav-li"><input id="b5" class="nav-button" type="button" name="B5" value="About" method="post" action="" onclick="javascript:f_select(&quot;about&quot;);"></li>
-<li id="li6"><span class="copyr"> &copy; 2017, 2018 Max H. Parke KA1RBI</span></li>
-</ul> 
+	<ul class="nav-ul">
+	<li id="li1" class="nav-li"><input id="b1" class="nav-button" type="button" name="B1" value="Home" onclick="javascript:f_select(&quot;status&quot;);"></li>
+	<li id="li2" class="nav-li"><input id="b2" class="nav-button" type="button" name="B2" value="Plot" onclick="javascript:f_select(&quot;plot&quot;);"></li>
+	<li id="li3" class="nav-li"><input id="b3" class="nav-button" type="button" name="B3" value="Configuration"  onclick="javascript:f_select(&quot;settings&quot;);"></li>
+	<li id="li4" class="nav-li"><input id="b4" class="nav-button" type="button" name="B4" value="RX" onclick="javascript:f_select(&quot;rx&quot;);"></li>
+	<li id="li5" class="nav-li"><input id="b5" class="nav-button" type="button" name="B5" value="About" onclick="javascript:f_select(&quot;about&quot;);"></li>
+	<li id="li6"><div class="copyr">&copy; 2017, 2018 Max H. Parke KA1RBI</div></li>
+	</ul> 
 </div>
 <br>
+
 <div id="div_debug" style="display: none;">
-<br>
-</div>
-<!-- control buttons -->
-
-<div id="controls" class="flex-container">
-
-	<div>
-	<input type="button" class="scan-button" name="skip" value="SKIP" onclick="javascript:f_scan_button(&quot;skip&quot;);">
-	</div>
-
-	<div>
-	<input type="button" class="scan-button" name="hold" value="HOLD" onclick="javascript:f_scan_button(&quot;hold&quot;);">
-	</div>
-
-	<div>
-	<input type="button" class="scan-button" name="lockout" value="LOCKOUT" onclick="javascript:f_scan_button(&quot;lockout&quot;);">
-	</div>
-
 </div>
 
-<!-- copyright div-->
+<!-- copyright / about div-->
 
 <div id="div_about" style="display:none;">
 	<div class="copyright-text">
@@ -70,34 +53,48 @@
 
 <div id="div_status" style="display: none;">
 
+	<div class="controlsDisplay">
 
+		<div id="controls" class="controls">
 
-	<div id="div_s2" class="s2" style="display: none;">
-		<!-- frequency, system, tg display -->
+			<div>
+			<input type="button" class="control-button" name="skip" value="SKIP" onclick="javascript:this.blur(); f_scan_button(&quot;skip&quot;);">
+			</div>
+
+			<div>
+			<input type="button" class="control-button" name="hold" value="HOLD" onclick="javascript:this.blur(); f_scan_button(&quot;hold&quot;);">
+			</div>
+
+			<div>
+			<input type="button" class="control-button" name="lockout" value="LOCKOUT" onclick="javascript:this.blur(); f_scan_button(&quot;lockout&quot;);">
+			</div>
+		</div>
+
+		<div class="statDisplay">
+
+			<div id="div_s2" class="s2" style="display: none;">
+				<!-- frequency, system, tg display -->
+			</div>
+
+		</div>
+
+		<div class="sysMsg"> <!-- hold / last command box w/ logo-->
+		<div id="holdIndicator" class="label-hold" style="display: none;"><br>TG HOLD ON</div>
+		
+		<div id="lastCommand" class="label-lc"> &nbsp; </div>
+		</div>
+
 	</div>
-
-
+	
 	<br>
-
-
 
 	<div id="div_s1" class="s1">
 	<!-- system freq and adjacent sites -->
 
 		Waiting for data...
 	</div>
-	<br><br><br>
 
-	<!-- div_s3 -->
-
-	<div id="div_s3" class="s3" style="display: none;">
-
-		<!-- old location of SKIP HOLD LOCKOUT controls -->
-
-	</div>
-
-
-</div>
+</div>  <!-- closing div for div_status -->
 
 <div id="div_plot" style="display: none;">
 	<img src="1x1.png" id="img0" style="display:none;" alt="plot"><br>

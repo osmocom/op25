@@ -255,30 +255,24 @@ function rx_update(d) {
 
 function change_freq(d) {
     var html = "<span class=\"label\">Frequency: </span><span class=\"value\">" + d['freq'] / 1000000.0;
-    html += "</span> <span class=\"systgid\"> &nbsp;" + d['system'] + " </span> ";
+    html += "</span> <span class=\"systgid\"> &nbsp;" + d['system'] + " </span><br><br><hr id=\"disphr\" class=\"disp\"><br>";
     if (d['tgid'] != null) {
         html += "<span class=\"label\">Talkgroup ID: </span><span class=\"value\"> " + d['tgid'];
         html += "</span> <span class=\"systgid\"> &nbsp;" + d['tag'] + " </span>";
     }
-    html += "<br>";
+    html += "";
     var div_s2 = document.getElementById("div_s2");
     div_s2.innerHTML = html;
     div_s2.style["display"] = "";
     if (d['tgid'] != null)
         current_tgid = d['tgid'];
-    if (current_tgid != null) {
-        var div_s3 = document.getElementById("div_s3");
-        div_s3.style["display"] = "";
-    }
 }
 
 // adjacent sites table
 
 function adjacent_data(d) {
-    if (Object.keys(d).length < 1) {
-        var html = "</div>";
-        return html;
-    }
+    if (Object.keys(d).length < 1)
+        return "";
     var html = "<div class=\"adjacent\">";
     html += "<table border=1 borderwidth=0 cellpadding=0 cellspacing=0 width=100%>";
     html += "<tr><th colspan=99 style=\"align: center\">Adjacent Sites</th></tr>";
@@ -291,7 +285,8 @@ function adjacent_data(d) {
         ct += 1;
         html += "<tr style=\"background-color: " + color + ";\"><td>" + freq / 1000000.0 + "</td><td>" + d[freq]['sysid'].toString(16) + "</td><td>" + d[freq]["rfid"] + "</td><td>" + d[freq]["stid"] + "</td><td>" + (d[freq]["uplink"] / 1000000.0) + "</td></tr>";
     }
-    html += "</table></div></div><br><br>";
+    html += "</table></div>";
+ // box br // end trunk_update HTML
 
 // end adjacent sites table
 
@@ -303,10 +298,11 @@ function adjacent_data(d) {
 function trunk_update(d) {
     var do_hex = {"syid":0, "sysid":0, "wacn": 0};
     var do_float = {"rxchan":0, "txchan":0};
-    var html = "";
+    var html = "";                              // begin trunk_update HTML
     for (var nac in d) {
         if (!is_digit(nac.charAt(0)))
             continue;
+	html += "<div class=\"content\">";
         html += "<span class=\"nac\">";
         html += "NAC " + "0x" + parseInt(nac).toString(16) + " ";
         html += d[nac]['rxchan'] / 1000000.0;
@@ -333,8 +329,8 @@ function trunk_update(d) {
 
 // system frequencies table
 
-        html += "<p><div class=\"info\"><div class=\"system\">";
-        html += "<table border=1 borderwidth=0 cellpadding=0 cellspacing=0 width=100%>"; // was width=350
+        html += "<br><div class=\"info\"><div class=\"system\">";
+        html += "<table border=1 borderwidth=0 cellpadding=0 cellspacing=0 width=100%>"; 
         html += "<tr><th colspan=99 style=\"align: center\">System Frequencies</th></tr>";
         html += "<tr><th>Frequency</th><th>Last Seen</th><th colspan=2>Talkgoup ID</th><th>Count</th></tr>";
         var ct = 0;
@@ -348,14 +344,31 @@ function trunk_update(d) {
             ct += 1;
             html += "<tr style=\"background-color: " + color + ";\"><td>" + parseInt(freq) / 1000000.0 + "</td><td>" + d[nac]['frequency_data'][freq]['last_activity'] + "</td><td>" + d[nac]['frequency_data'][freq]['tgids'][0] + "</td><td>" + tg2 + "</td><td>" + d[nac]['frequency_data'][freq]['counter'] + "</td></tr>";
         }
-        html += "</table></div>";
-
-// end system freqencies table
+        html += "</table></div>"; // end system freqencies table
 
         html += adjacent_data(d[nac]['adjacent_data']);
+        html += "</div><br></div><hr><br>";
     }
     var div_s1 = document.getElementById("div_s1");
     div_s1.innerHTML = html;
+
+	// disply hold indicator  
+	var x = document.getElementById("holdIndicator");
+	if (d['data']['hold_mode']) {
+	         x.style.display = "block";
+	}				  
+	else {
+	        x.style.display = "none";
+	}
+
+	// display last command unless it was more than 10 seconds ago
+	x2 = d['data']['last_command'];
+	if (x2 && d['data']['last_command_time'] > -10) {
+	document.getElementById("lastCommand").innerHTML = "Last Command<br><b>" + x2.toUpperCase() + "</b><br>" + " " + (d['data']['last_command_time'] * -1) + " secs ago";
+	}
+	else {
+		document.getElementById("lastCommand").innerHTML = "";	
+	}
 }
 
 function config_list(d) {
