@@ -548,6 +548,8 @@ class rx_ctl (object):
         if conf_file:
             if conf_file.endswith('.tsv'):
                 self.build_config_tsv(conf_file)
+            elif conf_file.endswith('.json'):
+                self.build_config_json(conf_file)
             else:
                 self.build_config(conf_file)
             self.nacs = self.configs.keys()
@@ -571,6 +573,21 @@ class rx_ctl (object):
                 'tdma':   None, 
                 'wacn':   None, 
                 'sysid':  None})
+
+    def build_config_json(self, conf_file):
+        d = json.loads(open(conf_file).read())
+        chans = [x for x in d['channels'] if x['active'] and x['trunked']]
+        self.configs = { chan['nac']: {'cclist':chan['cclist'],
+                    'offset':0,
+                    'whitelist':chan['whitelist'],
+                    'blacklist':chan['blacklist'],
+                    'sysname': chan['name'],
+                    'center_frequency': chan['frequency'],
+                    'modulation': chan['demod_type'],
+                    'tgid_map': {int(row['tg_id']):row['tg_tag'] for row in chan['tgids']}}
+                  for chan in chans}
+        for nac in self.configs.keys():
+            self.add_trunked_system(nac)
 
     def set_frequency(self, params):
         frequency = params['freq']
