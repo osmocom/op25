@@ -261,7 +261,7 @@ class p25_rx_block (gr.top_block):
             else:
                 raise ValueError('unsupported plot type: %s' % plot_mode)
             self.plot_sinks.append(sink)
-            if self.options.terminal_type.startswith('http:'):
+            if self.is_http_term():
                 sink.gnuplot.set_interval(_def_interval)
                 sink.gnuplot.set_output_dir(_def_file_dir)
 
@@ -544,8 +544,16 @@ class p25_rx_block (gr.top_block):
         # except Exception, x:
         #     wx.MessageBox("Cannot open USRP: " + x.message, "USRP Error", wx.CANCEL | wx.ICON_EXCLAMATION)
 
+    def is_http_term(self):
+        if self.options.terminal_type.startswith('http:'):
+            return True
+        elif self.options.terminal_type.startswith('zmq:'):
+            return True
+        else:
+            return False
+
     def process_ajax(self):
-        if not self.options.terminal_type.startswith('http:'):
+        if not self.is_http_term():
             return
         filenames = [sink.gnuplot.filename for sink in self.plot_sinks if sink.gnuplot.filename]
         error = None
@@ -594,6 +602,8 @@ class du_queue_watcher(threading.Thread):
     def run(self):
         while(self.keep_running):
             msg = self.msgq.delete_head()
+            if not self.keep_running:
+                break
             self.callback(msg)
 
 class rx_main(object):
