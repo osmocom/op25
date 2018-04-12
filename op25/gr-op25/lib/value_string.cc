@@ -55,16 +55,19 @@ const value_string ALGIDS[] = {
    { 0x04, "SAVILLE" },
    { 0x41, "BATON (Auto Odd)" },
    /* Type III */
-   { 0x80, "Plain" },
-   { 0x81, "DES-OFB" },
-   { 0x82, "2 key Triple DES" },
-   { 0x83, "3 key Triple DES" },
+   { 0x80, "Unencrypted" },
+   { 0x81, "DES-OFB, 56 bit key" },
+   { 0x83, "3 key Triple DES, 168 bit key" },
    { 0x84, "AES-256" },
+   { 0x85, "AES-128-ECB"},
+   { 0x88, "AES-CBC"},
    /* Motorola proprietary */
    { 0x9F, "Motorola DES-XL" },
    { 0xA0, "Motorola DVI-XL" },
    { 0xA1, "Motorola DVP-XL" },
+   { 0xA2, "Motorola DVI-SPFL"},
    { 0xAA, "Motorola ADP" },
+   { 0xB0, "Motorola DVP"},
 };
 const size_t ALGIDS_SZ = sizeof(ALGIDS) / sizeof(ALGIDS[0]);
 
