@@ -253,27 +253,56 @@ function rx_update(d) {
 
 // frequency, system, and talkgroup display
 
-function change_freq(d) {
-    var html = "<span class=\"label\">Frequency: </span><span class=\"value\">" + d['freq'] / 1000000.0;
-    html += "</span> <span class=\"systgid\"> &nbsp;" + d['system'] + " </span><br><br><hr id=\"disphr\" class=\"disp\"><br>";
-    if (d['tgid'] != null) {
-        html += "<span class=\"label\">Talkgroup ID: </span><span class=\"value\"> " + d['tgid'];
-        html += "</span> <span class=\"systgid\"> &nbsp;" + d['tag'] + " </span>";
-    }
-    html += "";
-    var div_s2 = document.getElementById("div_s2");
-    div_s2.innerHTML = html;
-    div_s2.style["display"] = "";
-    if (d['tgid'] != null)
-        current_tgid = d['tgid'];
+ function change_freq(d) {
+
+	var displayTgid = "&mdash;";
+	var displayTag = "&nbsp;";
+
+	var doTruncate = document.getElementById("valTruncate").value; // get truncate value from Configuration
+
+	if (d['tgid'] != null) {
+            displayTgid = d['tgid'];
+      	    displayTag = d['tag'].substring(0,doTruncate); 
+	}
+
+	var html = "<table style=\"width: 512px; height: 112px;\">";
+	html += "<tr>";
+	html += "<td style=\"width: 422px;\"><span class=\"systgid\" id=\"dSys\">" + d['system'].substring(0,doTruncate) + "</span></td>";
+	html += "<td align=\"center\" style=\"width: 88px;\">";
+        html += "<span class=\"label-sm\">Frequency</span><br><span class=\"value\">" + d['freq'] / 1000000.0 + "</span></td>";
+	html += "</tr>";
+	html += "<tr>";
+	html += "<td style=\"width: 422px;\"><span class=\"systgid\" id=\"dTag\">" + displayTag + "</span></td>";
+	html += "<td align=\"center\" style=\"width: 88px;\">";
+        html += "<span class=\"label-sm\">Talkgroup ID</span><br><span class=\"value\">" + displayTgid + "</span>";
+	html += "</td>";
+	html += "</tr></table>";
+
+	var div_s2 = document.getElementById("div_s2");
+	div_s2.innerHTML = html;
+	div_s2.style["display"] = "";
+
+	if (d['tgid'] != null) {
+		current_tgid = d['tgid'];
+	}
+	var fstyle = document.getElementById("valFontStyle").value;
+	var z1 = document.getElementById("valTagFont").value;       // set font size of TG Tag
+	var z = document.getElementById("dTag");
+	z.style = "font-size: " + z1 + "px; " + "font-weight: " + fstyle + ";";
+
+	var z1 = document.getElementById("valSystemFont").value;    // set font size of System
+	var z = document.getElementById("dSys");
+	z.style = "font-size: " + z1 + "px; " + "font-weight: " + fstyle + ";";
+
 }
+	
 
 // adjacent sites table
 
 function adjacent_data(d) {
     if (Object.keys(d).length < 1)
         return "";
-    var html = "<div class=\"adjacent\">";
+    var html = "<div class=\"adjacent\">"; // open div-adjacent
     html += "<table border=1 borderwidth=0 cellpadding=0 cellspacing=0 width=100%>";
     html += "<tr><th colspan=99 style=\"align: center\">Adjacent Sites</th></tr>";
     html += "<tr><th>Frequency</th><th>Sys ID</th><th>RFSS</th><th>Site</th><th>Uplink</th></tr>";
@@ -285,8 +314,7 @@ function adjacent_data(d) {
         ct += 1;
         html += "<tr style=\"background-color: " + color + ";\"><td>" + freq / 1000000.0 + "</td><td>" + d[freq]['sysid'].toString(16) + "</td><td>" + d[freq]["rfid"] + "</td><td>" + d[freq]["stid"] + "</td><td>" + (d[freq]["uplink"] / 1000000.0) + "</td></tr>";
     }
-    html += "</table></div>";
- // box br // end trunk_update HTML
+    html += "</table></div>"; // close div-adjacent     // end trunk_update HTML
 
 // end adjacent sites table
 
@@ -302,7 +330,7 @@ function trunk_update(d) {
     for (var nac in d) {
         if (!is_digit(nac.charAt(0)))
             continue;
-	html += "<div class=\"content\">";
+	html += "<div class=\"content\">";     // open div-content
         html += "<span class=\"nac\">";
         html += "NAC " + "0x" + parseInt(nac).toString(16) + " ";
         html += d[nac]['rxchan'] / 1000000.0;
@@ -329,7 +357,7 @@ function trunk_update(d) {
 
 // system frequencies table
 
-        html += "<br><div class=\"info\"><div class=\"system\">";
+        html += "<br><div class=\"info\"><div class=\"system\">"; //    open div-info  open div-system
         html += "<table border=1 borderwidth=0 cellpadding=0 cellspacing=0 width=100%>"; 
         html += "<tr><th colspan=99 style=\"align: center\">System Frequencies</th></tr>";
         html += "<tr><th>Frequency</th><th>Last Seen</th><th colspan=2>Talkgoup ID</th><th>Count</th></tr>";
@@ -344,10 +372,10 @@ function trunk_update(d) {
             ct += 1;
             html += "<tr style=\"background-color: " + color + ";\"><td>" + parseInt(freq) / 1000000.0 + "</td><td>" + d[nac]['frequency_data'][freq]['last_activity'] + "</td><td>" + d[nac]['frequency_data'][freq]['tgids'][0] + "</td><td>" + tg2 + "</td><td>" + d[nac]['frequency_data'][freq]['counter'] + "</td></tr>";
         }
-        html += "</table></div>"; // end system freqencies table
+        html += "</table></div>"; // close div-system    // end system freqencies table
 
         html += adjacent_data(d[nac]['adjacent_data']);
-        html += "</div><br></div><hr><br>";
+        html += "</div><br></div><hr><br>";   // close div-content  close div-info  box-br  hr-separating each NAC
     }
     var div_s1 = document.getElementById("div_s1");
     div_s1.innerHTML = html;

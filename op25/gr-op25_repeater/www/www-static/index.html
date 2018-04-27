@@ -104,6 +104,51 @@
 </div>
 
 <div id="div_settings" class="div_settings" style="display: none;">
+
+<!-- Main Display Settings -->
+<div id = "displaySettings" class="displaySettings">
+	<span class="nac"><b>Display Settings</b></span><br><br>
+	<span class="label">System Font Size:&nbsp;&nbsp;</span>
+	<select name="valSystemFont" id="valSystemFont" style="width: 50px;">
+	  <option value="28">28</option>
+	  <option value="26">26</option>
+	  <option value="24" selected>24</option>
+	  <option value="20">20</option>
+	  <option value="18">18</option>
+	  <option value="16">16</option>
+	  <option value="14">14</option>
+	  <option value="12">12</option>
+	</select>&nbsp;&nbsp;<span class="label">px (default = 24)</span><br><br>
+
+	<span class="label">Talkgroup Tag Font Size:&nbsp;&nbsp;</span>
+	<select name="valTagFont" id="valTagFont" style="width: 50px;">
+	  <option value="28">28</option>
+	  <option value="26">26</option>
+	  <option value="24" selected>24</option>
+	  <option value="20">20</option>
+	  <option value="18">18</option>
+	  <option value="16">16</option>
+	  <option value="14">14</option>
+	  <option value="12">12</option>
+	</select>&nbsp;&nbsp;<span class="label">px (default = 24)</span><br><br>
+
+	<span class="label">Truncate display strings to:&nbsp;&nbsp;
+
+
+	<input name="firstname" type="text" id="valTruncate" style="width: 30px; text-align: center;" value="30"> characters (default = 30)<br><br>
+	Font Style:&nbsp;
+	<select name="valFontStyle" id="valFontStyle" style="width: 70px;">
+	  <option value="normal">Normal</option>
+	  <option value="bold" selected>Bold</option>
+	</select>
+	</span>
+</div>
+
+<!-- End Main Display Settings -->
+
+
+
+
 <img src="temp.png"><br>
 <form method="post" action="#" id="form_settings">
 <div id="cfg_list_area">
@@ -193,7 +238,7 @@
 <tr id="devrow" class="dynrow" style="display: none">
 <td><input type="checkbox" name="active" checked></input></td>
 <td><input type="text" name="name" value="Device1"></td>
-<td><input type="text" name="args" value="rtl:0"></td>
+<td><input type="text" name="args" value="rtl"></td>
 <td><input type="text" name="frequency" value="500.0"></td>
 <td><input type="text" name="gains" value="lna:45"></td>
 <td><input type="text" name="offset" value="0"></td>

@@ -1,3 +1,26 @@
+/* 
+
+ Copyright 2017, 2018 Max H. Parke KA1RBI
+ 
+ This file is part of OP25
+ 
+ OP25 is free software; you can redistribute it and/or modify it
+ under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 3, or (at your option)
+ any later version.
+ 
+ OP25 is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
+ License for more details.
+ 
+ You should have received a copy of the GNU General Public License
+ along with OP25; see the file COPYING. If not, write to the Free
+ Software Foundation, Inc., 51 Franklin Street, Boston, MA
+ 02110-1301, USA.
+
+*/
+
 #div_status body {
 
 	background-color: LightGray;
@@ -6,8 +29,6 @@
 
 #div_status table { 
 
-	border-style: solid; 
-	background-color: #336699; 
 	border-collapse: collapse;
 	font-family: "Courier New", Courier, Monospace;
 }
@@ -25,22 +46,25 @@
 
 #div_status td {
 
-	border-style: solid;
+ 	border: 1px solid #666;
 	padding: 3px;
 
+}
+
+#div_s2 td {
+
+ 	border-bottom: 1px solid #888;
+	border-top: 1px solid #888;
+	border-left: 0px;
+	border-right: 0px;
+	padding: 3px;
+	background: transparent;
 }
 
 hr {
 	width: 730px;
 	float: left;
         padding: 0px;
-}
-
-hr.disp { /* hr in main display */
-
-	width: 97%;
-	position: absolute;
-	top: 50px;
 }
 
 .control-button { /* skip/hold/lockout buttons */
@@ -58,7 +82,6 @@ hr.disp { /* hr in main display */
 	box-shadow: 0 1px 1px 0 rgba(0,0,0,0.2), 0 2px 5px 0 rgba(0,0,0,0.19);
 	background: #31687e; /* For browsers that do not support gradients */
 	background: linear-gradient(#31687e, #56a0bd); 
-	/* background: linear-gradient(#669999, #82B0B0); --- the green */
 }
 
 .control-button:hover {
@@ -87,6 +110,14 @@ hr.disp { /* hr in main display */
 	text-align: center;
 } 
 
+
+.displaySettings {
+
+	border: 1px solid #000; 
+	padding: 5px; 
+	width: 720px;
+
+}
 .statDisplay { /* main display - freq, sys, tgid (2) */
 
 	padding: 0px;
@@ -104,7 +135,7 @@ hr.disp { /* hr in main display */
 
 	padding: 0px;
 	/* display: inline-block; */
-	float: right; /* works left or right, right gives margin in between this & 2*/
+	float: right; /* works left or right, right gives margin in between this & 2 */
   	width: 95px;
 	height: 100%;
   	background-color:#f9f9f9;
@@ -119,9 +150,6 @@ hr.disp { /* hr in main display */
 
 div.info {  /* main info container for the two tables */
 
-/*	min-height: 50px;
-	overflow: hidden;
-	position: relative; */
 	width: 730px;
 	border: 0px solid #a00;
 	display: inline-block; 
@@ -198,7 +226,7 @@ div.adjacent {  /* adjacent sites container that holds the table */
 	font-weight: bold;
 }
 
-.systgid {
+.systgid {    /* System and Talkgroup Text */
 
 	font-family: Arial, Helvetica, sans-serif;
 	color: #000060;
@@ -285,7 +313,6 @@ div.adjacent {  /* adjacent sites container that holds the table */
 .nav-button-active {
 	background-color:  #9cc;
 	background: linear-gradient(#31687e, #56a0bd);
-	/* background: linear-gradient(#8bb, #9cc); */
 	color:     #fff;
 	border:   0px;
 	padding:   20px;
@@ -296,14 +323,12 @@ div.adjacent {  /* adjacent sites container that holds the table */
 
 .nav-button:hover {
 	background-color: #699;
-	/* background: linear-gradient(#588, #699); */
 	background: linear-gradient(#56a0bd, #31687e);
 	color: #fff;
 }
 
 .nav-button-active:hover {
 	background-color: #699;
-	/* background: linear-gradient(#588, #699); */
 	background: linear-gradient(#56a0bd, #31687e);
 }
 
