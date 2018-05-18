@@ -35,6 +35,7 @@ from gnuradio import gr
 from waitress.server import create_server
 from optparse import OptionParser
 from multi_rx import byteify
+from tsvfile import load_tsv, make_config
 
 my_input_q = None
 my_output_q = None
@@ -42,6 +43,7 @@ my_recv_q = None
 my_port = None
 my_backend = None
 CFG_DIR = '../www/config/'
+TSV_DIR = './'
 
 """
 fake http and ajax server module
@@ -80,18 +82,49 @@ def valid_tsv(filename):
             return False
     return True
 
+def tsv_config(filename):
+    DEFAULT_CFG = '../www/config/default.json'
+    filename = '%s%s' % (TSV_DIR, filename)
+    filename = filename.replace('[TSV]', '.tsv')
+    if not valid_tsv(filename):
+        return None
+    cfg = make_config(load_tsv(filename))
+    default_cfg = json.loads(open(DEFAULT_CFG).read())
+
+    result = default_cfg
+    channels = [ {'active': True,
+                  'blacklist': cfg[nac]['blacklist'],
+                  'whitelist': cfg[nac]['whitelist'],
+                  'cclist': cfg[nac]['cclist'],
+                  'demod_type': 'cqpsk',
+                  'destination': 'udp://127.0.0.1:23456',
+                  'filter_type': 'rc',
+                  'frequency': 500000000,
+                  'if_rate': 24000,
+                  'nac': nac,
+                  'name': cfg[nac]['sysname'],
+                  'phase2_tdma': False,
+                  'plot': "",
+                  'tgids': cfg[nac]['tgid_map'],
+                  'trunked': True
+                 }
+                for nac in cfg.keys() ]
+    result['channels'] = channels
+    return {'json_type':'config_data', 'data': result}
+
 def do_request(d):
     global my_backend
-    TSV_DIR = './'
     if d['command'].startswith('rx-'):
         msg = gr.message().make_from_string(json.dumps(d), -2, 0, 0)
         if not my_backend.input_q.full_p():
             my_backend.input_q.insert_tail(msg)
         return None
     elif d['command'] == 'config-load':
+        if '[TSV]' in d['data']:
+            return tsv_config(d['data'])
         filename = '%s%s.json' % (CFG_DIR, d['data'])
         if not os.access(filename, os.R_OK):
-            return
+            return None
         js_msg = json.loads(open(filename).read())
         return {'json_type':'config_data', 'data': js_msg}
     elif d['command'] == 'config-list':

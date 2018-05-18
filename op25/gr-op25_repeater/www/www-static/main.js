@@ -117,7 +117,10 @@ function edit_d(d, to_ui) {
 					}
 					new_d[k] = new_l.join(",");
 				} else {
-					new_d[k] = d[k].join(",");
+					if ((!d[k]) || (!d[k].length))
+						new_d[k] = [];
+					else
+						new_d[k] = d[k].join(",");
 				}
 			} else if (k in freqs) {
 				new_d[k] = edit_freq(d[k], to_ui);
@@ -596,35 +599,25 @@ function read_write_sel(sel_node, def) {
 
 function read_write(elist, def) {
 	var result = {};
-	var s = "len: " + elist.length + "; ";
-	for (var e in elist) {
-		s += elist[e].tagName + "; ";
-	}
 	for (var e in elist) {
 		var ele = elist[e];
 		if (ele.nodeName == 'INPUT') {
 			if (ele.type == 'text')
-				if (def) {
+				if (def)
 					ele.value = def[ele.name];
-					s += ele.name + "=" + ele.value + "; ";
-				} else
+				else
 					result[ele.name] = ele.value;
 			else if (ele.type == 'checkbox')
-				if (def) {
+				if (def)
 					ele.checked = def[ele.name];
-					s += "checkbox " + ele.name + "; ";
-				}
 				else
 					result[ele.name] = ele.checked;
 		} else if (ele.nodeName == 'SELECT') {
-			if (def) {
+			if (def)
 				read_write_sel(ele, def);
-				s += "select " + ele.name + "; ";
-			}
 			else
 				result[ele.name] = read_write_sel(ele, def);
 		}
-		
 	}
 	if (!def)
 		return result;
@@ -648,19 +641,21 @@ function rollup_row(which, row, def) {
 		var tgtable = trrow.querySelector("table.tgtable");
 		var tgrow = trrow.querySelector("tr.tgrow");
 		if (def) {
-			for (var i=0; i<def["tgids"].length; i++) {
+			for (var k in def["tgids"]) {
+				var val = def["tgids"][k];
 				var newrow = amend_d(tgrow, tgtable, "new");
 				var inputs = newrow.querySelectorAll("input");
-				read_write(inputs, def["tgids"][i]);
+				read_write(inputs, {"tg_id": k, "tg_tag": val});
 			}
 		} else {
-			var tgids = [];
+			var tgids = {};
 			var rows = tgtable.querySelectorAll("tr.tgrow");
 			for (var i=0; i<rows.length; i++) {
 				if (rows[i].id == null || rows[i].id.substring(0,3) != "tg_")
 					continue;
 				var inputs = rows[i].querySelectorAll("input");
-				tgids.push(read_write(inputs, null));
+				var vals = read_write(inputs, null);
+				tgids[vals["tg_id"]] = vals["tg_tag"];
 			}
 			result['tgids'] = tgids;
 		}
