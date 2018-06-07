@@ -233,22 +233,19 @@ class zeromq_terminal(threading.Thread):
         self.zmq_pub.sndhwm = 5
         self.zmq_pub.bind('tcp://*:%d' % port)
 
-        self.queue_watcher = q_watcher(self.input_q, self.process_qmsg)
+        self.queue_watcher = q_watcher(self.input_q, lambda msg : self.zmq_pub.send(msg.to_string()))
         self.start()
 
     def end_terminal(self):
         self.keep_running = False
-
-    def process_qmsg(self, msg):
-        msg = self.input_q.delete_head()
-        self.zmq_pub.send(msg.to_string())
 
     def run(self):
         while self.keep_running:
             js = self.zmq_sub.recv()
             if not self.keep_running:
                 break
-            msg = gr.message().make_from_string(js, -4, 0, 0)
+            d = json.loads(js)
+            msg = gr.message().make_from_string(str(d['command']), d['msgtype'], d['data'], 0)
             if self.output_q.full_p():
                 self.output_q.delete_head()
             if not self.output_q.full_p():

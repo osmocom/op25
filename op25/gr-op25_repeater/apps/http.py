@@ -269,6 +269,14 @@ class Backend(threading.Thread):
         self.subproc = None
         self.backend = '%s/%s' % (os.getcwd(), 'rx.py')
 
+        self.q_watcher = queue_watcher(self.input_q, self.process_msg)
+
+    def publish(self, msg):
+        t = msg.type()
+        s = msg.to_string()
+        a = msg.arg1()
+        self.zmq_pub.send(json.dumps({'command': s, 'data': a, 'msgtype': t}))
+
     def check_subproc(self):	# return True if subprocess is active
         if not self.subproc:
             return False
@@ -335,8 +343,12 @@ class Backend(threading.Thread):
 
     def run(self):
         while self.keep_running:
-            msg = self.input_q.delete_head()
-            self.process_msg(msg)
+            js = self.zmq_sub.recv()
+            if not self.keep_running:
+                break
+            msg = gr.message().make_from_string(js, -4, 0, 0)
+            if not self.output_q.full_p():
+                self.output_q.insert_tail(msg)
 
 class rx_options(object):
     def __init__(self, name):
@@ -389,6 +401,8 @@ def http_main():
 
     my_backend = Backend(options, backend_input_q, backend_output_q)
     server = http_server(input_q, output_q, options.endpoint)
+    q_watcher = queue_watcher(output_q, lambda msg : my_backend.publish(msg))
+    backend_q_watcher = queue_watcher(backend_output_q, lambda msg : process_qmsg(msg))
 
     server.run()
 
