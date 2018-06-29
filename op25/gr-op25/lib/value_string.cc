@@ -2,6 +2,7 @@
 
 /*
  * Copyright 2008 Steve Glass
+ * Copyright 2018 Matt Ames
  * 
  * This file is part of OP25.
  * 
@@ -61,12 +62,27 @@ const value_string ALGIDS[] = {
    { 0x84, "AES-256" },
    { 0x85, "AES-128-ECB"},
    { 0x88, "AES-CBC"},
-   /* Motorola proprietary */
+   /* Motorola proprietary - some of these have been observed over the air,
+      some have been taken from firmware dumps on various devices, others
+      have come from the TIA's FTP website while it was still public,
+      from document "ALGID Guide 2015-04-15.pdf" */
    { 0x9F, "Motorola DES-XL" },
    { 0xA0, "Motorola DVI-XL" },
    { 0xA1, "Motorola DVP-XL" },
    { 0xA2, "Motorola DVI-SPFL"},
+   { 0xA3, "Motorola Assigned - Unknown" },
+   { 0xA4, "Motorola Assigned - Unknown" },
+   { 0xA5, "Motorola Assigned - Unknown" },
+   { 0xA6, "Motorola Assigned - Unknown" },
+   { 0xA7, "Motorola Assigned - Unknown" },
+   { 0xA8, "Motorola Assigned - Unknown" },
+   { 0xA9, "Motorola Assigned - Unknown" },
    { 0xAA, "Motorola ADP" },
+   { 0xAB, "Motorola Assigned - Unknown" },
+   { 0xAC, "Motorola Assigned - Unknown" },
+   { 0xAD, "Motorola Assigned - Unknown" },
+   { 0xAE, "Motorola Assigned - Unknown" },
+   { 0xAF, "Motorola Assigned - Unknown" },
    { 0xB0, "Motorola DVP"},
 };
 const size_t ALGIDS_SZ = sizeof(ALGIDS) / sizeof(ALGIDS[0]);
