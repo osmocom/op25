@@ -78,7 +78,7 @@ const value_string ALGIDS[] = {
    { 0xA8, "Motorola Assigned - Unknown" },
    { 0xA9, "Motorola Assigned - Unknown" },
    { 0xAA, "Motorola ADP" },
-   { 0xAB, "Motorola Assigned - Unknown" },
+   { 0xAB, "Motorola CFX-256" },
    { 0xAC, "Motorola Assigned - Unknown" },
    { 0xAD, "Motorola Assigned - Unknown" },
    { 0xAE, "Motorola Assigned - Unknown" },
