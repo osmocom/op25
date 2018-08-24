@@ -65,7 +65,8 @@ const value_string ALGIDS[] = {
    /* Motorola proprietary - some of these have been observed over the air,
       some have been taken from firmware dumps on various devices, others
       have come from the TIA's FTP website while it was still public,
-      from document "ALGID Guide 2015-04-15.pdf" */
+      from document "ALGID Guide 2015-04-15.pdf", and others have been
+      have been worked out with a little bit of guesswork */
    { 0x9F, "Motorola DES-XL" },
    { 0xA0, "Motorola DVI-XL" },
    { 0xA1, "Motorola DVP-XL" },
@@ -82,7 +83,7 @@ const value_string ALGIDS[] = {
    { 0xAC, "Motorola Assigned - Unknown" },
    { 0xAD, "Motorola Assigned - Unknown" },
    { 0xAE, "Motorola Assigned - Unknown" },
-   { 0xAF, "Motorola Assigned - AES-256-GCM" },
+   { 0xAF, "Motorola AES-256-GCM" },
    { 0xB0, "Motorola DVP"},
 };
 const size_t ALGIDS_SZ = sizeof(ALGIDS) / sizeof(ALGIDS[0]);
