@@ -54,7 +54,7 @@ const value_string ALGIDS[] = {
    { 0x02, "FIREFLY Type 1" },
    { 0x03, "MAYFLY Type 1" },
    { 0x04, "SAVILLE" },
-   { 0x05, "PADSTONE" },
+   { 0x05, "Motorola Assigned - PADSTONE" },
    { 0x41, "BATON (Auto Odd)" },
    /* Type III */
    { 0x80, "Unencrypted" },
