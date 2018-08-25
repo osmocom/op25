@@ -84,7 +84,7 @@ const value_string ALGIDS[] = {
    { 0xAC, "Motorola Assigned - Unknown" },
    { 0xAD, "Motorola Assigned - Unknown" },
    { 0xAE, "Motorola Assigned - Unknown" },
-   { 0xAF, "Motorola AES-256-GCM" },
+   { 0xAF, "Motorola AES-256-GCM (possibly)" },
    { 0xB0, "Motorola DVP"},
 };
 const size_t ALGIDS_SZ = sizeof(ALGIDS) / sizeof(ALGIDS[0]);
