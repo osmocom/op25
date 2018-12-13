@@ -60,7 +60,7 @@ const value_string ALGIDS[] = {
    { 0x80, "Unencrypted" },
    { 0x81, "DES-OFB, 56 bit key" },
    { 0x83, "3 key Triple DES, 168 bit key" },
-   { 0x84, "AES-256" },
+   { 0x84, "AES-256-OFB" },
    { 0x85, "AES-128-ECB"},
    { 0x88, "AES-CBC"},
    /* Motorola proprietary - some of these have been observed over the air,
@@ -68,7 +68,7 @@ const value_string ALGIDS[] = {
       have come from the TIA's FTP website while it was still public,
       from document "ALGID Guide 2015-04-15.pdf", and others have been
       have been worked out with a little bit of guesswork */
-   { 0x9F, "Motorola DES-XL" },
+   { 0x9F, "Motorola DES-XL 56-bit key" },
    { 0xA0, "Motorola DVI-XL" },
    { 0xA1, "Motorola DVP-XL" },
    { 0xA2, "Motorola DVI-SPFL"},
@@ -79,7 +79,7 @@ const value_string ALGIDS[] = {
    { 0xA7, "Motorola Assigned - Unknown" },
    { 0xA8, "Motorola Assigned - Unknown" },
    { 0xA9, "Motorola Assigned - Unknown" },
-   { 0xAA, "Motorola ADP" },
+   { 0xAA, "Motorola ADP 40 bit RC4" },
    { 0xAB, "Motorola CFX-256" },
    { 0xAC, "Motorola Assigned - Unknown" },
    { 0xAD, "Motorola Assigned - Unknown" },
