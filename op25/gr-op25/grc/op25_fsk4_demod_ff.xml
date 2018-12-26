@@ -4,7 +4,7 @@
   <key>op25_fsk4_demod_ff</key>
   <category>op25</category>
   <import>import op25</import>
-  <make>op25.fsk4_demod_ff(self.auto_tune_msgq, $sample_rate, $symbol_rate)</make>
+  <make>op25.fsk4_demod_ff($(id)_msgq_out, $sample_rate, $symbol_rate)</make>
 
   <param>
     <name>Sample Rate</name>
@@ -20,7 +20,8 @@
     <type>real</type>
   </param>
 
-  <param>
+  <!-- Must connect tune message queue as the block expects a queue as first argument! -->
+  <!--<param>
     <name>Output Auto Tune</name>
     <key>tune_out</key>
     <value>True</value>
@@ -34,7 +35,7 @@
       <name>No</name>
       <key>False</key>
     </option>
-  </param>
+  </param>-->
 
   <sink>
     <name>in</name>
@@ -44,5 +45,11 @@
   <source>
     <name>dibits</name>
     <type>float</type>
+  </source>
+
+  <source>
+    <name>tune</name>
+    <type>msg</type>
+    <!--<optional>1</optional>-->
   </source>
 </block>

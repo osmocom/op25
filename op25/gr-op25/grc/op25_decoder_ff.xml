@@ -4,17 +4,17 @@
   <key>op25_decoder_ff</key>
   <category>op25</category>
   <import>import op25</import>
-  <make>op25.decoder_ff($)</make>
+  <make>op25.decoder_ff()</make>
   <!-- Make one 'param' node for every Parameter you want settable from the GUI.
        Sub-nodes:
        * name
        * key (makes the value accessible as $keyname, e.g. in the make node)
        * type -->
-  <param>
+  <!--<param>
     <name>...</name>
     <key>...</key>
     <type>...</type>
-  </param>
+  </param>-->
 
   <!-- Make one 'sink' node per input. Sub-nodes:
        * name (an identifier for the GUI)
@@ -23,7 +23,7 @@
        * optional (set to 1 for optional inputs) -->
   <sink>
     <name>in</name>
-    <type><!-- e.g. int, float, complex, byte, short, xxx_vector, ...--></type>
+    <type>float</type>
   </sink>
 
   <!-- Make one 'source' node per output. Sub-nodes:
@@ -32,7 +32,7 @@
        * vlen
        * optional (set to 1 for optional inputs) -->
   <source>
-    <name>out</name>
-    <type><!-- e.g. int, float, complex, byte, short, xxx_vector, ...--></type>
+    <name>audio</name>
+    <type>float</type>
   </source>
 </block>

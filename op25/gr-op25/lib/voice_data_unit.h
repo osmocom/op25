@@ -38,6 +38,17 @@ public:
     */
    virtual ~voice_data_unit();
 
+   const static int LSD_BYTE_COUNT=2;
+
+private:
+
+    union {
+        uint8_t d_lsd_byte[LSD_BYTE_COUNT];
+        uint16_t d_lsdw;
+    };
+    bool d_lsdw_valid;
+    bool d_lsd_byte_valid[LSD_BYTE_COUNT];
+
 protected:
 
    /**
@@ -63,7 +74,7 @@ protected:
     * \param frame_body The const_bit_vector to decode.
     * \param imbe The imbe_decoder to use to generate the audio.
     */
-   virtual void do_decode_audio(const_bit_vector& frame_body, imbe_decoder& imbe);
+   virtual void do_decode_audio(const_bit_vector& frame_body, imbe_decoder& imbe, crypto_module::sptr crypto_mod);
 
    /**
     * Returns the expected size (in bits) of this data_unit. For
@@ -73,6 +84,10 @@ protected:
     * \return The expected size (in bits) of this data_unit when encoded.
     */
    virtual uint16_t frame_size_max() const;
+
+   virtual uint16_t lsdw() const;
+
+   virtual bool lsdw_valid() const;
 
 };
 

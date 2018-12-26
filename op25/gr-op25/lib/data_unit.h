@@ -32,6 +32,8 @@
 #include <iosfwd>
 #include <stdint.h>
 
+#include "crypto.h"
+
 typedef std::deque<bool> bit_queue;
 typedef const std::deque<bool> const_bit_queue;
 
@@ -76,7 +78,7 @@ public:
     * \precondition is_complete() == true.
     * \param imbe The imbe_decoder to use to generate the audio.
     */
-   virtual void decode_audio(imbe_decoder& imbe) = 0;
+   virtual void decode_audio(imbe_decoder& imbe, crypto_module::sptr crypto_mod) = 0;
 
    /**
     * Decode the frame into an octet vector.
@@ -131,6 +133,8 @@ public:
     * \return A string containing the fields to display.
     */
    virtual std::string snapshot() const = 0;
+
+   virtual void set_logging(bool on) = 0;
 
 protected:
 

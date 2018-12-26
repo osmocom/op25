@@ -55,10 +55,10 @@ abstract_data_unit::correct_errors()
 }
 
 void
-abstract_data_unit::decode_audio(imbe_decoder& imbe)
+abstract_data_unit::decode_audio(imbe_decoder& imbe, crypto_module::sptr crypto_mod)
 {
    if(is_complete()) {
-      do_decode_audio(d_frame_body, imbe);
+      do_decode_audio(d_frame_body, imbe, crypto_mod);
    } else {
       ostringstream msg;
       msg << "cannot decode audio - frame is not complete" << endl;
@@ -153,7 +153,8 @@ abstract_data_unit::dump(ostream& os) const
 }
 
 abstract_data_unit::abstract_data_unit(const_bit_queue& frame_body) :
-   d_frame_body(frame_body.size())
+   d_frame_body(frame_body.size()),
+   d_logging_enabled(false)
 {
    copy(frame_body.begin(), frame_body.end(), d_frame_body.begin());
 }
@@ -164,7 +165,7 @@ abstract_data_unit::do_correct_errors(bit_vector& frame_body)
 }
 
 void
-abstract_data_unit::do_decode_audio(const_bit_vector& frame_body, imbe_decoder& imbe)
+abstract_data_unit::do_decode_audio(const_bit_vector& frame_body, imbe_decoder& imbe, crypto_module::sptr crypto_mod)
 {
 }
 
@@ -178,4 +179,16 @@ uint16_t
 abstract_data_unit::frame_size() const
 {
    return d_frame_body.size();
+}
+
+void
+abstract_data_unit::set_logging(bool on)
+{
+   d_logging_enabled = on;
+}
+
+bool
+abstract_data_unit::logging_enabled() const
+{
+   return d_logging_enabled;
 }
