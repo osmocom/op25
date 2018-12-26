@@ -161,7 +161,10 @@ def post_req(environ, start_response, postdata):
             if resp:
                 resp_msg.append(resp)
             continue
-        msg = gr.message().make_from_string(str(d['command']), -2, d['data'], 0)
+        if d['command'].startswith('settings-'):
+            msg = gr.message().make_from_string(json.dumps(d), -4, 0, 0)
+        else:
+            msg = gr.message().make_from_string(str(d['command']), -2, d['data'], 0)
         if my_output_q.full_p():
             my_output_q.delete_head_nowait()   # ignores result
         if not my_output_q.full_p():
@@ -245,7 +248,7 @@ class queue_watcher(threading.Thread):
             self.callback(msg)
 
 class Backend(threading.Thread):
-    def __init__(self, options, input_q, output_q, **kwds):
+    def __init__(self, options, input_q, output_q, init_config=None, **kwds):
         threading.Thread.__init__ (self, **kwds)
         self.setDaemon(1)
         self.keep_running = True
@@ -267,9 +270,14 @@ class Backend(threading.Thread):
 
         self.start()
         self.subproc = None
-        self.backend = '%s/%s' % (os.getcwd(), 'rx.py')
+        self.msg = None
 
         self.q_watcher = queue_watcher(self.input_q, self.process_msg)
+
+        if init_config:
+            d = {'command': 'rx-start', 'data': init_config}
+            msg = gr.message().make_from_string(json.dumps(d), -4, 0, 0)
+            self.input_q.insert_tail(msg)
 
     def publish(self, msg):
         t = msg.type()
@@ -289,14 +297,28 @@ class Backend(threading.Thread):
             return False
 
     def process_msg(self, msg):
-        def make_command(options):
+        def make_command(options, config_file):
+            trunked_ct = [True for x in options._js_config['channels'] if x['trunked']]
+            total_ct = [True for x in options._js_config['channels']]
+            if trunked_ct and len(trunked_ct) != len(total_ct):
+                self.msg = 'no suitable backend found for this configuration'
+                return None
+            if not trunked_ct:
+                self.backend = '%s/%s' % (os.getcwd(), 'multi_rx.py')
+                opts = [self.backend]
+                filename = '%s%s.json' % (CFG_DIR, config_file)
+                opts.append('--config-file')
+                opts.append(filename)
+                return opts
+
             types = {'costas-alpha': 'float', 'trunk-conf-file': 'str', 'demod-type': 'str', 'logfile-workers': 'int', 'decim-amt': 'int', 'wireshark-host': 'str', 'gain-mu': 'float', 'phase2-tdma': 'bool', 'seek': 'int', 'ifile': 'str', 'pause': 'bool', 'antenna': 'str', 'calibration': 'float', 'fine-tune': 'float', 'raw-symbols': 'str', 'audio-output': 'str', 'vocoder': 'bool', 'input': 'str', 'wireshark': 'bool', 'gains': 'str', 'args': 'str', 'sample-rate': 'int', 'terminal-type': 'str', 'gain': 'float', 'excess-bw': 'float', 'offset': 'float', 'audio-input': 'str', 'audio': 'bool', 'plot-mode': 'str', 'audio-if': 'bool', 'tone-detect': 'bool', 'frequency': 'int', 'freq-corr': 'float', 'hamlib-model': 'int', 'udp-player': 'bool', 'verbosity': 'int'}
+            self.backend = '%s/%s' % (os.getcwd(), 'rx.py')
             opts = [self.backend]
             for k in [ x for x in dir(options) if not x.startswith('_') ]:
                 kw = k.replace('_', '-')
                 val = getattr(options, k)
                 if kw not in types.keys():
-                    print 'make_command: unknown option: %s %s type %s' % (k, val, type(val))
+                    self.msg = 'make_command: unknown option: %s %s type %s' % (k, val, type(val))
                     return None
                 elif types[kw] == 'str':
                     if val:
@@ -318,28 +340,41 @@ class Backend(threading.Thread):
                     if val:
                         opts.append('--%s' % kw)
                 else:
-                    print 'make_command: unknown2 option: %s %s type %s' % (k, val, type(val))
+                    self.msg = 'make_command: unknown2 option: %s %s type %s' % (k, val, type(val))
                     return None
             return opts
 
         msg = json.loads(msg.to_string())
         if msg['command'] == 'rx-start':
             if self.check_subproc():
-                sys.stderr.write('command failed: subprocess pid %d already active\n' % self.subproc.pid)
+                self.msg = 'start command failed: subprocess pid %d already active' % self.subproc.pid
                 return
             options = rx_options(msg['data'])
+            if getattr(options, '_js_config', None) is None:
+                self.msg = 'start command failed: rx_options: unable to initialize config=%s' % (msg['data'])
+                return
             options.verbosity = self.verbosity
             options.terminal_type = 'zmq:tcp:%d' % (self.zmq_port)
-            cmd = make_command(options)
-            self.subproc = subprocess.Popen(cmd)
+            cmd = make_command(options, msg['data'])
+            if cmd:
+                self.subproc = subprocess.Popen(cmd)
         elif msg['command'] == 'rx-stop':
             if not self.check_subproc():
-                sys.stderr.write('command failed: subprocess not active\n')
+                self.msg = 'stop command failed: subprocess not active'
                 return
             if msg['data'] == 'kill':
                 self.subproc.kill()
             else:
                 self.subproc.terminate()
+        elif msg['command'] == 'rx-state':
+            d = {}
+            if self.check_subproc():
+                d['rx-state'] = 'subprocess pid %d active' % self.subproc.pid
+            else:
+                d['rx-state'] = 'subprocess not active, last msg: %s' % self.msg
+            msg = gr.message().make_from_string(json.dumps(d), -4, 0, 0)
+            if not self.output_q.full_p():
+                self.output_q.insert_tail(msg)
 
     def run(self):
         while self.keep_running:
@@ -357,6 +392,7 @@ class rx_options(object):
 
         filename = '%s%s.json' % (CFG_DIR, name)
         if not os.access(filename, os.R_OK):
+            sys.stderr.write('unable to access config file %s\n' % (filename))
             return
         config = byteify(json.loads(open(filename).read()))
         dev = [x for x in config['devices'] if x['active']][0]
@@ -375,14 +411,14 @@ class rx_options(object):
         self.sample_rate = dev['rate']
         self.plot_mode = chan['plot']
         self.phase2_tdma = chan['phase2_tdma']
-        self.trunk_conf_file = ""
+        self.trunk_conf_file = filename
         self._js_config = config
 
 def http_main():
     global my_backend
     # command line argument parsing
     parser = OptionParser()
-    parser.add_option("-c", "--config-file", type="string", default=None, help="specify config file name")
+    parser.add_option("-c", "--config", type="string", default=None, help="config json name, without prefix/suffix")
     parser.add_option("-e", "--endpoint", type="string", default="127.0.0.1:8080", help="address:port to listen on (use addr 0.0.0.0 to enable external clients)")
     parser.add_option("-v", "--verbosity", type="int", default=0, help="message debug level")
     parser.add_option("-p", "--pause", action="store_true", default=False, help="block on startup")
@@ -399,7 +435,7 @@ def http_main():
     backend_input_q = gr.msg_queue(20)
     backend_output_q = gr.msg_queue(20)
 
-    my_backend = Backend(options, backend_input_q, backend_output_q)
+    my_backend = Backend(options, backend_input_q, backend_output_q, init_config=options.config)
     server = http_server(input_q, output_q, options.endpoint)
     q_watcher = queue_watcher(output_q, lambda msg : my_backend.publish(msg))
     backend_q_watcher = queue_watcher(backend_output_q, lambda msg : process_qmsg(msg))

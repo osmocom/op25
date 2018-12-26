@@ -94,7 +94,7 @@ hr {
  	width: 730px;
 	border: 0px solid #aaa;
 	vertical-align: top;
-	height: 122px;
+	height: 178px;
 	padding: 2px;
 	box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 3px 10px 0 rgba(0,0,0,0.19);
 	background: LightGray; /* For browsers that do not support gradients */
@@ -110,6 +110,14 @@ hr {
 	text-align: center;
 } 
 
+
+.cfg_list {
+
+	border: 1px solid #000; 
+	padding: 5px; 
+	width: 260px;
+
+}
 
 .displaySettings {
 

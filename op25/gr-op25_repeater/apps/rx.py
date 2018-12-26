@@ -2,7 +2,7 @@
 
 # Copyright 2008-2011 Steve Glass
 # 
-# Copyright 2011, 2012, 2013, 2014, 2015, 2016, 2017 Max H. Parke KA1RBI
+# Copyright 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018 Max H. Parke KA1RBI
 # 
 # Copyright 2003,2004,2005,2006 Free Software Foundation, Inc.
 #         (from radiorausch)
@@ -64,6 +64,7 @@ from gr_gnuplot import constellation_sink_c
 from gr_gnuplot import fft_sink_c
 from gr_gnuplot import symbol_sink_f
 from gr_gnuplot import eye_sink_f
+from gr_gnuplot import mixer_sink_c
 
 from terminal import op25_terminal
 from sockaudio  import socket_audio
@@ -75,7 +76,7 @@ os.environ['IMBE'] = 'soft'
 
 WIRESHARK_PORT = 23456
 
-_def_interval = 5.0	# sec
+_def_interval = 3.0	# sec
 _def_file_dir = '../www/images'
 
 # The P25 receiver
@@ -96,6 +97,15 @@ class p25_rx_block (gr.top_block):
         self.rtl_found = False
         self.channel_rate = options.sample_rate
         self.fft_sink = None
+        self.last_error_update = 0
+        self.error_band = 0
+        self.tuning_error = 0
+        self.freq_correction = 0
+        self.last_set_freq = 0
+        self.last_set_freq_at = time.time()
+        self.last_change_freq = 0
+        self.last_change_freq_at = time.time()
+        self.last_freq_params = {'freq' : 0.0, 'tgid' : None, 'tag' : "", 'tdma' : None}
 
         self.src = None
         if (not options.input) and (not options.audio) and (not options.audio_if):
@@ -107,7 +117,7 @@ class p25_rx_block (gr.top_block):
                 print "osmosdr source_c creation failure"
                 ignore = True
  
-            if "rtl" in options.args.lower():
+            if any(x in options.args.lower() for x in ['rtl', 'airspy', 'hackrf', 'uhd']):
                 #print "'rtl' has been found in options.args (%s)" % (options.args)
                 self.rtl_found = True
 
@@ -175,23 +185,25 @@ class p25_rx_block (gr.top_block):
         # configure specified data source
         if options.input:
             self.open_file(options.input)
-        elif options.frequency:
-            self.open_usrp()
         elif options.audio_if:
             self.open_audio_c(self.channel_rate, options.gain, options.audio_input)
         elif options.audio:
             self.open_audio(self.channel_rate, options.gain, options.audio_input)
         elif options.ifile:
             self.open_ifile(self.channel_rate, options.gain, options.ifile, options.seek)
+        elif (self.rtl_found or options.frequency):
+            self.open_usrp()
         else:
             pass
 
-        # attach terminal thread
+        # attach terminal thread and make sure currently tuned frequency is displayed
         self.terminal = op25_terminal(self.input_q, self.output_q, self.options.terminal_type)
+        if self.terminal is None:
+            sys.stderr.write('warning: no terminal attached\n')
 
         # attach audio thread
         if self.options.udp_player:
-            self.audio = socket_audio("127.0.0.1", WIRESHARK_PORT, self.options.audio_output)
+            self.audio = socket_audio("127.0.0.1", self.options.wireshark_port, self.options.audio_output, False, self.options.audio_gain)
         else:
             self.audio = None
 
@@ -206,8 +218,16 @@ class p25_rx_block (gr.top_block):
         self.rx_q = gr.msg_queue(100)
         udp_port = 0
 
-        if self.options.udp_player or self.options.wireshark or (self.options.wireshark_host != "127.0.0.1"):
-            udp_port = WIRESHARK_PORT
+        vocoder = self.options.vocoder
+        wireshark = self.options.wireshark
+        wireshark_host = self.options.wireshark_host
+        if self.options.udp_player:
+            vocoder = True
+            wireshark = True
+            wireshark_host = "127.0.0.1"
+
+        if wireshark or (wireshark_host != "127.0.0.1"):
+            udp_port = self.options.wireshark_port
 
         self.tdma_state = False
         self.xor_cache = {}
@@ -216,7 +236,7 @@ class p25_rx_block (gr.top_block):
             self.demod = p25_demodulator.p25_demod_fb(input_rate=capture_rate, excess_bw=self.options.excess_bw)
         else:	# complex input
             # local osc
-            self.lo_freq = self.options.offset + self.options.fine_tune
+            self.lo_freq = self.options.offset
             if self.options.audio_if or self.options.ifile or self.options.input:
                 self.lo_freq += self.options.calibration
             self.demod = p25_demodulator.p25_demod_cb( input_rate = capture_rate,
@@ -233,11 +253,13 @@ class p25_rx_block (gr.top_block):
         if self.options.phase2_tdma:
             num_ambe = 1
 
-        self.decoder = p25_decoder.p25_decoder_sink_b(dest='audio', do_imbe=True, num_ambe=num_ambe, wireshark_host=self.options.wireshark_host, udp_port=udp_port, do_msgq = True, msgq=self.rx_q, audio_output=self.options.audio_output, debug=self.options.verbosity)
+        self.decoder = p25_decoder.p25_decoder_sink_b(dest='audio', do_imbe=vocoder, num_ambe=num_ambe, wireshark_host=wireshark_host, udp_port=udp_port, do_msgq = True, msgq=self.rx_q, audio_output=self.options.audio_output, debug=self.options.verbosity)
 
         # connect it all up
         self.connect(source, self.demod, self.decoder)
 
+        if self.baseband_input:
+            sps = int(capture_rate / 4800)
         plot_modes = []
         if self.options.plot_mode is not None:
             plot_modes = self.options.plot_mode.split(',')
@@ -254,6 +276,9 @@ class p25_rx_block (gr.top_block):
                 self.spectrum_decim = filter.rational_resampler_ccf(1, self.options.decim_amt)
                 self.connect(self.spectrum_decim, sink)
                 self.demod.connect_complex('src', self.spectrum_decim)
+            elif plot_mode == 'mixer':
+                sink = mixer_sink_c()
+                self.demod.connect_complex('mixer', sink)
             elif plot_mode == 'datascope':
                 assert self.options.demod_type == 'fsk4'  ## datascope requires fsk4 demod-type
                 sink = eye_sink_f(sps=sps)
@@ -277,7 +302,7 @@ class p25_rx_block (gr.top_block):
                 demod = p25_demodulator.p25_demod_cb(input_rate=capture_rate,
                                                      demod_type=self.options.demod_type,
                                                      offset=self.options.offset)
-                decoder = p25_decoder.p25_decoder_sink_b(debug = self.options.verbosity, do_imbe = self.options.vocoder, num_ambe=num_ambe)
+                decoder = p25_decoder.p25_decoder_sink_b(debug = self.options.verbosity, do_imbe = vocoder, num_ambe=num_ambe)
                 logfile_workers.append({'demod': demod, 'decoder': decoder, 'active': False})
                 self.connect(source, demod, decoder)
 
@@ -317,20 +342,21 @@ class p25_rx_block (gr.top_block):
 
     def configure_tdma(self, params):
         if params['tdma'] is not None and not self.options.phase2_tdma:
-            print '***TDMA request for frequency %d failed- phase2_tdma option not enabled' % params['freq']
+            sys.stderr.write("***TDMA request for frequency %d failed- phase2_tdma option not enabled\n" % params['freq'])
             return
         set_tdma = False
         if params['tdma'] is not None:
             set_tdma = True
+            self.decoder.set_slotid(params['tdma'])
         if set_tdma == self.tdma_state:
             return	# already in desired state
         self.tdma_state = set_tdma
         if set_tdma:
-            self.decoder.set_slotid(params['tdma'])
             hash = '%x%x%x' % (params['nac'], params['sysid'], params['wacn'])
             if hash not in self.xor_cache:
                 self.xor_cache[hash] = lfsr.p25p2_lfsr(params['nac'], params['sysid'], params['wacn']).xor_chars
             self.decoder.set_xormask(self.xor_cache[hash], hash)
+            self.decoder.set_nac(params['nac'])
             rate = 6000
         else:
             rate = 4800
@@ -338,36 +364,78 @@ class p25_rx_block (gr.top_block):
         self.demod.set_symbol_rate(rate)   # this and the foll. call should be merged?
         self.demod.clock.set_omega(float(sps))
 
-    def change_freq(self, params):
-        freq = params['freq']
-        offset = params['offset']
-        center_freq = params['center_frequency']
-        fine_tune = self.options.fine_tune
+    def error_tracking(self):
+        UPDATE_TIME = 3
+        if self.last_error_update + UPDATE_TIME > time.time() \
+            or self.last_change_freq_at + UPDATE_TIME > time.time():
+            return
+        self.last_error_update = time.time()
+        band = self.demod.get_error_band()
+        freq_error = self.demod.get_freq_error()
+        if band:
+            self.error_band += band
+        self.freq_correction += freq_error * 0.15
+        if self.freq_correction > 600:
+            self.freq_correction -= 1200
+            self.error_band += 1
+        elif self.freq_correction < -600:
+            self.freq_correction += 1200
+            self.error_band -= 1
+        self.tuning_error = self.error_band * 1200 + self.freq_correction
+        e = 0
+        if self.last_change_freq > 0:
+            e = (self.tuning_error*1e6) / float(self.last_change_freq)
+        if self.options.verbosity >= 10:
+            sys.stderr.write('frequency_tracking\t%d\t%d\t%d\t%d\t%f\n' % (freq_error, self.error_band, self.tuning_error, self.freq_correction, e))
 
-        if self.options.hamlib_model:
-            self.hamlib.set_freq(freq)
-        elif params['center_frequency']:
-            relative_freq = center_freq - freq
-            if abs(relative_freq + self.options.offset) > self.channel_rate / 2:
-                self.lo_freq = self.options.offset + self.options.fine_tune		# relative tune not possible
-                self.demod.set_relative_frequency(self.lo_freq)				# reset demod relative freq
-                self.set_freq(freq + offset)						# direct tune instead
-            else:    
-                self.lo_freq = self.options.offset + relative_freq + fine_tune 
-                if self.demod.set_relative_frequency(self.lo_freq):			# relative tune successful
-                    self.set_freq(center_freq + offset)
-                    if self.fft_sink:
-                        self.fft_sink.set_relative_freq(self.lo_freq)
-                else:
-                    self.lo_freq = self.options.offset + self.options.fine_tune		# relative tune unsuccessful
-                    self.demod.set_relative_frequency(self.lo_freq)			# reset demod relative freq
-                    self.set_freq(freq + offset)					# direct tune instead
-        else:
-            self.set_freq(freq + offset)
+    def change_freq(self, params):
+        self.last_freq_params = params
+        freq = params['freq']
+        offset = self.options.offset
+        center_freq = params['center_frequency']
+        self.error_tracking()
+        self.last_change_freq = freq
+        self.last_change_freq_at = time.time()
 
         self.configure_tdma(params)
 
+        if self.options.hamlib_model:
+            self.hamlib.set_freq(freq)
+            return
+
+        if not center_freq:
+            self.lo_freq = offset + self.tuning_error
+            self.demod.set_relative_frequency(self.lo_freq)
+            self.set_freq(freq)
+            return
+
+        relative_freq = center_freq - freq
+
+        if abs(relative_freq + offset + self.tuning_error) > self.channel_rate / 2:
+            self.lo_freq = offset + self.tuning_error		# relative tune not possible
+            self.demod.set_relative_frequency(self.lo_freq)	# reset demod relative freq
+            self.set_freq(freq)					# direct tune instead
+            return
+
+        self.lo_freq = relative_freq + offset + self.tuning_error 
+        if self.demod.set_relative_frequency(self.lo_freq):		# relative tune successful
+            self.set_freq(center_freq)
+            if self.fft_sink:
+                self.fft_sink.set_relative_freq(self.lo_freq)
+            return
+
+        self.lo_freq = offset + self.tuning_error		# relative tune unsuccessful
+        self.demod.set_relative_frequency(self.lo_freq)		# reset demod relative freq
+        self.set_freq(freq + offset)	# direct tune instead
+        self.configure_tdma(params)
+        self.freq_update()
+
+    def freq_update(self):
+        if self.input_q.full_p():
+            return
+        params = self.last_freq_params
         params['json_type'] = 'change_freq'
+        params['fine_tune'] = self.options.fine_tune
         js = json.dumps(params)
         msg = gr.message().make_from_string(js, -4, 0, 0)
         self.input_q.insert_tail(msg)
@@ -422,11 +490,12 @@ class p25_rx_block (gr.top_block):
         """
         if not self.src:
             return False
-        tune_freq = target_freq + self.options.calibration + self.options.offset
+        self.target_freq = target_freq
+        tune_freq = target_freq + self.options.calibration + self.options.offset + self.options.fine_tune
         r = self.src.set_center_freq(tune_freq)
 
         if self.fft_sink:
-            self.fft_sink.set_center_freq(tune_freq)
+            self.fft_sink.set_center_freq(target_freq)
             self.fft_sink.set_width(self.options.sample_rate)
 
         if r:
@@ -434,6 +503,8 @@ class p25_rx_block (gr.top_block):
             #if self.show_debug_info:
             #    self.myform['baseband'].set_value(r.baseband_freq)
             #    self.myform['ddc'].set_value(r.dxc_freq)
+            self.last_set_freq = tune_freq
+            self.last_set_freq_at = time.time()
             return True
 
         return False
@@ -469,10 +540,9 @@ class p25_rx_block (gr.top_block):
             self.src.set_antenna(self.options.antenna)
         self.info["capture-rate"] = capture_rate
         self.src.set_bandwidth(capture_rate)
-        r = self.src.set_center_freq(self.options.frequency + self.options.calibration+ self.options.offset)
-        print 'set_center_freq: %d' % r
+        r = self.src.set_center_freq(self.options.frequency + self.options.calibration+ self.options.offset + self.options.fine_tune)
         if not r:
-            raise RuntimeError("failed to set USRP frequency")
+            sys.stderr.write("__set_rx_from_osmosdr(): failed to set frequency\n")
         # capture file
         # if preserve:
         if 0:
@@ -541,6 +611,9 @@ class p25_rx_block (gr.top_block):
                 "source-dev": "USRP",
                 "source-decim": 1 }
             self.__set_rx_from_osmosdr()
+            if self.options.frequency:
+                self.last_freq_params['freq'] = self.options.frequency
+                self.set_freq(self.options.frequency)
         # except Exception, x:
         #     wx.MessageBox("Cannot open USRP: " + x.message, "USRP Error", wx.CANCEL | wx.ICON_EXCLAMATION)
 
@@ -559,16 +632,21 @@ class p25_rx_block (gr.top_block):
         error = None
         if self.options.demod_type == 'cqpsk':
             error = self.demod.get_freq_error()
-        d = {'json_type': 'rx_update', 'error': error, 'files': filenames}
+        d = {'json_type': 'rx_update', 'error': error, 'fine_tune': self.options.fine_tune, 'files': filenames}
         msg = gr.message().make_from_string(json.dumps(d), -4, 0, 0)
         self.input_q.insert_tail(msg)
 
     def process_qmsg(self, msg):
         # return true = end top block
-        RX_COMMANDS = 'skip lockout hold'
+        RX_COMMANDS = 'skip lockout hold'.split()
         s = msg.to_string()
+        t = msg.type()
+        if t == -4:
+            d = json.loads(s)
+            s = d['command']
         if s == 'quit': return True
         elif s == 'update':
+            self.freq_update()
             if self.trunk_rx is None:
                 return False	## possible race cond - just ignore
             js = self.trunk_rx.to_json()
@@ -577,12 +655,19 @@ class p25_rx_block (gr.top_block):
             self.process_ajax()
         elif s == 'set_freq':
             freq = msg.arg1()
+            self.last_freq_params['freq'] = freq
             self.set_freq(freq)
+        elif s == 'adj_tune':
+            freq = msg.arg1()
+        elif s == 'dump_tgids':
+            self.trunk_rx.dump_tgids()
         elif s == 'add_default_config':
             nac = msg.arg1()
-            self.trunk_rx.add_default_config(nac)
+            self.trunk_rx.add_default_config(int(nac))
         elif s in RX_COMMANDS:
             self.rx_q.insert_tail(msg)
+        elif s == 'settings-enable' and self.trunk_rx is not None:
+            self.trunk_rx.enable_status(d['data'])
         return False
 
 ############################################################################
@@ -658,15 +743,18 @@ class rx_main(object):
         parser.add_option("-T", "--trunk-conf-file", type="string", default=None, help="trunking config file name")
         parser.add_option("-v", "--verbosity", type="int", default=0, help="message debug level")
         parser.add_option("-V", "--vocoder", action="store_true", default=False, help="voice codec")
+        parser.add_option("-n", "--nocrypt", action="store_true", default=False, help="silence encrypted traffic")
         parser.add_option("-o", "--offset", type="eng_float", default=0.0, help="tuning offset frequency [to circumvent DC offset]", metavar="Hz")
         parser.add_option("-p", "--pause", action="store_true", default=False, help="block on startup")
         parser.add_option("-w", "--wireshark", action="store_true", default=False, help="output data to Wireshark")
         parser.add_option("-W", "--wireshark-host", type="string", default="127.0.0.1", help="Wireshark host")
+        parser.add_option("-u", "--wireshark-port", type="int", default=23456, help="Wireshark udp port")
         parser.add_option("-r", "--raw-symbols", type="string", default=None, help="dump decoded symbols to file")
         parser.add_option("-g", "--gain", type="eng_float", default=None, help="set USRP gain in dB (default is midpoint) or set audio gain")
         parser.add_option("-G", "--gain-mu", type="eng_float", default=0.025, help="gardner gain")
         parser.add_option("-N", "--gains", type="string", default=None, help="gain settings")
         parser.add_option("-O", "--audio-output", type="string", default="default", help="audio output device name")
+        parser.add_option("-x", "--audio-gain", type="eng_float", default="1.0", help="audio gain (default = 1.0)")
         parser.add_option("-U", "--udp-player", action="store_true", default=False, help="enable built-in udp audio player")
         parser.add_option("-q", "--freq-corr", type="eng_float", default=0.0, help="frequency correction")
         parser.add_option("-d", "--fine-tune", type="eng_float", default=0.0, help="fine tuning")

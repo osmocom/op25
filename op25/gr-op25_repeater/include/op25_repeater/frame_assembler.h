@@ -49,6 +49,7 @@ namespace gr {
        */
       static sptr make(const char* options, int debug, gr::msg_queue::sptr queue);
       virtual void set_xormask(const char*p) {}
+      virtual void set_nac(int nac) {}
       virtual void set_slotid(int slotid) {}
     };
 

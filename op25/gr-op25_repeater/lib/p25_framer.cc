@@ -16,7 +16,7 @@
 
 static const int max_frame_lengths[16] = {
 // lengths are in bits, not symbols
-	792,	// 0 - pdu
+	792,	// 0 - hdu
 	0, 0,	// 1, 2 - undef
 	144,	// 3 - tdu
 	0, 	// 4 - undef
@@ -27,17 +27,21 @@ static const int max_frame_lengths[16] = {
 	0,	// 9 - VSELP "voice PDU"
 	P25_VOICE_FRAME_SIZE,	// a - ldu2
 	0,	// b - undef
-	720,	// c - VSELP "voice PDU"
+	962,	// c - pdu (triple data block MBT)
 	0, 0,	// d, e - undef
 	432	// f - tdu
 };
 
 // constructor
-p25_framer::p25_framer() :
+p25_framer::p25_framer(int debug) :
+	d_debug(debug),
 	reverse_p(0),
 	nid_syms(0),
 	next_bit(0),
 	nid_accum(0),
+	nac(0),
+	duid(0),
+	parity(0),
 	frame_size_limit(0),
 	symbols_received(0),
 	frame_body(P25_VOICE_FRAME_SIZE)
@@ -57,35 +61,40 @@ p25_framer::~p25_framer ()
  */
 bool p25_framer::nid_codeword(uint64_t acc) {
 	bit_vector cw(64);
-	bool low = acc & 1;
-	// for bch, split bits into codeword vector
-	for (int i=0; i < 64; i++) {
+
+	// save the parity lsb, not used by BCH`
+	int acc_parity = acc & 1;
+
+	// for bch, split bits into codeword vector (lsb first)
+	for (int i = 0; i <= 63; i++) {
 		acc >>= 1;
 		cw[i] = acc & 1;
 	}
 
 	// do bch decode
-	int rc = bchDec(cw);
-
-	// check if bch decode unsuccessful
-	if (rc < 0) {
-		return false;
-	}
-
-	bch_errors = rc;
-
-	// load corrected bch bits into acc
+	int ec = bchDec(cw);
+	
+	// load corrected bch bits into acc (msb first)
 	acc = 0;
-	for (int i=63; i>=0; i--) {
+	for (int i = 63; i >= 0; i--) {
 		acc |= cw[i];
 		acc <<= 1;
 	}
-	acc |= low;   // FIXME
+
+	// put the parity lsb back
+	acc |= acc_parity;
+
+	// check if bch decode unsuccessful
+	if (ec < 0)
+		return false;
+
+	bch_errors = ec;
 
 	nid_word = acc;		// reconstructed NID
 	// extract nac and duid
 	nac  = (acc >> 52) & 0xfff;
 	duid = (acc >> 48) & 0x00f;
+	parity = acc_parity;
 
 	return true;
 }

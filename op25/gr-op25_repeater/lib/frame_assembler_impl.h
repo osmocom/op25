@@ -48,6 +48,7 @@ namespace gr {
 
     void queue_msg(int duid);
     void set_xormask(const char*p) ;
+    void set_nac(int nac) ;
     void set_slotid(int slotid) ;
 
  public:

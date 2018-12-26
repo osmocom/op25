@@ -39,6 +39,7 @@ import p25_decoder
 
 from gr_gnuplot import constellation_sink_c
 from gr_gnuplot import fft_sink_c
+from gr_gnuplot import mixer_sink_c
 from gr_gnuplot import symbol_sink_f
 from gr_gnuplot import eye_sink_f
 
@@ -61,10 +62,39 @@ def byteify(input):	# thx so
         return input
 
 class device(object):
-    def __init__(self, config):
-        speeds = [250000, 1000000, 1024000, 1800000, 1920000, 2000000, 2048000, 2400000, 2560000]
-
+    def __init__(self, config, tb):
         self.name = config['name']
+        self.sample_rate = config['rate']
+        self.args = config['args']
+        self.tb = tb
+
+        if config['args'].startswith('audio:'):
+            self.init_audio(config)
+        elif config['args'].startswith('file:'):
+            self.init_file(config)
+        else:
+            self.init_osmosdr(config)
+
+    def init_file(self, config):
+        filename = config['args'].replace('file:', '', 1)
+        src = blocks.file_source(gr.sizeof_gr_complex, filename, repeat = False)
+        throttle = blocks.throttle(gr.sizeof_gr_complex, config['rate'])
+        self.tb.connect(src, throttle)
+        self.src = throttle
+        self.frequency = config['frequency']
+        self.offset = config['offset']
+
+    def init_audio(self, config):
+        filename = config['args'].replace('audio:', '')
+        src = audio.source(self.sample_rate, filename)
+        gain = 1.0
+        if config['gains'].startswith('audio:'):
+           gain = float(config['gains'].replace('audio:', ''))
+        self.src = blocks.multiply_const_ff(gain)
+        self.tb.connect(src, self.src)
+
+    def init_osmosdr(self, config):
+        speeds = [250000, 1000000, 1024000, 1800000, 1920000, 2000000, 2048000, 2400000, 2560000]
 
         sys.stderr.write('device: %s\n' % config)
         if config['args'].startswith('rtl') and config['rate'] not in speeds:
@@ -81,7 +111,6 @@ class device(object):
         self.ppm = config['ppm']
 
         self.src.set_sample_rate(config['rate'])
-        self.sample_rate = config['rate']
 
         self.src.set_center_freq(config['frequency'])
         self.frequency = config['frequency']
@@ -97,7 +126,12 @@ class channel(object):
         if 'symbol_rate' in config.keys():
             self.symbol_rate = config['symbol_rate']
         self.config = config
-        self.demod = p25_demodulator.p25_demod_cb(
+        if dev.args.startswith('audio:'):
+            self.demod = p25_demodulator.p25_demod_fb(
+                         input_rate = dev.sample_rate,
+                         filter_type = config['filter_type'])
+        else:
+            self.demod = p25_demodulator.p25_demod_cb(
                          input_rate = dev.sample_rate,
                          demod_type = config['demod_type'],
                          filter_type = config['filter_type'],
@@ -116,7 +150,6 @@ class channel(object):
 
         self.sinks = []
         for plot in config['plot'].split(','):
-            # fixme: allow multiple complex consumers (fft and constellation currently mutually exclusive)
             if plot == 'datascope':
                 assert config['demod_type'] == 'fsk4'   ## datascope plot requires fsk4 demod type
                 sink = eye_sink_f(sps=config['if_rate'] / self.symbol_rate)
@@ -127,9 +160,16 @@ class channel(object):
                 self.demod.connect_float(sink)
                 self.kill_sink.append(sink)
             elif plot == 'fft':
+                assert config['demod_type'] == 'cqpsk'   ## fft plot requires cqpsk demod type
                 i = len(self.sinks)
                 self.sinks.append(fft_sink_c())
                 self.demod.connect_complex('src', self.sinks[i])
+                self.kill_sink.append(self.sinks[i])
+            elif plot == 'mixer':
+                assert config['demod_type'] == 'cqpsk'   ## mixer plot requires cqpsk demod type
+                i = len(self.sinks)
+                self.sinks.append(mixer_sink_c())
+                self.demod.connect_complex('mixer', self.sinks[i])
                 self.kill_sink.append(self.sinks[i])
             elif plot == 'constellation':
                 i = len(self.sinks)
@@ -156,10 +196,12 @@ class rx_block (gr.top_block):
         self.devices = []
         for cfg in config:
             self.device_id_by_name[cfg['name']] = len(self.devices)
-            self.devices.append(device(cfg))
+            self.devices.append(device(cfg, self))
 
     def find_device(self, chan):
         for dev in self.devices:
+            if dev.args.startswith('audio:') and chan['demod_type'] == 'fsk4':
+                return dev
             d = abs(chan['frequency'] - dev.frequency)
             nf = dev.sample_rate / 2
             if d + 6250 <= nf:

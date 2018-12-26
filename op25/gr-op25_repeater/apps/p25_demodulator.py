@@ -229,8 +229,8 @@ class p25_demod_cb(p25_demod_base):
         self.lo_freq = 0
         self.float_sink = None
         self.complex_sink = None
-        self.if1 = None
-        self.if2 = None
+        self.if1 = 0
+        self.if2 = 0
         self.t_cache = {}
         if filter_type == 'rrc':
             self.set_baseband_gain(0.61)
@@ -257,7 +257,7 @@ class p25_demod_cb(p25_demod_base):
             sys.stderr.write( 'Unable to use two-stage decimator for speed=%d\n' % (input_rate))
             # local osc
             self.lo = analog.sig_source_c (input_rate, analog.GR_SIN_WAVE, 0, 1.0, 0)
-            lpf_coeffs = filter.firdes.low_pass(1.0, input_rate, 7250, 725, filter.firdes.WIN_HANN)
+            lpf_coeffs = filter.firdes.low_pass(1.0, input_rate, 7250, 1450, filter.firdes.WIN_HANN)
             decimation = int(input_rate / if_rate)
             self.lpf = filter.fir_filter_ccf(decimation, lpf_coeffs)
             resampled_rate = float(input_rate) / float(decimation) # rate at output of self.lpf
@@ -306,6 +306,9 @@ class p25_demod_cb(p25_demod_base):
 
         self.set_relative_frequency(relative_freq)
 
+    def get_error_band(self):
+        return int(self.clock.get_error_band())
+
     def get_freq_error(self):	# get error in Hz (approx).
         return int(self.clock.get_freq_error() * self.symbol_rate)
 
@@ -318,7 +321,7 @@ class p25_demod_cb(p25_demod_base):
         self.clock.set_omega(self.sps)
 
     def set_relative_frequency(self, freq):
-        if abs(freq) > self.input_rate/2:
+        if abs(freq) > ((self.input_rate / 2) - (self.if1 / 2)):
             #print 'set_relative_frequency: error, relative frequency %d exceeds limit %d' % (freq, self.input_rate/2)
             return False
         if freq == self.lo_freq:
@@ -383,34 +386,19 @@ class p25_demod_cb(p25_demod_base):
             print 'connect_float: state error', self.connect_state
             assert 0 == 1
 
-    def disconnect_complex(self):
-        # assumes lock held or init
-        if not self.complex_sink:
-            return
-        self.disconnect(self.complex_sink[0], self.complex_sink[1])
-        self.complex_sink = None
-
     def connect_complex(self, src, sink):
         # assumes lock held or init
-        self.disconnect_complex()
         if src == 'clock':
             self.connect(self.clock, sink)
-            self.complex_sink = [self.clock, sink]
         elif src == 'diffdec':
             self.connect(self.diffdec, sink)
-            self.complex_sink = [self.diffdec, sink]
         elif src == 'mixer':
             self.connect(self.mixer, sink)
-            self.complex_sink = [self.mixer, sink]
         elif src == 'src':
             self.connect(self, sink)
-            self.complex_sink = [self, sink]
         elif src == 'bpf':
             self.connect(self.bpf, sink)
-            self.complex_sink = [self.bpf, sink]
         elif src == 'if_out':
             self.connect(self.if_out, sink)
-            self.complex_sink = [self.if_out, sink]
         elif src == 'agc':
             self.connect(self.agc, sink)
-            self.complex_sink = [self.agc, sink]

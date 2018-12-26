@@ -40,6 +40,9 @@ namespace gr {
     void frame_assembler_impl::set_xormask(const char*p) {
     }
 
+    void frame_assembler_impl::set_nac(int nac) {
+    }
+
     void frame_assembler_impl::set_slotid(int slotid) {
     }
 

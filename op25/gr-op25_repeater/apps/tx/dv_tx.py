@@ -37,6 +37,9 @@ from math import pi
 
 from op25_c4fm_mod import p25_mod_bf
 
+sys.path.append('..')
+from gr_gnuplot import float_sink_f
+
 RC_FILTER = {'dmr': 'rrc', 'p25': 'rc', 'ysf': 'rrc', 'dstar': None}
 
 output_gains = {
@@ -95,6 +98,7 @@ class my_top_block(gr.top_block):
         parser.add_option("-q", "--frequency-correction", type="float", default=0.0, help="ppm")
         parser.add_option("-Q", "--frequency", type="float", default=0.0, help="Hz")
         parser.add_option("-r", "--repeat", action="store_true", default=False, help="input file repeat")
+        parser.add_option("-P", "--plot-audio", action="store_true", default=False, help="scope input")
         parser.add_option("-R", "--fullrate-mode", action="store_true", default=False, help="ysf fullrate")
         parser.add_option("-s", "--modulator-rate", type="int", default=48000, help="must be submultiple of IF rate - see also -A")
         parser.add_option("-S", "--alsa-rate", type="int", default=48000, help="sound source/sink sample rate")
@@ -155,6 +159,9 @@ class my_top_block(gr.top_block):
             AUDIO_SCALE = blocks.multiply_const_ff(32767.0 * options.gain)
             AUDIO_F2S = blocks.float_to_short()
             self.connect(AUDIO, AUDIO_DECIM, AUDIO_SCALE, AUDIO_F2S)
+            if options.plot_audio:
+                PLOT_F = float_sink_f()
+                self.connect(AUDIO, PLOT_F)
 
         if options.file1: 
             IN1 = blocks.file_source(gr.sizeof_short, options.file1, options.repeat)

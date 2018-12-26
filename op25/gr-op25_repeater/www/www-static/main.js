@@ -33,6 +33,10 @@ var nfinal_count = 0;
 var n200_count = 0;
 var r200_count = 0;
 var SEND_QLIMIT = 5;
+var summary_mode = true;
+var last_srcaddr = 0;
+var enable_changed = false;
+var enable_status = [];
 
 function find_parent(ele, tagname) {
     while (ele) {
@@ -89,8 +93,10 @@ function edit_d(d, to_ui) {
 			} else if (k in floats) {
 				new_d[k] = parseFloat(new_d[k]);
 			} else if (k in lists) {
-				var l = new_d[k].split(",");
-				if (k in freqs) {
+				var l = [];
+				if (new_d[k].length)
+					l = new_d[k].split(",");
+				if (k in freqs && new_d[k].length) {
 					var new_l = [];
 					for (var i in l)
 						new_l.push(edit_freq(l[i], to_ui));
@@ -202,8 +208,8 @@ function amend_d(myrow, mytbl, command) {
 }
 
 function nav_update(command) {
-	var names = ["b1", "b2", "b3", "b4", "b5"];
-	var bmap = { "status": "b1", "plot": "b2", "settings": "b3", "rx": "b4", "about": "b5" };
+	var names = ["b1", "b2", "b3", "b4"];
+	var bmap = { "status": "b1", "settings": "b2", "rx": "b3", "about": "b4" };
 	var id = bmap[command];
 	for (var id1 in names) {
 		b = document.getElementById(names[id1]);
@@ -216,7 +222,14 @@ function nav_update(command) {
 }
 
 function f_select(command) {
-    var div_list = ["status", "plot", "settings", "rx", "about"];
+    var div_list = ["status", "settings", "rx", "about"];
+    var orig_command = command;
+    if (command == "rx") {
+        command = "status";     //hack
+        summary_mode = false;
+    } else {
+        summary_mode = true;
+    }
     for (var i=0; i<div_list.length; i++) {
         var ele = document.getElementById("div_" + div_list[i]);
         if (command == div_list[i])
@@ -224,12 +237,16 @@ function f_select(command) {
         else
             ele.style['display'] = "none";
     }
+    if (command == "status" && summary_mode == true)
+        document.getElementById("div_images").style["display"] = "";
+    else
+        document.getElementById("div_images").style["display"] = "none";
     var ctl = document.getElementById("controls");
     if (command == "status")
         ctl.style['display'] = "";
     else
         ctl.style['display'] = "none";
-    nav_update(command);
+    nav_update(orig_command);
     if (command == "settings")
         f_list();
 }
@@ -260,6 +277,7 @@ function rx_update(d) {
 
 	var displayTgid = "&mdash;";
 	var displayTag = "&nbsp;";
+	var display_src = "&mdash;";
 
 	var doTruncate = document.getElementById("valTruncate").value; // get truncate value from Configuration
 
@@ -268,7 +286,11 @@ function rx_update(d) {
       	    displayTag = d['tag'].substring(0,doTruncate); 
 	}
 
-	var html = "<table style=\"width: 512px; height: 112px;\">";
+	if (last_srcaddr != null) {
+		display_src = last_srcaddr;
+	}
+
+	var html = "<table style=\"width: 512px; height: 168px;\">";
 	html += "<tr>";
 	html += "<td style=\"width: 422px;\"><span class=\"systgid\" id=\"dSys\">" + d['system'].substring(0,doTruncate) + "</span></td>";
 	html += "<td align=\"center\" style=\"width: 88px;\">";
@@ -279,7 +301,14 @@ function rx_update(d) {
 	html += "<td align=\"center\" style=\"width: 88px;\">";
         html += "<span class=\"label-sm\">Talkgroup ID</span><br><span class=\"value\">" + displayTgid + "</span>";
 	html += "</td>";
-	html += "</tr></table>";
+	html += "</tr>";
+	html += "<tr>";
+	html += "<td style=\"width: 422px;\"><span class=\"systgid\" id=\"dTag\">" + "&nbsp;" + "</span></td>";
+	html += "<td align=\"center\" style=\"width: 88px;\">";
+        html += "<span class=\"label-sm\">Source ID</span><br><span class=\"value\">" + display_src + "</span>";
+	html += "</td>";
+	html += "</tr>";
+	html += "</table>";
 
 	var div_s2 = document.getElementById("div_s2");
 	div_s2.innerHTML = html;
@@ -317,24 +346,92 @@ function adjacent_data(d) {
         ct += 1;
         html += "<tr style=\"background-color: " + color + ";\"><td>" + freq / 1000000.0 + "</td><td>" + d[freq]['sysid'].toString(16) + "</td><td>" + d[freq]["rfid"] + "</td><td>" + d[freq]["stid"] + "</td><td>" + (d[freq]["uplink"] / 1000000.0) + "</td></tr>";
     }
-    html += "</table></div>"; // close div-adjacent     // end trunk_update HTML
+    html += "</table></div>"; // close div-adjacent
 
 // end adjacent sites table
 
     return html;
 }
 
+function trunk_summary(d) {
+    var nacs = [];
+    for (var nac in d) {
+        if (!is_digit(nac.charAt(0)))
+            continue;
+        nacs[nac] = 1;
+    }
+    var html = "";
+    html += "<br><div class=\"summary\">";
+    html += "<form>";
+    html += "<table border=1 borderwidth=0 cellpadding=0 cellspacing=0>"; 
+    html += "<tr><th>Enabled</th><th>NAC</th><th>System</th><th>Last Active</th><th>TSBK Count</th></tr>";
+    for (nac in d) {
+        if (!is_digit(nac.charAt(0)))
+            continue;
+        if (!(nac in enable_status))
+            enable_status[nac] = true;
+        var times = [];
+        for (var freq in d[nac]['frequency_data']) {
+            times.push(parseInt(d[nac]['frequency_data'][freq]['last_activity']));
+        }
+        var min_t = 0;
+        if (times.length) {
+            for (var i=0; i<times.length; i++) {
+                if (i == 0 || times[i] < min_t)
+                    min_t = times[i];
+            }
+            times = min_t;
+        } else {
+            times = "&nbsp;";
+        }
+        var ns = parseInt(nac).toString(16);
+        html += "<tr>";
+	var checked = enable_status[nac] ? "checked" : "";
+        html += "<td><span class=\"value\"><input type=\"checkbox\" id=\"enabled-" + nac + "\" " + checked + " onchange=\"javascript: f_enable_changed(this, " + nac + ");\"></input></span></td>";
+
+        html += "<td><span class=\"value\">" + ns + "</span></td>";
+        html += "<td><span class=\"value\">" + d[nac]['sysname'] + "</span></td>";
+        html += "<td><span class=\"value\">" + times + "</span></td>";
+        html += "<td><span class=\"value\">" + d[nac]['tsbks'] + "</span></td>";
+        html += "</tr>";
+    }
+    var display = "";
+    if (!enable_changed)
+        display = "none";
+    html += "<tr id=\"save_list_row\" style=\"display: " + display + ";\"><td colspan=99>";
+    html += "<input type=\"button\" name=\"save_list\" value=\"Apply Settings\" onclick=\"javascript:f_save_list(this);\"></input>";
+    html += "</td></tr>";
+    html += "</table></form></div>";
+    return html;
+}
+
+function f_save_list(ele) {
+    var flist = [];
+    for (var nac in enable_status) {
+        if (enable_status[nac])
+            flist.push(nac.toString(10));
+    }
+    document.getElementById("save_list_row").style["display"] = "none";
+    enable_changed = false;
+    send_command("settings-enable", flist.join(","));
+}
+
+function f_enable_changed(ele, nac) {
+    enable_status[nac] = ele.checked;
+    enable_changed = true;
+    document.getElementById("save_list_row").style["display"] = "";
+}
+
 // additional system info: wacn, sysID, rfss, site id, secondary control channels, freq error
 
-function trunk_update(d) {
-    var do_hex = {"syid":0, "sysid":0, "wacn": 0};
-    var do_float = {"rxchan":0, "txchan":0};
-    var html = "";                              // begin trunk_update HTML
+function trunk_detail(d) {
+    var html = "";
     for (var nac in d) {
         if (!is_digit(nac.charAt(0)))
             continue;
 	html += "<div class=\"content\">";     // open div-content
         html += "<span class=\"nac\">";
+        html += d[nac]["sysname"] + " . . . . . . . . ";
         html += "NAC " + "0x" + parseInt(nac).toString(16) + " ";
         html += d[nac]['rxchan'] / 1000000.0;
         html += " / ";
@@ -380,7 +477,16 @@ function trunk_update(d) {
         html += adjacent_data(d[nac]['adjacent_data']);
         html += "</div><br></div><hr><br>";   // close div-content  close div-info  box-br  hr-separating each NAC
     }
+    return html;
+}
+
+function trunk_update(d) {
     var div_s1 = document.getElementById("div_s1");
+    var html;
+    if (summary_mode)
+        html = trunk_summary(d);
+    else
+        html = trunk_detail(d);
     div_s1.innerHTML = html;
 
 	// disply hold indicator  
@@ -400,6 +506,7 @@ function trunk_update(d) {
 	else {
 		document.getElementById("lastCommand").innerHTML = "";	
 	}
+	last_srcaddr = d["srcaddr"];
 }
 
 function config_list(d) {

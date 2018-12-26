@@ -28,9 +28,36 @@ def get_frequency(f):	# return frequency in Hz
         return int(float(f) * 1000000)
 
 def get_int_dict(s):
+    # parameter string s is the file name to be read,
+    # except when the first character of s is a digit,
+    # in which case s itself is the comma-separated list of ints
+
     if s[0].isdigit():
         return dict.fromkeys([int(d) for d in s.split(',')])
-    return dict.fromkeys([int(d) for d in open(s).readlines()])
+
+    # create dict by reading from file
+    d = {}                     # this is the dict
+    with open(s,"r") as f:
+        for v in f:
+            v = v.split("\t",1) # split on tab
+            try:
+                v0 = int(v[0])				# first parameter is tgid or start of tgid range
+		v1 = v0
+		if (len(v) > 1) and (int(v[1]) > v0):	# second parameter if present is end of tgid range
+                	v1 = int(v[1])
+		
+		for tg in range(v0, (v1 + 1)):
+                	if tg not in d:      # is this a new tg?
+                		d[tg] = []   # if so, add to dict (key only, value null)
+                		sys.stderr.write('added talkgroup %d from %s\n' % (tg,s))
+
+            except (IndexError, ValueError) as ex:
+                continue
+    f.close()
+    return dict.fromkeys(d)
+
+def utf_ascii(ustr):
+    return (ustr.decode("utf-8")).encode("ascii", "ignore")
 
 def load_tsv(tsv_filename):
     hdrmap = []
@@ -75,9 +102,19 @@ def make_config(configs):
             with open(configs[nac]['tgid_tags_file'], 'rb') as csvfile:
                 sreader = csv.reader(csvfile, delimiter='\t', quotechar='"', quoting=csv.QUOTE_ALL)
                 for row in sreader:
-                    tgid = int(row[0])
-                    txt = row[1]
-                    result_config[nac]['tgid_map'][tgid] = txt
+                    try:
+                        tgid = int(row[0])
+                        txt = utf_ascii(row[1])
+                    except (IndexError, ValueError) as ex:
+                        continue
+                    if len(row) >= 3:
+                        try:
+                            prio = int(row[2])
+                        except ValueError as ex:
+                            prio = 3
+                    else:
+                        prio = 3
+                    result_config[nac]['tgid_map'][tgid] = (txt, prio)
         if 'center_frequency' in configs[nac]:
             result_config[nac]['center_frequency'] = get_frequency(configs[nac]['center_frequency'])
     return result_config
