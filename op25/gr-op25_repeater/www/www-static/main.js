@@ -24,6 +24,8 @@ var http_req = new XMLHttpRequest();
 var counter1 = 0;
 var error_val = null;
 var current_tgid = null;
+var active_tgid = null;
+var active_nac = null;
 var send_busy = 0;
 var send_qfull = 0;
 var send_queue = [];
@@ -34,9 +36,12 @@ var n200_count = 0;
 var r200_count = 0;
 var SEND_QLIMIT = 5;
 var summary_mode = true;
-var last_srcaddr = 0;
 var enable_changed = false;
 var enable_status = [];
+var last_srcaddr = [];
+var last_alg = [];
+var last_algid = [];
+var last_keyid = [];
 
 function find_parent(ele, tagname) {
     while (ele) {
@@ -273,39 +278,55 @@ function rx_update(d) {
 
 // frequency, system, and talkgroup display
 
- function change_freq(d) {
+function change_freq(d) {
 
 	var displayTgid = "&mdash;";
 	var displayTag = "&nbsp;";
 	var display_src = "&mdash;";
+	var display_alg = "&mdash;";
+	var display_keyid = "&mdash;";
+	var e_class = "value";
 
 	var doTruncate = document.getElementById("valTruncate").value; // get truncate value from Configuration
 
-	if (d['tgid'] != null) {
-            displayTgid = d['tgid'];
-      	    displayTag = d['tag'].substring(0,doTruncate); 
-	}
+	last_srcaddr[d['nac']] = d['srcaddr'];
+	last_alg[d['nac']] = d['alg'];
+	last_algid[d['nac']] = d['algid'];
+	last_keyid[d['nac']] = d['keyid'];
 
-	if (last_srcaddr != null) {
-		display_src = last_srcaddr;
+	if (d['tgid'] != null) {
+		displayTgid = d['tgid'];
+		displayTag = d['tag'].substring(0,doTruncate); 
+		if (d['srcaddr'] != null && d['srcaddr'] > 0)
+			display_src = d['srcaddr'];
+		display_alg = d['alg'];
+		if (d['algid'] != 128) {
+			display_keyid = d['keyid'];
+			e_class = "red_value";
+		}
 	}
 
 	var html = "<table style=\"width: 512px; height: 168px;\">";
 	html += "<tr>";
-	html += "<td style=\"width: 422px;\"><span class=\"systgid\" id=\"dSys\">" + d['system'].substring(0,doTruncate) + "</span></td>";
+	html += "<td style=\"width: 422px;\" colspan=2><span class=\"systgid\" id=\"dSys\">" + d['system'].substring(0,doTruncate) + "</span></td>";
 	html += "<td align=\"center\" style=\"width: 88px;\">";
         html += "<span class=\"label-sm\">Frequency</span><br><span class=\"value\">" + d['freq'] / 1000000.0 + "</span></td>";
 	html += "</tr>";
 	html += "<tr>";
-	html += "<td style=\"width: 422px;\"><span class=\"systgid\" id=\"dTag\">" + displayTag + "</span></td>";
+	html += "<td style=\"width: 422px;\" colspan=2><span class=\"systgid\" id=\"dTag\">" + displayTag + "</span></td>";
 	html += "<td align=\"center\" style=\"width: 88px;\">";
         html += "<span class=\"label-sm\">Talkgroup ID</span><br><span class=\"value\">" + displayTgid + "</span>";
 	html += "</td>";
 	html += "</tr>";
 	html += "<tr>";
-	html += "<td style=\"width: 422px;\"><span class=\"systgid\" id=\"dTag\">" + "&nbsp;" + "</span></td>";
+	html += "<td align=\"left\">";
+        html += "<span class=\"label-sm\">Encryption</span><br><span class=\"" + e_class + "\" id=\"dAlg\">" + display_alg + "</span>";
+	html += "</td>";
 	html += "<td align=\"center\" style=\"width: 88px;\">";
-        html += "<span class=\"label-sm\">Source ID</span><br><span class=\"value\">" + display_src + "</span>";
+        html += "<span class=\"label-sm\">Key ID</span><br><span class=\"value\" id=\"dKey\">" + display_keyid + "</span>";
+	html += "</td>";
+	html += "<td align=\"center\" style=\"width: 88px;\">";
+        html += "<span class=\"label-sm\">Source Addr</span><br><span class=\"value\" id=\"dSrc\">" + display_src + "</span>";
 	html += "</td>";
 	html += "</tr>";
 	html += "</table>";
@@ -314,6 +335,8 @@ function rx_update(d) {
 	div_s2.innerHTML = html;
 	div_s2.style["display"] = "";
 
+	active_nac = d['nac'];
+	active_tgid = d['tgid'];
 	if (d['tgid'] != null) {
 		current_tgid = d['tgid'];
 	}
@@ -368,6 +391,10 @@ function trunk_summary(d) {
     for (nac in d) {
         if (!is_digit(nac.charAt(0)))
             continue;
+        last_srcaddr[nac] = d[nac]['srcaddr'];
+        last_alg[nac] = d[nac]['alg'];
+        last_algid[nac] = d[nac]['algid'];
+        last_keyid[nac] = d[nac]['keyid'];
         if (!(nac in enable_status))
             enable_status[nac] = true;
         var times = [];
@@ -429,6 +456,10 @@ function trunk_detail(d) {
     for (var nac in d) {
         if (!is_digit(nac.charAt(0)))
             continue;
+        last_srcaddr[nac] = d[nac]['srcaddr'];
+        last_alg[nac] = d[nac]['alg'];
+        last_algid[nac] = d[nac]['algid'];
+        last_keyid[nac] = d[nac]['keyid'];
 	html += "<div class=\"content\">";     // open div-content
         html += "<span class=\"nac\">";
         html += d[nac]["sysname"] + " . . . . . . . . ";
@@ -480,6 +511,36 @@ function trunk_detail(d) {
     return html;
 }
 
+function update_data(d) {
+	if (active_nac == null || active_tgid == null)
+		return;
+	var display_src = "&mdash;";
+	var display_alg = "&mdash;";
+	var display_keyid = "&mdash;";
+	var e_class = "value";
+	if (last_srcaddr[active_nac] != null) {
+		display_src = last_srcaddr[active_nac];
+		var ele = document.getElementById("dSrc");
+		if (ele != null)
+			ele.innerHTML = display_src;
+	}
+	if (last_algid[active_nac] == null || last_alg[active_nac] == null || last_keyid[active_nac] == null)
+		return;
+	display_alg = last_alg[active_nac];
+	if (last_algid[active_nac] != 128) {
+		display_keyid = last_keyid[active_nac];
+		e_class = "red_value";
+	}
+	ele = document.getElementById("dAlg");
+	if (ele != null) {
+		ele.innerHTML = display_alg;
+		ele.className = e_class;
+	}
+	ele = document.getElementById("dKey");
+	if (ele != null)
+		ele.innerHTML = display_keyid;
+}
+
 function trunk_update(d) {
     var div_s1 = document.getElementById("div_s1");
     var html;
@@ -506,7 +567,7 @@ function trunk_update(d) {
 	else {
 		document.getElementById("lastCommand").innerHTML = "";	
 	}
-	last_srcaddr = d["srcaddr"];
+	update_data(d);
 }
 
 function config_list(d) {

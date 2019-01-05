@@ -741,7 +741,6 @@ class rx_ctl (object):
                      'tgid_hold': self.tgid_hold,
                      'tgid_hold_until': int(self.tgid_hold_until - current_time),
                      'hold_mode': self.hold_mode}
-        d['nac'] = self.current_nac
         return json.dumps(d)
 
     def dump_tgids(self):

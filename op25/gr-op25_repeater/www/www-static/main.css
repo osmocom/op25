@@ -227,6 +227,13 @@ div.adjacent {  /* adjacent sites container that holds the table */
 	text-align: center;
 }
 
+.red_value {
+
+	font-family: Arial, Helvetica, sans-serif;
+	color: #f00000;
+	font-weight: bold;
+}
+
 .value {
 
 	font-family: Arial, Helvetica, sans-serif;
@@ -239,6 +246,13 @@ div.adjacent {  /* adjacent sites container that holds the table */
 	font-family: Arial, Helvetica, sans-serif;
 	color: #000060;
 	font-weight: bold;
+	font-size: 24px;
+}
+
+.syscrypto {    /* alg/key text */
+
+	font-family: Arial, Helvetica, sans-serif;
+	color: #f00000;
 	font-size: 24px;
 }
 
