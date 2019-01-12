@@ -1,5 +1,6 @@
 /* Portable C version of des() function */
 
+#include <stdint.h>
 #include "des.h"
 
 /* Tables defined in the Data Encryption Standard documents
@@ -115,7 +116,7 @@ int Asmversion = 0;
  * For best results, ensure that this is aligned on a 32-bit boundary;
  * Borland C++ 3.1 doesn't guarantee this!
  */
-extern unsigned long Spbox[8][64];		/* Combined S and P boxes */
+extern uint64_t Spbox[8][64];		/* Combined S and P boxes */
 
 /* Primitive function F.
  * Input is r, subkey array in keys, output is XORed into l.
