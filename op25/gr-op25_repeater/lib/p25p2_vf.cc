@@ -20,6 +20,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include "op25_golay.h"
 #include "p25p2_vf.h"
 #include "rs.h"
 

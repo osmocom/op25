@@ -234,24 +234,37 @@ p25p1_fdma::process_duid(uint32_t const duid, uint32_t const nac, const uint8_t*
 void
 p25p1_fdma::process_HDU(const bit_vector& A)
 {
+        uint32_t MFID;
+	int i, j, k, ec;
+	uint32_t gly;
+	std::vector<uint8_t> HB(63,0); // hexbit vector
+	std::string s = "";
+	int failures = 0;
+	k = 0;
 	if (d_debug >= 10) {
 		fprintf (stderr, "%s NAC 0x%03x HDU:  ", logts.get(), framer->nac);
 	}
 
-        uint32_t MFID;
-	int i, j, k, ec;
-	std::vector<uint8_t> HB(63,0); // hexbit vector
-	std::string s = "";
-	k = 0;
 	for (i = 0; i < 36; i ++) {
 		uint32_t CW = 0;
 		for (j = 0; j < 18; j++) {  // 18 bits / cw
 			CW = (CW << 1) + A [ hdu_codeword_bits[k++] ];
  		}
-		HB[27 + i] = gly24128Dec(CW) & 63;
+		gly = gly24128Dec(CW);
+		HB[27 + i] = gly & 63;
+		if (CW ^ gly24128Enc(gly))
+			/* "failures" in this context means any mismatch,
+			 * disregarding how "recoverable" the error may be
+			 * and disregarding how many bits may mismatch */
+			failures += 1;
 	}
 	ec = rs16.decode(HB); // Reed Solomon (36,20,17) error correction
-
+	if (failures > 6) {
+		if (d_debug >= 10) {
+			fprintf (stderr, "ESS computation suppressed: failed %d of 36, ec=%d\n", failures, ec);
+		}
+		return;
+	}
 	if (ec >= 0) {
 		j = 27;												// 72 bit MI
 		for (i = 0; i < 9;) {
@@ -270,6 +283,7 @@ p25p1_fdma::process_HDU(const bit_vector& A)
 			for (i = 0; i < 9; i++) {
 				fprintf(stderr, "%02x ", ess_mi[i]);
 			}
+			fprintf(stderr, ", Golay failures=%d of 36, ec=%d", failures, ec);
 		}
 		s = "{\"nac\" : " + std::to_string(framer->nac) + ", \"algid\" : " + std::to_string(ess_algid) + ", \"alg\" : \"" + lookup(ess_algid, ALGIDS, ALGIDS_SZ) + "\", \"keyid\": " + std::to_string(ess_keyid) + "}";
 		send_msg(s, -3);
@@ -280,12 +294,13 @@ p25p1_fdma::process_HDU(const bit_vector& A)
 	}
 }
 
-void
+int
 p25p1_fdma::process_LLDU(const bit_vector& A, std::vector<uint8_t>& HB)
-{
+{	// return count of hamming failures
 	process_duid(framer->duid, framer->nac, NULL, 0);
 
 	int i, j, k;
+	int failures = 0;
 	k = 0;
 	for (i = 0; i < 24; i ++) { // 24 10-bit codewords
 		uint32_t CW = 0;
@@ -293,66 +308,89 @@ p25p1_fdma::process_LLDU(const bit_vector& A, std::vector<uint8_t>& HB)
 			CW = (CW << 1) + A[ imbe_ldu_ls_data_bits[k++] ];
 		}
 		HB[39 + i] = hmg1063Dec( CW >> 4, CW & 0x0f );
+		if (CW ^ ((HB[39+i] << 4) + hmg1063EncTbl[HB[39+i]]))
+			failures += 1;
 	}
+	return failures;
 }
 
 void
 p25p1_fdma::process_LDU1(const bit_vector& A)
 {
+	int hmg_failures;
 	if (d_debug >= 10) {
 		fprintf (stderr, "%s NAC 0x%03x LDU1: ", logts.get(), framer->nac);
 	}
 
 	std::vector<uint8_t> HB(63,0); // hexbit vector
-	process_LLDU(A, HB);
-	process_LCW(HB);
+	hmg_failures = process_LLDU(A, HB);
+	if (hmg_failures < 6)
+		process_LCW(HB);
+	else {
+		if (d_debug >= 10) {
+			fprintf (stderr, " (LCW computation suppressed");
+		}
+	}
 
 	if (d_debug >= 10) {
+		fprintf(stderr, ", Hamming failures=%d of 24", hmg_failures);
 		fprintf (stderr, "\n");
 	}
 
-	process_voice(A);
+	// LDUx frames with exactly 20 failures seem to be not uncommon (and deliberate?)
+	// a TDU almost always immediately follows these code violations
+	if (hmg_failures < 16)
+		process_voice(A);
 }
 
 void
 p25p1_fdma::process_LDU2(const bit_vector& A)
 {
 	std::string s = "";
+	int hmg_failures;
 	if (d_debug >= 10) {
 		fprintf (stderr, "%s NAC 0x%03x LDU2: ", logts.get(), framer->nac);
 	}
 
 	std::vector<uint8_t> HB(63,0); // hexbit vector
-	process_LLDU(A, HB);
+	hmg_failures = process_LLDU(A, HB);
 
-        int i, j, ec;
-	ec = rs8.decode(HB); // Reed Solomon (24,16,9) error correction
-	if (ec >= 0) {	// save info if good decode
-		j = 39;												// 72 bit MI
-		for (i = 0; i < 9;) {
-			ess_mi[i++] = (uint8_t)  (HB[j  ]         << 2) + (HB[j+1] >> 4);
-			ess_mi[i++] = (uint8_t) ((HB[j+1] & 0x0f) << 4) + (HB[j+2] >> 2);
-			ess_mi[i++] = (uint8_t) ((HB[j+2] & 0x03) << 6) +  HB[j+3];
-			j += 4;
-		}
-		ess_algid =  (HB[j  ]         <<  2) + (HB[j+1] >> 4);					// 8 bit AlgId
-		ess_keyid = ((HB[j+1] & 0x0f) << 12) + (HB[j+2] << 6) + HB[j+3];			// 16 bit KeyId
-
-		if (d_debug >= 10) {
-			fprintf(stderr, "ESS: algid=%x, keyid=%x, mi=", ess_algid, ess_keyid);
-			for (int i = 0; i < 9; i++) {
-				fprintf(stderr, "%02x ", ess_mi[i]);
+        int i, j, ec=0;
+	if (hmg_failures < 6) {
+		ec = rs8.decode(HB); // Reed Solomon (24,16,9) error correction
+		if (ec >= 0) {	// save info if good decode
+			j = 39;												// 72 bit MI
+			for (i = 0; i < 9;) {
+				ess_mi[i++] = (uint8_t)  (HB[j  ]         << 2) + (HB[j+1] >> 4);
+				ess_mi[i++] = (uint8_t) ((HB[j+1] & 0x0f) << 4) + (HB[j+2] >> 2);
+				ess_mi[i++] = (uint8_t) ((HB[j+2] & 0x03) << 6) +  HB[j+3];
+				j += 4;
 			}
+			ess_algid =  (HB[j  ]         <<  2) + (HB[j+1] >> 4);					// 8 bit AlgId
+			ess_keyid = ((HB[j+1] & 0x0f) << 12) + (HB[j+2] << 6) + HB[j+3];			// 16 bit KeyId
+
+			if (d_debug >= 10) {
+				fprintf(stderr, "ESS: algid=%x, keyid=%x, mi=", ess_algid, ess_keyid);
+				for (int i = 0; i < 9; i++) {
+					fprintf(stderr, "%02x ", ess_mi[i]);
+				}
+			}
+			s = "{\"nac\" : " + std::to_string(framer->nac) + ", \"algid\" : " + std::to_string(ess_algid) + ", \"alg\" : \"" + lookup(ess_algid, ALGIDS, ALGIDS_SZ) + "\", \"keyid\": " + std::to_string(ess_keyid) + "}";
+			send_msg(s, -3);
 		}
-		s = "{\"nac\" : " + std::to_string(framer->nac) + ", \"algid\" : " + std::to_string(ess_algid) + ", \"alg\" : \"" + lookup(ess_algid, ALGIDS, ALGIDS_SZ) + "\", \"keyid\": " + std::to_string(ess_keyid) + "}";
-		send_msg(s, -3);
+	} else {
+		if (d_debug >= 10) {
+			fprintf (stderr, " (ESS computation suppressed)");
+		}
 	}
 
 	if (d_debug >= 10) {
+		fprintf(stderr, ", Hamming failures=%d of 24, ec=%d", hmg_failures, ec);
 		fprintf (stderr, "\n");
 	}
 
-	process_voice(A);
+	if (hmg_failures < 16)
+		process_voice(A);
 }
 
 void

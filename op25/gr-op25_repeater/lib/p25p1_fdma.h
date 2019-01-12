@@ -47,7 +47,7 @@ namespace gr {
 	void process_duid(uint32_t const duid, uint32_t const nac, const uint8_t* buf, const int len);
         void process_HDU(const bit_vector& A);
         void process_LCW(std::vector<uint8_t>& HB);
-        void process_LLDU(const bit_vector& A, std::vector<uint8_t>& HB);
+        int process_LLDU(const bit_vector& A, std::vector<uint8_t>& HB);
         void process_LDU1(const bit_vector& A);
         void process_LDU2(const bit_vector& A);
         void process_TTDU();
