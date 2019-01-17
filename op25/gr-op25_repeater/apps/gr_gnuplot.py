@@ -55,7 +55,7 @@ def limit(a,lim):
 	return a
 
 class wrap_gp(object):
-	def __init__(self, sps=_def_sps):
+	def __init__(self, sps=_def_sps, logfile=None):
 		self.sps = sps
 		self.center_freq = 0.0
 		self.relative_freq = 0.0
@@ -72,6 +72,7 @@ class wrap_gp(object):
 		self.sequence = 0
 		self.output_dir = None
 		self.filename = None
+		self.logfile = logfile
 
 		self.attach_gp()
 
@@ -250,6 +251,9 @@ class wrap_gp(object):
 			h+= 'set yrange [-2:2]\n'
                         h+= 'set title "Oscilloscope"\n'
 		dat = '%s%splot %s\n%s' % (h0, h, ','.join(plots), s)
+                if self.logfile is not None:
+                    with open(self.logfile, 'a') as fd:
+                        fd.write(dat)
 		self.gp.poll()
 		if self.gp.returncode is None:	# make sure gnuplot is still running 
 			try:
@@ -271,6 +275,9 @@ class wrap_gp(object):
 
 	def set_width(self, w):
 		self.width = w
+
+	def set_logfile(self, logfile=None):
+		self.logfile = logfile
 
 class eye_sink_f(gr.sync_block):
     """
@@ -325,7 +332,7 @@ class fft_sink_c(gr.sync_block):
 
     def work(self, input_items, output_items):
         self.skip += 1
-        if self.skip == 50:
+        if self.skip >= 50:
             self.skip = 0
             in0 = input_items[0]
 	    self.gnuplot.plot(in0, FFT_BINS, mode='fft')
@@ -357,10 +364,14 @@ class mixer_sink_c(gr.sync_block):
             out_sig=None)
         self.debug = debug
         self.gnuplot = wrap_gp()
+        self.skip = 0
 
     def work(self, input_items, output_items):
-        in0 = input_items[0]
-	self.gnuplot.plot(in0, FFT_BINS, mode='mixer')
+        self.skip += 1
+        if self.skip >= 10:
+            self.skip = 0
+            in0 = input_items[0]
+            self.gnuplot.plot(in0, FFT_BINS, mode='mixer')
         return len(input_items[0])
 
     def kill(self):
