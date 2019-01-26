@@ -625,6 +625,15 @@ p25p1_fdma::process_voice(const bit_vector& A)
 			imbe_deinterleave(A, cw, i);
 			// recover 88-bit IMBE voice code word
 			imbe_header_decode(cw, u[0], u[1], u[2], u[3], u[4], u[5], u[6], u[7], E0, ET);
+
+			if (d_debug >= 10) {
+				packed_codeword p_cw;
+				imbe_pack(p_cw, u[0], u[1], u[2], u[3], u[4], u[5], u[6], u[7]);
+				sprintf(s,"%02x %02x %02x %02x %02x %02x %02x %02x %02x %02x %02x",
+						p_cw[0], p_cw[1], p_cw[2], p_cw[3], p_cw[4], p_cw[5],
+					       	p_cw[6], p_cw[7], p_cw[8], p_cw[9], p_cw[10]);
+				fprintf(stderr, "%s IMBE %s\n", logts.get(), s); // print to log in one operation
+			}
 			// output one 32-byte msg per 0.020 sec.
 			// also, 32*9 = 288 byte pkts (for use via UDP)
 			sprintf(s, "%03x %03x %03x %03x %03x %03x %03x %03x\n", u[0], u[1], u[2], u[3], u[4], u[5], u[6], u[7]);
