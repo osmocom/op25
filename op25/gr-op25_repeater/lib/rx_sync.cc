@@ -207,6 +207,7 @@ void rx_sync::codeword(const uint8_t* cw, const enum codeword_types codeword_typ
 
 	switch(codeword_type) {
 	case CODEWORD_DMR:
+	case CODEWORD_NXDN_EHR:		// halfrate
 		interleaver.process_vcw(cw, b);
 		if (b[0] < 120)
 			mbe_dequantizeAmbe2250Parms(&cur_mp[slot_id], &prev_mp[slot_id], b);
@@ -287,6 +288,7 @@ void rx_sync::rx_sym(const uint8_t sym)
 	bool unmute;
 	uint8_t tmpcw[144];
 	bool ysf_fullrate;
+	uint8_t dbuf[182];
 
 	d_symbol_count ++;
 	d_sync_reg = (d_sync_reg << 2) | (sym & 3);
@@ -367,6 +369,18 @@ void rx_sync::rx_sym(const uint8_t sym)
 				codeword(bit_ptr + 2*(vcw*72 + 120 + 20), CODEWORD_YSF_HALFRATE, 0);   // 104 bits
 			}
 		}
+		break;
+	case RX_TYPE_NXDN_CAC:
+		nxdn_frame(symbol_ptr+22, 170);
+		break;
+	case RX_TYPE_NXDN_EHR:
+		memcpy(dbuf, symbol_ptr+10, sizeof(dbuf));
+		nxdn_descramble(dbuf, sizeof(dbuf));
+		// todo: process SACCH
+		codeword(dbuf+38+36*0, CODEWORD_NXDN_EHR, 0);
+		codeword(dbuf+38+36*1, CODEWORD_NXDN_EHR, 0);
+		codeword(dbuf+38+36*2, CODEWORD_NXDN_EHR, 0);
+		codeword(dbuf+38+36*3, CODEWORD_NXDN_EHR, 0);
 		break;
 	case RX_N_TYPES:
 		assert(0==1);     /* should not occur */

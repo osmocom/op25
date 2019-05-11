@@ -57,6 +57,7 @@ list(APPEND op25_repeater_sources
     op25_audio.cc
     CCITTChecksumReverse.cpp
     value_string.cc
+    nxdn.cc
 )
 
 add_library(gnuradio-op25_repeater SHARED ${op25_repeater_sources})

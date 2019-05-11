@@ -129,7 +129,8 @@ class channel(object):
         if dev.args.startswith('audio:'):
             self.demod = p25_demodulator.p25_demod_fb(
                          input_rate = dev.sample_rate,
-                         filter_type = config['filter_type'])
+                         filter_type = config['filter_type'],
+                         symbol_rate = self.symbol_rate)
         else:
             self.demod = p25_demodulator.p25_demod_cb(
                          input_rate = dev.sample_rate,

@@ -42,6 +42,8 @@
 #include "op25_imbe_frame.h"
 #include "software_imbe_decoder.h"
 #include "op25_audio.h"
+#include "nxdn_const.h"
+#include "nxdn.h"
 
 namespace gr{
     namespace op25_repeater{
@@ -54,6 +56,8 @@ enum rx_types {
 	RX_TYPE_DMR,
 	RX_TYPE_DSTAR,
 	RX_TYPE_YSF,
+	RX_TYPE_NXDN_EHR,
+	RX_TYPE_NXDN_CAC,
 	RX_N_TYPES
 };   // also used as array index
 
@@ -69,7 +73,9 @@ static const struct _mode_data {
 	{"P25",    48,0,864,1728,   P25_FRAME_SYNC_MAGIC},
 	{"DMR",    48,66,144,1728,  DMR_VOICE_SYNC_MAGIC},
 	{"DSTAR",  48,72,96,2016*2, DSTAR_FRAME_SYNC_MAGIC},
-	{"YSF",    40,0,480,480*2,  YSF_FRAME_SYNC_MAGIC}
+	{"YSF",    40,0,480,480*2,  YSF_FRAME_SYNC_MAGIC},
+	{"NXDN_EHR", 36,0,192,192*2, NXDN_FS6E_SYNC_MAGIC},
+	{"NXDN_CAC", 44,0,192,192*2, NXDN_POSTFS_SYNC_MAGIC}
 };   // index order must match rx_types enum
 
 enum codeword_types {
@@ -78,7 +84,8 @@ enum codeword_types {
 	CODEWORD_DMR,
 	CODEWORD_DSTAR,
 	CODEWORD_YSF_FULLRATE,
-	CODEWORD_YSF_HALFRATE
+	CODEWORD_YSF_HALFRATE,
+	CODEWORD_NXDN_EHR
 };
 
 class rx_sync {

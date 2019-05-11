@@ -98,6 +98,8 @@ class p25_demod_base(gr.hier_block2):
             if ntaps & 1 == 0:
                 ntaps += 1
             coeffs = filter.firdes.root_raised_cosine(1.0, if_rate, symbol_rate, excess_bw, ntaps)
+        if filter_type == 'nxdn':
+            coeffs = op25_c4fm_mod.c4fm_taps(sample_rate=self.if_rate, span=9, generator=op25_c4fm_mod.transfer_function_nxdn).generate()
         if filter_type == 'gmsk':
             # lifted from gmsk.py
             _omega = sps
@@ -393,7 +395,7 @@ class p25_demod_cb(p25_demod_base):
         elif src == 'diffdec':
             self.connect(self.diffdec, sink)
         elif src == 'mixer':
-            self.connect(self.mixer, sink)
+            self.connect(self.agc, sink)
         elif src == 'src':
             self.connect(self, sink)
         elif src == 'bpf':
