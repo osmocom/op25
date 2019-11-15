@@ -2,7 +2,7 @@
 
 # Copyright 2008-2011 Steve Glass
 # 
-# Copyright 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018 Max H. Parke KA1RBI
+# Copyright 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019 Max H. Parke KA1RBI
 # 
 # Copyright 2003,2004,2005,2006 Free Software Foundation, Inc.
 #         (from radiorausch)
@@ -393,7 +393,8 @@ class p25_rx_block (gr.top_block):
         freq = params['freq']
         offset = self.options.offset
         center_freq = params['center_frequency']
-        self.error_tracking()
+        if self.options.freq_error_tracking:
+            self.error_tracking()
         self.last_change_freq = freq
         self.last_change_freq_at = time.time()
 
@@ -755,6 +756,7 @@ class rx_main(object):
         parser.add_option("-N", "--gains", type="string", default=None, help="gain settings")
         parser.add_option("-O", "--audio-output", type="string", default="default", help="audio output device name")
         parser.add_option("-x", "--audio-gain", type="eng_float", default="1.0", help="audio gain (default = 1.0)")
+        parser.add_option("-X", "--freq-error-tracking", action="store_true", default=False, help="enable experimental frequency error tracking")
         parser.add_option("-U", "--udp-player", action="store_true", default=False, help="enable built-in udp audio player")
         parser.add_option("-q", "--freq-corr", type="eng_float", default=0.0, help="frequency correction")
         parser.add_option("-d", "--fine-tune", type="eng_float", default=0.0, help="fine tuning")
