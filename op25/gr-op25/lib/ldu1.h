@@ -24,13 +24,45 @@
 #ifndef INCLUDED_LDU1_H
 #define INCLUDED_LDU1_H
 
-#include "voice_data_unit.h"
+#include "ldu.h"
 
 /**
  * P25 Logical Data Unit 1.
  */
-class ldu1 : public voice_data_unit
+class ldu1 : public ldu
 {
+protected:
+
+  void do_correct_errors(bit_vector& frame_body);
+
+public:
+
+  struct base_meta_data
+  {
+    unsigned char lcf;
+    unsigned char mfid;
+    unsigned int source;
+    unsigned short reserved;
+  };
+
+  struct meta_data_0 : public base_meta_data
+  {
+    bool emergency;
+    unsigned short tgid;
+  };
+
+  struct meta_data_3 : public base_meta_data
+  {
+    unsigned int destination; 
+  };
+
+  union combined_meta_data
+  {
+    base_meta_data m;
+    meta_data_0 m0;
+    meta_data_3 m3;
+  } m_meta_data;
+
 public:
 
    /**
@@ -49,6 +81,10 @@ public:
     * Returns a string describing the Data Unit ID (DUID).
     */
    std::string duid_str() const;
+
+   virtual std::string snapshot() const;
+
+   combined_meta_data meta_data() const;
 
 };
 

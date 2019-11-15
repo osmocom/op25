@@ -28,9 +28,10 @@
 
 using namespace std;
 
-voice_du_handler::voice_du_handler(data_unit_handler_sptr next, imbe_decoder_sptr decoder) :
+voice_du_handler::voice_du_handler(data_unit_handler_sptr next, imbe_decoder_sptr decoder, crypto_module::sptr crypto_mod) :
    data_unit_handler(next),
-   d_decoder(decoder)
+   d_decoder(decoder),
+   d_crypto_mod(crypto_mod)
 {
 }
 
@@ -42,6 +43,6 @@ voice_du_handler::~voice_du_handler()
 void
 voice_du_handler::handle(data_unit_sptr du)
 {
-   du->decode_audio(*d_decoder);
+   du->decode_audio(*d_decoder, d_crypto_mod);
    data_unit_handler::handle(du);
 }

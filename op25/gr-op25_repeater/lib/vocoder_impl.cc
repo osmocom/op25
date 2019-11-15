@@ -40,6 +40,8 @@
 namespace gr {
   namespace op25_repeater {
 
+    static const int FRAGMENT_SIZE = 864;
+
     vocoder::sptr
     vocoder::make(bool encode_flag, bool verbose_flag, int stretch_amt, char* udp_host, int udp_port, bool raw_vectors_flag)
     {
@@ -70,9 +72,12 @@ namespace gr {
     output_queue_decode(),
     opt_udp_port(udp_port),
     opt_encode_flag(encode_flag),
-    p1voice_encode(verbose_flag, stretch_amt, udp_host, udp_port, raw_vectors_flag, output_queue),
-    p1voice_decode(verbose_flag, udp_host, udp_port, output_queue_decode)
+    op25audio(udp_host, udp_port, 0),
+    p1voice_encode(verbose_flag, stretch_amt, op25audio, raw_vectors_flag, output_queue),
+    p1voice_decode(verbose_flag, op25audio, output_queue_decode)
     {
+	if (opt_encode_flag)
+		set_output_multiple(FRAGMENT_SIZE);
     }
 
     /*
@@ -131,15 +136,20 @@ vocoder_impl::general_work_encode (int noutput_items,
 			       gr_vector_void_star &output_items)
 {
   const short *in = (const short *) input_items[0];
+  const int noutput_fragments = noutput_items / FRAGMENT_SIZE;
+  const int fragments_available = output_queue.size() / FRAGMENT_SIZE;
+  const int nsamples_consume = std::min(ninput_items[0], std::max(0,(noutput_fragments - fragments_available) * 9 * 160));
 
-  p1voice_encode.compress_samp(in, ninput_items[0]);
+  if (nsamples_consume > 0) {
+    p1voice_encode.compress_samp(in, nsamples_consume);
 
-  // Tell runtime system how many input items we consumed on
-  // each input stream.
+    // Tell runtime system how many input items we consumed on
+    // each input stream.
 
-  consume_each (ninput_items[0]);
+    consume_each (nsamples_consume);
+  }
 
-  if (opt_udp_port > 0)		// in udp option, we are a gr sink only
+  if (op25audio.enabled())		// in udp option, we are a gr sink only
     return 0;
 
   uint8_t *out = reinterpret_cast<uint8_t*>(output_items[0]);

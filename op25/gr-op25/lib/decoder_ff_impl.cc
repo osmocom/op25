@@ -34,6 +34,7 @@
 #include "offline_imbe_decoder.h"
 #include "voice_du_handler.h"
 #include "op25_yank.h"
+#include "bch.h"
 
 using namespace std;
 
@@ -185,12 +186,9 @@ namespace gr {
       };
       size_t NID_SZ = sizeof(NID) / sizeof(NID[0]);
 
-      itpp::bvec b(63), zeroes(16);
-      itpp::BCH bch(63, 16, 11, "6 3 3 1 1 4 1 3 6 7 2 3 5 4 5 3", true);
+      bit_vector b(NID_SZ);
       yank(d_frame_hdr,  NID, NID_SZ, b, 0);
-      b = bch.decode(b);
-      if(b != zeroes) {
-	b = bch.encode(b);
+      if(bchDec(b) >= 0) {
 	yank_back(b, 0, d_frame_hdr, NID, NID_SZ);
 	d_data_unit = data_unit::make_data_unit(d_frame_hdr);
       } else {

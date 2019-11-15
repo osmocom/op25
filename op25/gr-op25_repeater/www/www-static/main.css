@@ -1,0 +1,441 @@
+/* 
+
+ Copyright 2017, 2018 Max H. Parke KA1RBI
+ 
+ This file is part of OP25
+ 
+ OP25 is free software; you can redistribute it and/or modify it
+ under the terms of the GNU General Public License as published by
+ the Free Software Foundation; either version 3, or (at your option)
+ any later version.
+ 
+ OP25 is distributed in the hope that it will be useful, but WITHOUT
+ ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+ or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
+ License for more details.
+ 
+ You should have received a copy of the GNU General Public License
+ along with OP25; see the file COPYING. If not, write to the Free
+ Software Foundation, Inc., 51 Franklin Street, Boston, MA
+ 02110-1301, USA.
+
+*/
+
+#div_status body {
+
+	background-color: LightGray;
+	font-family: Arial, Helvetica, sans-serif;
+}
+
+#div_status table { 
+
+	border-collapse: collapse;
+	font-family: "Courier New", Courier, Monospace;
+}
+
+#div_status th {
+
+	border-style: solid;
+	padding: 3px;
+	font-family: Arial, Helvetica, sans-serif;
+	color: #000;
+	font-weight: bold;
+	background: #669999; /* For browsers that do not support gradients */
+	background: linear-gradient(#31687e, #56a0bd);
+}
+
+#div_status td {
+
+ 	border: 1px solid #666;
+	padding: 3px;
+
+}
+
+#div_s2 td {
+
+ 	border-bottom: 1px solid #888;
+	border-top: 1px solid #888;
+	border-left: 0px;
+	border-right: 0px;
+	padding: 3px;
+	background: transparent;
+}
+
+hr {
+	width: 730px;
+	float: left;
+        padding: 0px;
+}
+
+.control-button { /* skip/hold/lockout buttons */
+
+	border-color: gray;
+	height: 38px;
+	color: white;
+	padding: 10px 10px;
+	text-decoration: none;
+	margin: 1px 1px;
+	cursor: pointer;
+	width: 100px;
+	font-size: 14px;
+	font-weight: bold;
+	box-shadow: 0 1px 1px 0 rgba(0,0,0,0.2), 0 2px 5px 0 rgba(0,0,0,0.19);
+	background: #31687e; /* For browsers that do not support gradients */
+	background: linear-gradient(#31687e, #56a0bd); 
+}
+
+.control-button:hover {
+
+	background: linear-gradient(#56a0bd, #31687e);
+}
+	
+.controlsDisplay { /* holds buttons, and display */
+
+ 	width: 730px;
+	border: 0px solid #aaa;
+	vertical-align: top;
+	height: 178px;
+	padding: 2px;
+	box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 3px 10px 0 rgba(0,0,0,0.19);
+	background: LightGray; /* For browsers that do not support gradients */
+	background: linear-gradient(White, Silver);
+}
+
+.controls { /* skip/hold/lockout buttons   (1) */ 
+
+	border: 1px solid #aaa;
+	width: 104px;
+	float: left;
+	height: 100%;
+	text-align: center;
+} 
+
+
+.cfg_list {
+
+	border: 1px solid #000; 
+	padding: 5px; 
+	width: 260px;
+
+}
+
+.displaySettings {
+
+	border: 1px solid #000; 
+	padding: 5px; 
+	width: 720px;
+
+}
+.statDisplay { /* main display - freq, sys, tgid (2) */
+
+	padding: 0px;
+	width: 522px;
+	float: left;
+	position: relative;
+	display: inline-block;
+	border: 1px solid #aaa;
+	height: 100%;
+	background: LightGray; /* For browsers that do not support gradients */
+	background: linear-gradient(LightGray, White, LightGray);	 
+} 
+
+.sysMsg {  /* OP25 logo and message box on right   (3) */
+
+	padding: 0px;
+	/* display: inline-block; */
+	float: right; /* works left or right, right gives margin in between this & 2 */
+  	width: 95px;
+	height: 100%;
+  	background-color:#f9f9f9;
+	background-image: url("op25.png");
+	background-repeat: no-repeat;
+	background-position: right;
+	border: 1px solid #aaa;
+  	font-family: Arial, Helvetica, sans-serif;
+  	color: #666;
+  	font-size: 8pt;  
+}
+
+div.info {  /* main info container for the two tables */
+
+	width: 730px;
+	border: 0px solid #a00;
+	display: inline-block; 
+}
+
+
+div.system {  /* system frequencies container that holds the table */
+
+	float: left;
+	width: 48%;
+	height: auto;
+	border: 0px solid #d00;
+}
+
+div.adjacent {  /* adjacent sites container that holds the table */
+
+	margin-left: 29px;
+	float: left;
+	width: 48%;
+	height: auto;
+	border: 0px solid #00f;
+}
+
+/* labels, values, system and tg text */
+
+.copyr {
+
+	font-family: Arial, Helvetica, sans-serif;
+	font-size: 14px;
+	color: #484848;
+	float: right;
+	margin-top: 22px;
+	margin-right: 4px;
+}
+
+.label {
+
+	font-family: Arial, Helvetica, sans-serif;
+	color: #484848;
+}
+
+.label-hold {
+
+	font-family: Arial, Helvetica, sans-serif;
+	color: #c00;
+	font-size: 8pt;
+	font-weight: bold;
+	text-align: center;
+	vertical-align: center;
+	height: 50%;
+}
+
+.label-sm {
+
+	font-family: Arial, Helvetica, sans-serif;
+	color: #444;
+	font-size: 8pt;
+	padding: 2px;
+}
+
+.label-lc {  /* Last Command text */
+
+	font-family: Arial, Helvetica, sans-serif;
+	color: #444;
+	font-size: 8pt;
+	padding: 2px;
+	text-align: center;
+}
+
+.red_value {
+
+	font-family: Arial, Helvetica, sans-serif;
+	color: #f00000;
+	font-weight: bold;
+}
+
+.value {
+
+	font-family: Arial, Helvetica, sans-serif;
+	color: #000000;
+	font-weight: bold;
+}
+
+.systgid {    /* System and Talkgroup Text */
+
+	font-family: Arial, Helvetica, sans-serif;
+	color: #000060;
+	font-weight: bold;
+	font-size: 24px;
+}
+
+.syscrypto {    /* alg/key text */
+
+	font-family: Arial, Helvetica, sans-serif;
+	color: #f00000;
+	font-size: 24px;
+}
+
+.boxtitle {
+	font-weight: bold;
+	text-align: left;
+}
+
+
+.nac {  /* the whole NAC string... NAC, freq tsbks, etc. */
+
+	font-family: Arial, Helvetica, sans-serif;
+	color: #000060;
+	font-weight: bold;
+	font-size: 20px;
+
+}
+
+.s1 {
+	/* empty */
+}
+
+.s2 {
+	border: 0px solid #999;
+	position: relative; 
+	display: inline-block; 
+	max-height: 112px;
+	width: 512px;
+	padding: 5px;
+	margin: 0 0 0 2px;
+}
+
+.copyright-text {
+
+	font-family: Arial, Helvetica, sans-serif;
+	color: #000060;
+	font-size: 10pt;
+}
+
+.nav-ul {
+	list-style-type: none;
+	margin: 0;
+	padding: 0;
+	overflow: hidden;
+	background-color: #bbb;
+	background: linear-gradient(#bbbbbb, #cccccc);
+}
+
+.nav-li {
+	float: left;
+	border-right: 1px solid #000;
+	background: linear-gradient(#bbbbbb, #cccccc);
+}
+
+.nav-li-active {
+	float: left;
+	background-color:   #c0c0c0;
+	color:     #0080c0;
+	border-right: 1px solid #000;
+}
+
+.nav-bar {
+	width: 730px;
+	padding: 0;
+	border: 1px solid #000;
+}
+
+.nav-button {
+	background-color:  #bbb;
+	background: linear-gradient(#bbbbbb, #cccccc);
+	color:     #000;
+	border:   0px;
+	padding:   20px;
+	display:   block;
+	font-size: 14px;
+	font-weight: bold;
+}
+
+
+.nav-button-active {
+	background-color:  #9cc;
+	background: linear-gradient(#31687e, #56a0bd);
+	color:     #fff;
+	border:   0px;
+	padding:   20px;
+	display:   block;
+	font-size: 14px;
+	font-weight: bold;
+}
+
+.nav-button:hover {
+	background-color: #699;
+	background: linear-gradient(#56a0bd, #31687e);
+	color: #fff;
+}
+
+.nav-button-active:hover {
+	background-color: #699;
+	background: linear-gradient(#56a0bd, #31687e);
+}
+
+#div_settings table {
+	border-color:	black;
+}
+
+#div_settings tr {
+	border-top:	none;
+	border-bottom:	solid;
+}
+
+#div_settings th.boxtitle-th {
+	text-align:  left;
+}
+
+.div_settings th {
+	max-width: 75px;
+	border-style: none;
+	padding: 3px;
+	font-family: Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	color: #000;
+	background: #eee;
+	text-align:  right;
+	font-weight:	normal;
+}
+
+#div_settings td {
+	max-width: 75px;
+	border-style: none;
+	font-weight: bold;
+	text-align:  right;
+}
+
+#div_settings input[type=text] {
+	max-width: 75px;
+	border-top: none;
+	border-bottom-width: 1px;
+	border-bottom: dotted;
+	border-right: none;
+	border-left: none;
+	text-align:  right;
+}
+
+#div_settings input[type=button] {
+	max-width: 75px;
+	padding: 10px;
+	color: blue;
+	border: 0;
+}
+
+#div_settings select {
+	max-width: 100px;
+	padding: 0;
+	border: 0;
+}
+
+#div_settings option {
+	max-width: 100px;
+	padding: 0;
+	border: 0;
+}
+
+.boxtitle {
+	text-align: left;
+}
+
+div#cfg_list_area select {
+	width: 250px;
+	max-width: 250px;
+}
+
+#div_rx_opts td {
+	font-family: Arial, Helvetica, sans-serif;
+	font-size: 12px;
+        border-style: none;
+}
+
+#div_rx_opts input[type=text] {
+	max-width: 75px;
+	border-top: none;
+	border-bottom-width: 1px;
+	border-bottom: dotted;
+	border-right: none;
+	border-left: none;
+	text-align:  right;
+}

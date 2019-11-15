@@ -48,7 +48,7 @@ voip=0
 # call sign data fields (10 byte, except rem12 and rem34 are five byte)
 #################################################################################
 dest=**********
-src=SRC
+src=KA1RBI
 down=down1
 up=up1
 rem12=rem12

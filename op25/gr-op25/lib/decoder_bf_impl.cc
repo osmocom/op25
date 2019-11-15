@@ -34,6 +34,7 @@
 #include "offline_imbe_decoder.h"
 #include "voice_du_handler.h"
 #include "op25_yank.h"
+#include "bch.h"
 
 using namespace std;
 
@@ -41,13 +42,13 @@ namespace gr {
   namespace op25 {
 
     decoder_bf::sptr
-    decoder_bf::make()
+    decoder_bf::make(bool idle_silence /*= true*/, bool verbose /*= false*/)
     {
       return gnuradio::get_initial_sptr
-        (new decoder_bf_impl());
+        (new decoder_bf_impl(idle_silence, verbose));
     }
 
-    decoder_bf_impl::decoder_bf_impl() :
+    decoder_bf_impl::decoder_bf_impl(bool idle_silence /*= true*/, bool verbose /*= false*/) :
       gr::block("decoder_bf",
 		gr::io_signature::make(1, 1, sizeof(uint8_t)),
 		gr::io_signature::make(0, 1, sizeof(float))),
@@ -56,14 +57,25 @@ namespace gr {
       d_frame_hdr(),
       d_imbe(imbe_decoder::make()),
       d_state(SYNCHRONIZING),
-      d_p25cai_du_handler(NULL)
+      d_p25cai_du_handler(NULL),
+      d_idle_silence(idle_silence),
+      d_verbose(false)
     {
+      set_logging(verbose);
+
       d_p25cai_du_handler = new p25cai_du_handler(d_data_unit_handler,
 						    "224.0.0.1", 23456);
       d_data_unit_handler = data_unit_handler_sptr(d_p25cai_du_handler);
+
       d_snapshot_du_handler = new snapshot_du_handler(d_data_unit_handler);
       d_data_unit_handler = data_unit_handler_sptr(d_snapshot_du_handler);
-      d_data_unit_handler = data_unit_handler_sptr(new voice_du_handler(d_data_unit_handler, d_imbe));
+
+      d_crypto_module = crypto_module::sptr(new crypto_module(verbose));
+
+      d_crypto_module_du_handler = crypto_module_du_handler::sptr(new crypto_module_du_handler(d_data_unit_handler, d_crypto_module));
+      d_data_unit_handler = data_unit_handler_sptr(d_crypto_module_du_handler);
+
+      d_data_unit_handler = data_unit_handler_sptr(new voice_du_handler(d_data_unit_handler, d_imbe, d_crypto_module));
     }
 
     decoder_bf_impl::~decoder_bf_impl()
@@ -104,34 +116,35 @@ namespace gr {
                        gr_vector_void_star &output_items)
     {
       try {
+        gr::thread::scoped_lock lock(d_mutex);
 
-	// process input
-	const uint8_t *in = reinterpret_cast<const uint8_t*>(input_items[0]);
-	for(int i = 0; i < ninput_items[0]; ++i) {
-	  dibit d = in[i] & 0x3;
-	  receive_symbol(d);
-	}
-	consume_each(ninput_items[0]);
+        // process input
+        const uint8_t *in = reinterpret_cast<const uint8_t*>(input_items[0]);
+        for(int i = 0; i < ninput_items[0]; ++i) {
+            dibit d = in[i] & 0x3;
+            receive_symbol(d);
+        }
+        consume_each(ninput_items[0]);
 
-	// produce audio
-	audio_samples *samples = d_imbe->audio();
-	float *out = reinterpret_cast<float*>(output_items[0]);
-	const int n = min(static_cast<int>(samples->size()), noutput_items);
-	if(0 < n) {
-	  copy(samples->begin(), samples->begin() + n, out);
-	  samples->erase(samples->begin(), samples->begin() + n);
-	}
-	if(n < noutput_items) {
-	  fill(out + n, out + noutput_items, 0.0);
-	}
-	return noutput_items;
+        // produce audio
+        audio_samples *samples = d_imbe->audio();
+        float *out = reinterpret_cast<float*>(output_items[0]);
+        const int n = min(static_cast<int>(samples->size()), noutput_items);
+        if(0 < n) {
+            copy(samples->begin(), samples->begin() + n, out);
+            samples->erase(samples->begin(), samples->begin() + n);
+        }
+        if((d_idle_silence) && (n < noutput_items)) {
+            fill(out + n, out + noutput_items, 0.0);
+        }
+        return (d_idle_silence ? noutput_items : n);
 
       } catch(const std::exception& x) {
-	cerr << x.what() << endl;
-	exit(1);
+        cerr << x.what() << endl;
+        exit(1);
       } catch(...) {
-	cerr << "unhandled exception" << endl;
-	exit(2); }
+        cerr << "unhandled exception" << endl;
+        exit(2); }
     }
 
     const char*
@@ -177,14 +190,12 @@ namespace gr {
       };
       size_t NID_SZ = sizeof(NID) / sizeof(NID[0]);
       
-      itpp::bvec b(63), zeroes(16);
-      itpp::BCH bch(63, 16, 11, "6 3 3 1 1 4 1 3 6 7 2 3 5 4 5 3", true);
+      bit_vector b(NID_SZ);
       yank(d_frame_hdr,  NID, NID_SZ, b, 0);
-      b = bch.decode(b);
-      if(b != zeroes) {
-	b = bch.encode(b);
+      if(bchDec(b) >= 0) {
 	yank_back(b, 0, d_frame_hdr, NID, NID_SZ);
 	d_data_unit = data_unit::make_data_unit(d_frame_hdr);
+  d_data_unit->set_logging(d_verbose);
       } else {
 	data_unit_sptr null;
 	d_data_unit = null;
@@ -228,6 +239,37 @@ namespace gr {
 	}
 	break;
       }
+    }
+
+    void
+    decoder_bf_impl::set_idle_silence(bool idle_silence/* = true*/)
+    {
+      gr::thread::scoped_lock lock(d_mutex);
+
+      d_idle_silence = idle_silence;
+    }
+
+    void
+    decoder_bf_impl::set_logging(bool verbose/* = true*/)
+    {
+      if (verbose) fprintf(stderr, "[%s<%lu>] verbose logging enabled\n", name().c_str(), unique_id());
+
+      d_verbose = verbose;
+
+      if (d_crypto_module)
+        d_crypto_module->set_logging(verbose);
+    }
+
+    void
+    decoder_bf_impl::set_key(const key_type& key)
+    {
+      d_crypto_module->set_key(key);
+    }
+
+    void
+    decoder_bf_impl::set_key_map(const key_map_type& keys)
+    {
+      d_crypto_module->set_key_map(keys);
     }
   } /* namespace op25 */
 } /* namespace gr */

@@ -28,6 +28,8 @@
 
 #include <iomanip>
 #include <sstream>
+#include <boost/format.hpp>
+#include <stdio.h>
 
 using namespace std;
 
@@ -65,6 +67,8 @@ hdu::do_correct_errors(bit_vector& frame)
 {
    apply_golay_correction(frame);
    apply_rs_correction(frame);
+
+   if (logging_enabled()) fprintf(stderr, "\n");
 }
 
 void
@@ -136,33 +140,58 @@ hdu::frame_size_max() const
    return 792;
 }
 
-string
-hdu::algid_str() const
+uint8_t
+hdu::algid() const
 {
    const size_t ALGID_BITS[] = {
       356, 357, 360, 361, 374, 375, 376, 377
    };
    const size_t ALGID_BITS_SZ = sizeof(ALGID_BITS) / sizeof(ALGID_BITS[0]);
-   uint8_t algid = extract(frame_body(), ALGID_BITS, ALGID_BITS_SZ);
-   return lookup(algid, ALGIDS, ALGIDS_SZ);
+   return extract(frame_body(), ALGID_BITS, ALGID_BITS_SZ);
 }
 
 string
-hdu::kid_str() const
+hdu::algid_str() const
+{
+   uint8_t _algid = algid();
+   return lookup(_algid, ALGIDS, ALGIDS_SZ);
+}
+
+uint16_t
+hdu::kid() const
 {
    const size_t KID_BITS[] = {
       378, 379, 392, 393, 394, 395, 396, 397,
       410, 411, 412, 413, 414, 415, 428, 429
    };
    const size_t KID_BITS_SZ = sizeof(KID_BITS) / sizeof(KID_BITS[0]);
-   uint16_t kid = extract(frame_body(), KID_BITS, KID_BITS_SZ);
+   return extract(frame_body(), KID_BITS, KID_BITS_SZ);
+}
+
+string
+hdu::kid_str() const
+{
+   uint16_t _kid = kid();
    ostringstream os;
-   os << hex << showbase << setfill('0') << setw(4) << kid;
+   os << hex << showbase << setfill('0') << setw(4) << _kid;
    return os.str();
 }
 
 std::string
 hdu::mi_str() const
+{
+   std::vector<uint8_t> _mi(mi());
+   ostringstream os;
+   os << "0x";
+   for(size_t i = 0; i < _mi.size(); ++i) {
+      uint16_t octet = _mi[i];
+      os << hex << setfill('0') << setw(2) << octet;
+   }
+   return os.str();
+}
+
+std::vector<uint8_t>
+hdu::mi() const
 {
    const size_t MI_BITS[] = {
       114, 115, 116, 117, 118, 119, 132, 133,
@@ -177,15 +206,9 @@ hdu::mi_str() const
    };
    const size_t MI_BITS_SZ = sizeof(MI_BITS) / sizeof(MI_BITS[0]);
 
-   uint8_t mi[9];
-   extract(frame_body(), MI_BITS, MI_BITS_SZ, mi);
-   ostringstream os;
-   os << "0x";
-   for(size_t i = 0; i < (sizeof(mi) / sizeof(mi[0])); ++i) {
-      uint16_t octet = mi[i];
-      os << hex << setfill('0') << setw(2) << octet;
-   }
-   return os.str();
+   std::vector<uint8_t> _mi(((MI_BITS_SZ + 7) / 8));
+   extract(frame_body(), MI_BITS, MI_BITS_SZ, &_mi[0]);
+   return _mi;
 }
 
 string
@@ -219,7 +242,21 @@ hdu::tgid_str() const
    };
    const size_t TGID_BITS_SZ = sizeof(TGID_BITS) / sizeof(TGID_BITS[0]);
    const uint16_t tgid = extract(frame_body(), TGID_BITS, TGID_BITS_SZ);
-   ostringstream os;
-   os << hex << showbase << setfill('0') << setw(4) << tgid;
-   return os.str();
+   // Zero fill isn't working properly in original implementation
+   //ostringstream os;
+   //os << hex << showbase << setfill('0') << setw(4) << tgid;
+   //return os.str();
+   return (boost::format("0x%04x") % tgid).str();
+}
+
+struct CryptoState
+hdu::crypto_state() const
+{
+   struct CryptoState state;
+
+   state.mi = mi();
+   state.kid = kid();
+   state.algid = algid();
+
+   return state;
 }

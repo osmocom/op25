@@ -26,6 +26,7 @@
 
 #include "data_unit_handler.h"
 #include "imbe_decoder.h"
+#include "crypto.h"
 
 #include <boost/noncopyable.hpp>
 
@@ -43,7 +44,7 @@ public:
     * \param next The next data_unit_handler in the chain.
     * \param decoder An imbe_decoder_sptr to the IMBE decoder to use.
     */
-   voice_du_handler(data_unit_handler_sptr next, imbe_decoder_sptr decoder);
+   voice_du_handler(data_unit_handler_sptr next, imbe_decoder_sptr decoder, crypto_module::sptr crypto_mod = crypto_module::sptr());  // TODO: Add capability to decoder_ff (remove default argument)
 
    /**
     * voice_du_handler virtual destructor.
@@ -63,6 +64,8 @@ private:
     * The IMBE decder to use.
     */
    imbe_decoder_sptr d_decoder;
+
+   crypto_module::sptr d_crypto_mod;
 
 };
 

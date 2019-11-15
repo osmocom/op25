@@ -24,11 +24,14 @@
 #define INCLUDED_OP25_DECODER_BF_IMPL_H
 
 #include <op25/decoder_bf.h>
+#include <gnuradio/thread/thread.h>
 #include "data_unit.h"
 #include "data_unit_handler.h"
 #include "imbe_decoder.h"
 #include "p25cai_du_handler.h"
 #include "snapshot_du_handler.h"
+#include "crypto.h"
+#include "crypto_module_du_handler.h"
 
 namespace gr {
   namespace op25 {
@@ -102,8 +105,21 @@ namespace gr {
        */
       class snapshot_du_handler *d_snapshot_du_handler;
 
+      /*
+       * Whether or not to output silence when no audio is synthesised.
+       */
+      bool d_idle_silence;
+
+      bool d_verbose;
+
+      crypto_module::sptr d_crypto_module;
+
+      crypto_module_du_handler::sptr d_crypto_module_du_handler;
+
+      gr::thread::mutex d_mutex;
+
     public:
-      decoder_bf_impl();
+      decoder_bf_impl(bool idle_silence = true, bool verbose = false);
       ~decoder_bf_impl();
 
       // Where all the action really happens
@@ -139,6 +155,14 @@ namespace gr {
        * message queue.
        */
       void set_msgq(gr::msg_queue::sptr msgq);
+
+      void set_idle_silence(bool idle_silence = true);
+
+      void set_logging(bool verbose = true);
+
+      void set_key(const key_type& key);
+
+      void set_key_map(const key_map_type& keys);
     };
   } // namespace op25
 } // namespace gr

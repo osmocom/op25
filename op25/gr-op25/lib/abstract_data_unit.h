@@ -26,6 +26,7 @@
 
 #include "data_unit.h"
 #include "op25_yank.h"
+#include "crypto.h"
 
 #include <string>
 #include <vector>
@@ -62,7 +63,7 @@ public:
     * \precondition is_complete() == true.
     * \param imbe The imbe_decoder to use to generate the audio.
     */
-   virtual void decode_audio(imbe_decoder& imbe);
+   virtual void decode_audio(imbe_decoder& imbe, crypto_module::sptr crypto_mod);
 
    /**
     * Decode the frame into an octet vector.
@@ -117,6 +118,15 @@ public:
     */
    virtual std::string snapshot() const;
 
+   /**
+    * Returns a string describing the Data Unit ID (DUID).
+    *
+    * \return A string identifying the DUID.
+    */
+   virtual std::string duid_str() const = 0;
+
+   virtual void set_logging(bool on);
+
 protected:
 
    /**
@@ -140,7 +150,7 @@ protected:
     * \param frame_body The const_bit_vector to decode.
     * \param imbe The imbe_decoder to use.
     */
-   virtual void do_decode_audio(const_bit_vector& frame_body, imbe_decoder& imbe);
+   virtual void do_decode_audio(const_bit_vector& frame_body, imbe_decoder& imbe, crypto_module::sptr crypto_mod);
 
    /**
     * Decode frame_body and write the decoded frame contents to msg.
@@ -151,13 +161,6 @@ protected:
     * \return The number of octets written to msg.
     */
    virtual size_t decode_frame(const_bit_vector& frame_body, size_t msg_sz, uint8_t *msg);
-
-   /**
-    * Returns a string describing the Data Unit ID (DUID).
-    *
-    * \return A string identifying the DUID.
-    */
-   virtual std::string duid_str() const = 0;
 
    /**
     * Return a reference to the frame body.
@@ -180,6 +183,8 @@ protected:
     */
    virtual uint16_t frame_size() const;
 
+   virtual bool logging_enabled() const;
+
 private:
 
    /**
@@ -187,6 +192,7 @@ private:
     */
    bit_vector d_frame_body;
 
+   bool d_logging_enabled;
 };
 
 #endif /* INCLUDED_ABSTRACT_DATA_UNIT_H */

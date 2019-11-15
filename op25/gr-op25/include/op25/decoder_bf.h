@@ -51,7 +51,7 @@ namespace gr {
        * class. op25::decoder_bf::make is the public interface for
        * creating new instances.
        */
-      static sptr make();
+      static sptr make(bool idle_silence = true, bool verbose = false);
 
       /**
        * Return a pointer to a string identifying the destination of
@@ -78,6 +78,17 @@ namespace gr {
        * message queue.
        */
       virtual void set_msgq(gr::msg_queue::sptr msgq) = 0;
+
+      virtual void set_idle_silence(bool idle_silence = true) = 0;
+
+      virtual void set_logging(bool verbose = true) = 0;
+
+      typedef std::vector<uint8_t> key_type;
+      typedef std::map<uint16_t, key_type> key_map_type;
+
+      virtual void set_key(const key_type& key) = 0;
+
+      virtual void set_key_map(const key_map_type& keys) = 0;
     };
 
   } // namespace op25

@@ -20,6 +20,8 @@
 # 02110-1301, USA.
 
 import sys
+import os
+import time
 import subprocess
 
 from gnuradio import gr, gru, eng_notation
@@ -27,6 +29,7 @@ from gnuradio import blocks, audio
 from gnuradio.eng_option import eng_option
 import numpy as np
 from gnuradio import gr
+from math import pi
 
 _def_debug = 0
 _def_sps = 10
@@ -34,19 +37,42 @@ _def_sps = 10
 GNUPLOT = '/usr/bin/gnuplot'
 
 FFT_AVG  = 0.25
+MIX_AVG  = 0.15
+BAL_AVG  = 0.05
 FFT_BINS = 512
 
+def degrees(r):
+	d = 360 * r / (2*pi)
+	while d <0:
+		d += 360
+	while d > 360:
+		d -= 360
+	return d
+
+def limit(a,lim):
+	if a > lim:
+		return lim
+	return a
+
 class wrap_gp(object):
-	def __init__(self, sps=_def_sps):
+	def __init__(self, sps=_def_sps, logfile=None):
 		self.sps = sps
-		self.center_freq = None
+		self.center_freq = 0.0
 		self.relative_freq = 0.0
+		self.offset_freq = 0.0
 		self.width = None
 		self.ffts = ()
 		self.freqs = ()
 		self.avg_pwr = np.zeros(FFT_BINS)
+		self.avg_sum_pwr = 0.0
 		self.buf = []
 		self.plot_count = 0
+		self.last_plot = 0
+		self.plot_interval = None
+		self.sequence = 0
+		self.output_dir = None
+		self.filename = None
+		self.logfile = logfile
 
 		self.attach_gp()
 
@@ -56,8 +82,29 @@ class wrap_gp(object):
 		self.gp = subprocess.Popen(args, executable=exe, stdin=subprocess.PIPE)
 
 	def kill(self):
-		self.gp.kill()
-		self.gp.wait()
+		try:
+			self.gp.stdin.close()   # closing pipe should cause subprocess to exit
+		except IOError:
+			pass
+		sleep_count = 0
+		while True:                     # wait politely, but only for so long
+			self.gp.poll()
+			if self.gp.returncode is not None:
+				break
+			time.sleep(0.1)
+			if self.gp.returncode is not None:
+				break
+			sleep_count += 1
+			if (sleep_count & 1) == 0:
+				self.gp.kill()
+			if sleep_count >= 3:
+				break
+
+	def set_interval(self, v):
+		self.plot_interval = v
+
+	def set_output_dir(self, v):
+		self.output_dir = v
 
 	def plot(self, buf, bufsz, mode='eye'):
 		BUFSZ = bufsz
@@ -74,6 +121,7 @@ class wrap_gp(object):
 
 		plots = []
 		s = ''
+		plot_size = (320,240)
 		while(len(self.buf)):
 			if mode == 'eye':
 				if len(self.buf) < self.sps:
@@ -83,61 +131,137 @@ class wrap_gp(object):
 				s += 'e\n'
 				self.buf=self.buf[self.sps:]
 				plots.append('"-" with lines')
-			elif mode == 'constellation':
+ 			elif mode == 'constellation':
+				plot_size = (240,240)
+				self.buf = self.buf[:100]
+ 				for b in self.buf:
+					s += '%f\t%f\n' % (degrees(np.angle(b)), limit(np.abs(b),1.0))
+ 				s += 'e\n'
+ 				plots.append('"-" with points')
 				for b in self.buf:
-					s += '%f\t%f\n' % (b.real, b.imag)
+					#s += '%f\t%f\n' % (b.real, b.imag)
+					s += '%f\t%f\n' % (degrees(np.angle(b)), limit(np.abs(b),1.0))
 				s += 'e\n'
 				self.buf = []
-				plots.append('"-" with points')
+				plots.append('"-" with lines')
 			elif mode == 'symbol':
 				for b in self.buf:
 					s += '%f\n' % (b)
 				s += 'e\n'
 				self.buf = []
-				plots.append('"-" with dots')
-			elif mode == 'fft':
+				plots.append('"-" with points')
+			elif mode == 'fft' or mode == 'mixer':
+				sum_pwr = 0.0
 				self.ffts = np.fft.fft(self.buf * np.blackman(BUFSZ)) / (0.42 * BUFSZ)
 				self.ffts = np.fft.fftshift(self.ffts)
 				self.freqs = np.fft.fftfreq(len(self.ffts))
 				self.freqs = np.fft.fftshift(self.freqs)
+				tune_freq = (self.center_freq - self.relative_freq) / 1e6
 				if self.center_freq and self.width:
-                                	self.freqs = ((self.freqs * self.width) + self.center_freq) / 1e6
+                                	self.freqs = ((self.freqs * self.width) + self.center_freq + self.offset_freq) / 1e6
 				for i in xrange(len(self.ffts)):
-					self.avg_pwr[i] = ((1.0 - FFT_AVG) * self.avg_pwr[i]) + (FFT_AVG * np.abs(self.ffts[i]))
+					if mode == 'fft':
+						self.avg_pwr[i] = ((1.0 - FFT_AVG) * self.avg_pwr[i]) + (FFT_AVG * np.abs(self.ffts[i]))
+					else:
+						self.avg_pwr[i] = ((1.0 - MIX_AVG) * self.avg_pwr[i]) + (MIX_AVG * np.abs(self.ffts[i]))
 					s += '%f\t%f\n' % (self.freqs[i], 20 * np.log10(self.avg_pwr[i]))
+					if (mode == 'mixer') and (self.avg_pwr[i] > 1e-5):
+						if (self.freqs[i] - self.center_freq) < 0:
+							sum_pwr -= self.avg_pwr[i]
+						elif (self.freqs[i] - self.center_freq) > 0:
+							sum_pwr += self.avg_pwr[i]
+						self.avg_sum_pwr = ((1.0 - BAL_AVG) * self.avg_sum_pwr) + (BAL_AVG * sum_pwr)
+				s += 'e\n'
+				self.buf = []
+				plots.append('"-" with lines')
+			elif mode == 'float':
+				for b in self.buf:
+					s += '%f\n' % (b)
 				s += 'e\n'
 				self.buf = []
 				plots.append('"-" with lines')
 		self.buf = []
 
-		h= 'set terminal x11 noraise\n'
-		#background = 'set object 1 circle at screen 0,0 size screen 1 fillcolor rgb"black"\n' #FIXME!
+		# FFT processing needs to be completed to maintain the weighted average buckets
+		# regardless of whether we actually produce a new plot or not.
+		if self.plot_interval and self.last_plot + self.plot_interval > time.time():
+			return consumed
+		self.last_plot = time.time()
+
+		filename = None
+		if self.output_dir:
+			if self.sequence >= 2:
+				delete_pathname = '%s/plot-%s-%d.png' % (self.output_dir, mode, self.sequence-2)
+				if os.access(delete_pathname, os.W_OK):
+					os.remove(delete_pathname)
+			h0= 'set terminal png size %d, %d\n' % (plot_size)
+			filename = 'plot-%s-%d.png' % (mode, self.sequence)
+			h0 += 'set output "%s/%s"\n' % (self.output_dir, filename)
+			self.sequence += 1
+		else:
+			h0= 'set terminal x11 noraise\n'
 		background = ''
-		h+= 'set key off\n'
+		h = 'set key off\n'
 		if mode == 'constellation':
 			h+= background
 			h+= 'set size square\n'
 			h+= 'set xrange [-1:1]\n'
 			h+= 'set yrange [-1:1]\n'
+			h += 'unset border\n'
+			h += 'set polar\n'
+			h += 'set angles degrees\n'
+			h += 'unset raxis\n'
+			h += 'set object circle at 0,0 size 1 fillcolor rgb 0x0f01 fillstyle solid behind\n'
+			h += 'set style line 10 lt 1 lc rgb 0x404040 lw 0.1\n'
+			h += 'set grid polar 45\n'
+			h += 'set grid ls 10\n'
+			h += 'set xtics axis\n'
+			h += 'set ytics axis\n'
+			h += 'set xtics scale 0\n'
+			h += 'set xtics ("" 0.2, "" 0.4, "" 0.6, "" 0.8, "" 1)\n'
+			h += 'set ytics 0, 0.2, 1\n'
+			h += 'set format ""\n'
+			h += 'set style line 11 lt 1 lw 2 pt 2 ps 2\n'
+
+                        h+= 'set title "Constellation"\n'
 		elif mode == 'eye':
 			h+= background
 			h+= 'set yrange [-4:4]\n'
+                        h+= 'set title "Datascope"\n'
 		elif mode == 'symbol':
 			h+= background
 			h+= 'set yrange [-4:4]\n'
-		elif mode == 'fft':
+                        h+= 'set title "Symbol"\n'
+		elif mode == 'fft' or mode == 'mixer':
 			h+= 'unset arrow; unset title\n'
 			h+= 'set xrange [%f:%f]\n' % (self.freqs[0], self.freqs[len(self.freqs)-1])
-			h+= 'set yrange [-100:0]\n'
                         h+= 'set xlabel "Frequency"\n'
                         h+= 'set ylabel "Power(dB)"\n'
                         h+= 'set grid\n'
-			if self.center_freq:
-				arrow_pos = (self.center_freq - self.relative_freq) / 1e6
-				h+= 'set arrow from %f, graph 0 to %f, graph 1 nohead\n' % (arrow_pos, arrow_pos)
-				h+= 'set title "Tuned to %f Mhz"\n' % ((self.center_freq - self.relative_freq) / 1e6)
-		dat = '%splot %s\n%s' % (h, ','.join(plots), s)
-		self.gp.stdin.write(dat)
+			h+= 'set yrange [-100:0]\n'
+			if mode == 'mixer':	# mixer
+                                h+= 'set title "Mixer: balance %3.0f (smaller is better)"\n' % (np.abs(self.avg_sum_pwr * 1000))
+			else:			# fft
+                                h+= 'set title "Spectrum"\n'
+				if self.center_freq:
+					arrow_pos = (self.center_freq - self.relative_freq) / 1e6
+					h+= 'set arrow from %f, graph 0 to %f, graph 1 nohead\n' % (arrow_pos, arrow_pos)
+					h+= 'set title "Spectrum: tuned to %f Mhz"\n' % arrow_pos
+		elif mode == 'float':
+			h+= 'set yrange [-2:2]\n'
+                        h+= 'set title "Oscilloscope"\n'
+		dat = '%s%splot %s\n%s' % (h0, h, ','.join(plots), s)
+                if self.logfile is not None:
+                    with open(self.logfile, 'a') as fd:
+                        fd.write(dat)
+		self.gp.poll()
+		if self.gp.returncode is None:	# make sure gnuplot is still running 
+			try:
+				self.gp.stdin.write(dat)
+			except (IOError, ValueError):
+				pass
+		if filename:
+			self.filename = filename
 		return consumed
 
 	def set_center_freq(self, f):
@@ -146,8 +270,14 @@ class wrap_gp(object):
 	def set_relative_freq(self, f):
 		self.relative_freq = f
 
+	def set_offset(self, f):
+		self.offset_freq = f
+
 	def set_width(self, w):
 		self.width = w
+
+	def set_logfile(self, logfile=None):
+		self.logfile = logfile
 
 class eye_sink_f(gr.sync_block):
     """
@@ -202,7 +332,7 @@ class fft_sink_c(gr.sync_block):
 
     def work(self, input_items, output_items):
         self.skip += 1
-        if self.skip == 50:
+        if self.skip >= 50:
             self.skip = 0
             in0 = input_items[0]
 	    self.gnuplot.plot(in0, FFT_BINS, mode='fft')
@@ -218,8 +348,34 @@ class fft_sink_c(gr.sync_block):
     def set_relative_freq(self, f):
         self.gnuplot.set_relative_freq(f)
 
+    def set_offset(self, f):
+        self.gnuplot.set_offset(f)
+
     def set_width(self, w):
         self.gnuplot.set_width(w)
+
+class mixer_sink_c(gr.sync_block):
+    """
+    """
+    def __init__(self, debug = _def_debug):
+        gr.sync_block.__init__(self,
+            name="mixer_sink_c",
+            in_sig=[np.complex64],
+            out_sig=None)
+        self.debug = debug
+        self.gnuplot = wrap_gp()
+        self.skip = 0
+
+    def work(self, input_items, output_items):
+        self.skip += 1
+        if self.skip >= 10:
+            self.skip = 0
+            in0 = input_items[0]
+            self.gnuplot.plot(in0, FFT_BINS, mode='mixer')
+        return len(input_items[0])
+
+    def kill(self):
+        self.gnuplot.kill()
 
 class symbol_sink_f(gr.sync_block):
     """
@@ -235,6 +391,25 @@ class symbol_sink_f(gr.sync_block):
     def work(self, input_items, output_items):
         in0 = input_items[0]
 	self.gnuplot.plot(in0, 2400, mode='symbol')
+        return len(input_items[0])
+
+    def kill(self):
+        self.gnuplot.kill()
+
+class float_sink_f(gr.sync_block):
+    """
+    """
+    def __init__(self, debug = _def_debug):
+        gr.sync_block.__init__(self,
+            name="float_sink_f",
+            in_sig=[np.float32],
+            out_sig=None)
+        self.debug = debug
+        self.gnuplot = wrap_gp()
+
+    def work(self, input_items, output_items):
+        in0 = input_items[0]
+        self.gnuplot.plot(in0, 2000, mode='float')
         return len(input_items[0])
 
     def kill(self):

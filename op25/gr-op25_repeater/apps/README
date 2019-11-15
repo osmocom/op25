@@ -52,6 +52,19 @@ to suspend the program and examine stderr.2 for error messages.  If there
 is a traceback please report the full traceback (and the command line) to
 the mail list.
 
+REMOTE TERMINAL
+===============
+Adding (for example) "-l 56111" to the rx.py command starts rx.py but does
+not attach a curses terminal.  Instead the program runs as normal in the
+foreground (hit CTRL-C to end rx.py as desired).  To connect to a running 
+instance of rx.py, (in this example)
+    ./terminal.py 127.0.0.1 56111
+NOTE: rx.py and terminal.py need not run on the same machine.  The machine
+where terminal.py is running need not have an SDR device directly attached;
+but GNU Radio (and OP25) must be available.
+
+WARNING: there is no security or encryption on the UDP port.
+
 EXTERNAL UDP AUDIO SERVER
 =========================
 Starting rx.py with the "-w -W host" options directs udp audio data to
@@ -129,6 +142,8 @@ Options:
   -H HAMLIB_MODEL, --hamlib-model=HAMLIB_MODEL
                         specify model for hamlib
   -s SEEK, --seek=SEEK  ifile seek in K
+  -l TERMINAL_TYPE, --terminal-type=TERMINAL_TYPE
+                        'curses' or udp port or 'http:host:port'
   -L LOGFILE_WORKERS, --logfile-workers=LOGFILE_WORKERS
                         number of demodulators to instantiate
   -S SAMPLE_RATE, --sample-rate=SAMPLE_RATE
@@ -161,3 +176,67 @@ Options:
   -2, --phase2-tdma     enable phase2 tdma decode
   -Z DECIM_AMT, --decim-amt=DECIM_AMT
                         spectrum decimation
+
+HTTP CONSOLE
+============
+New as of Jan. 2018, the OP25 dashboard is accessible to any Web browser over
+HTTP.  Include the option "-l http:<host>:<port>" when starting the rx.py app,
+where <host> is either "127.0.0.1" to limit access from only this host, or
+"0.0.0.0" if HTTP access from anywhere is to be allowed*.  After rx.py has
+started it begins listening on the specified port for incoming connections.
+
+Once connected the status page should automatically update to show trunking
+system status, frequency list, adjacent sites, and other data.
+
+Example:  you have started rx.py with the option "-l http:127.0.0.1:8080".
+To connect, set your web browser URL to "http://127.0.0.1:8080".
+
+If one or more plot modes has been selected using the "-P" option you may
+view them by clicking the "PLOT" button.  The plots are updated approx.
+every five seconds.  Click "STATUS" to return to the main status page.
+
+*WARNING*: there is no security or encryption.  Be careful when using "0.0.0.0"
+as the listening address since anyone with access to the network can connect.
+
+NOTE: the python-pyramid package is required when using this option.   It can
+be installed by running
+     sudo apt-get install python-pyramid
+
+MULTI-RECEIVER
+==============
+The multi_rx.py app allows an arbitrary number of SDR devices and channels
+to be defined.  Each channel may have one or more plot windows attached.
+
+Configuration is achieved via a json file (see cfg.json for an example).
+In this version, channels are automatically assigned to the first device
+found whose frequency span includes the selected frequency.
+
+As of this writing (winter, 2017), neither trunking nor P25 P2/TDMA are
+supported in multi_rx.py.  The rx.py app should be used for P25 trunking,
+for either P1/FDMA or P2/TDMA.
+
+Below is a summary of the major config file keys:
+demod_type:     'cqpsk' for qpsk p25 only; 'fsk4' for ysf/dstar/dmr/fsk4 p25
+filter_type:    'rc' for p25; 'rrc' for dmr and ysf; 'gmsk' for d-star
+plot:           'fft', 'constellation', 'datascope', 'symbol'
+                [if more than one plot desired, provide a comma-separated list]
+destination:    'udp://host:port' or 'file://<filename>'
+name:           arbitrary string used to identify channels and devices
+
+bug: 'fft' and 'constellation' currently mutually exclusive
+bug: 'gmsk' needs work
+
+Note: DMR audio for the second time slot is sent on the specified port number
+plus two.  In the example 'udp://127.0.0.1:56122', audio for the first slot
+would use 56122; and 56124 for the second.
+
+The command line options for multi_rx:
+Usage: multi_rx.py [options]
+
+Options:
+  -h, --help            show this help message and exit
+  -c CONFIG_FILE, --config-file=CONFIG_FILE
+                        specify config file name
+  -v VERBOSITY, --verbosity=VERBOSITY
+                        message debug level
+  -p, --pause           block on startup

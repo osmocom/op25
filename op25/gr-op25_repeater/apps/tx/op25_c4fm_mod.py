@@ -49,14 +49,14 @@ _def_span = 13  #desired number of impulse response coeffs, in units of symbols
 _def_gmsk_span = 4
 _def_bt = 0.25
 
-def transfer_function_rx():
+def transfer_function_rx(symbol_rate=_def_symbol_rate):
 	# p25 c4fm de-emphasis filter
 	# Specs undefined above 2,880 Hz.  It would be nice to have a sharper
 	# rolloff, but this filter is cheap enough....
 	xfer = []	# frequency domain transfer function
-	for f in xrange(0,4800):
+	for f in xrange(0,symbol_rate):
 		# D(f)
-		t = pi * f / 4800
+		t = pi * f / symbol_rate
 		if t < 1e-6:
 			df = 1.0
 		else:
@@ -64,7 +64,7 @@ def transfer_function_rx():
 		xfer.append(df)
 	return xfer
 
-def transfer_function_tx():
+def transfer_function_tx(symbol_rate=_def_symbol_rate):
 	xfer = []	# frequency domain transfer function
 	for f in xrange(0, 2881):	# specs cover 0 - 2,880 Hz
 		# H(f)
@@ -82,7 +82,7 @@ def transfer_function_tx():
 		xfer.append(pf * hf)
 	return xfer
 
-def transfer_function_dmr():
+def transfer_function_dmr(symbol_rate=_def_symbol_rate):
 	xfer = []	# frequency domain transfer function
 	for f in xrange(0, 2881):	# specs cover 0 - 2,880 Hz
 		if f < 1920:
@@ -92,6 +92,32 @@ def transfer_function_dmr():
 		xfer.append(hf)
 	xfer = np.array(xfer, dtype=np.float64)
 	xfer = np.sqrt(xfer)	# root cosine
+	return xfer
+
+def transfer_function_nxdn(symbol_rate=_def_symbol_rate):
+	assert symbol_rate == 2400 or symbol_rate == 4800
+	T = 1.0 / symbol_rate
+	a = 0.2		# rolloff
+	fl = int(0.5+(1-a)/(2*T))
+	fh = int(0.5+(1+a)/(2*T))
+
+	xfer = []
+	for f in xrange(0, symbol_rate):
+		if f < fl:
+			hf = 1.0
+		elif f >= fl and f <= fh:
+			hf = cos((T/(4*a)) * (2*pi*f - pi*(1-a)/T))
+		else:
+			hf = 0.0
+		x = pi * f * T
+		if f <= fh:
+			if x == 0 or sin(x) == 0:
+				df = 1.0
+			else:
+				df = x / sin(x)
+		else:
+				df = 2.0
+		xfer.append(hf * df)
 	return xfer
 
 class c4fm_taps(object):
@@ -105,7 +131,7 @@ class c4fm_taps(object):
 		self.generator = generator
 
 	def generate(self):
-		impulse_response = np.fft.fftshift(np.fft.irfft(self.generator(), self.sample_rate))
+		impulse_response = np.fft.fftshift(np.fft.irfft(self.generator(symbol_rate=self.symbol_rate), self.sample_rate))
 		start = np.argmax(impulse_response) - (self.ntaps-1) / 2
 		coeffs = impulse_response[start: start+self.ntaps]
 		gain = self.filter_gain / sum(coeffs)
@@ -180,9 +206,8 @@ class p25_mod_bf(gr.hier_block2):
 				gr.io_signature(1, 1, gr.sizeof_float)) # Output signature
 
         input_sample_rate = 4800   # P25 baseband symbol rate
-        lcm = gru.lcm(input_sample_rate, output_sample_rate)
-        self._interp_factor = int(lcm // input_sample_rate)
-        self._decimation = int(lcm // output_sample_rate)
+        intermediate_rate = 48000
+        self._interp_factor = intermediate_rate / input_sample_rate
 
         self.dstar = dstar
         self.bt = bt
@@ -201,13 +226,13 @@ class p25_mod_bf(gr.hier_block2):
 
         assert rc is None or rc == 'rc' or rc == 'rrc'
         if rc:
-            coeffs = filter.firdes.root_raised_cosine(1.0, output_sample_rate, input_sample_rate, 0.2, 91)
+            coeffs = filter.firdes.root_raised_cosine(1.0, intermediate_rate, input_sample_rate, 0.2, 91)
         if rc == 'rc':
-            coeffs = np.convolve(coeffs, coeffs)
+            coeffs = c4fm_taps(sample_rate=intermediate_rate).generate()
         elif self.dstar:
-            coeffs = gmsk_taps(sample_rate=output_sample_rate, bt=self.bt).generate()
+            coeffs = gmsk_taps(sample_rate=intermediate_rate, bt=self.bt).generate()
         elif not rc:
-            coeffs = c4fm_taps(sample_rate=output_sample_rate, generator=self.generator).generate()
+            coeffs = c4fm_taps(sample_rate=intermediate_rate, generator=self.generator).generate()
         self.filter = filter.interp_fir_filter_fff(self._interp_factor, coeffs)
 
         if verbose:
@@ -217,9 +242,9 @@ class p25_mod_bf(gr.hier_block2):
             self._setup_logging()
 
         self.connect(self, self.C2S, self.polarity, self.filter)
-        if (self._decimation > 1):
-            self.decimator = filter.rational_resampler_fff(1, self._decimation)
-            self.connect(self.filter, self.decimator, self)
+        if intermediate_rate != output_sample_rate:
+            self.arb_resamp = filter.pfb.arb_resampler_fff(float(output_sample_rate)/intermediate_rate)
+            self.connect(self.filter, self.arb_resamp, self)
         else:
             self.connect(self.filter, self)
 

@@ -37,18 +37,21 @@ from math import pi
 
 from op25_c4fm_mod import p25_mod_bf
 
+sys.path.append('..')
+from gr_gnuplot import float_sink_f
+
 RC_FILTER = {'dmr': 'rrc', 'p25': 'rc', 'ysf': 'rrc', 'dstar': None}
 
 output_gains = {
 	'dmr': 5.5,
 	'dstar': 0.95,
-	'p25': 5.0,
+	'p25': 4.5,
 	'ysf': 5.5
 }
 gain_adjust = {
 	'dmr': 3.0,
 	'dstar': 7.5,
-	'ysf': 5.0
+	'ysf': 4.0
 }
 gain_adjust_fullrate = {
 	'p25': 2.0,
@@ -79,13 +82,15 @@ class my_top_block(gr.top_block):
         parser = OptionParser(option_class=eng_option)
 
         parser.add_option("-a", "--args", type="string", default="", help="device args")
+        parser.add_option("-A", "--alt-modulator-rate", type="int", default=50000, help="when mod rate is not a submutiple of IF rate")
         parser.add_option("-b", "--bt", type="float", default=0.5, help="specify bt value")
         parser.add_option("-c", "--config-file", type="string", default=None, help="specify the config file name")
         parser.add_option("-f", "--file1", type="string", default=None, help="specify the input file slot 1")
         parser.add_option("-F", "--file2", type="string", default=None, help="specify the input file slot 2 (DMR)")
         parser.add_option("-g", "--gain", type="float", default=1.0, help="input gain")
-        parser.add_option("-i", "--if-rate", type="float", default=960000, help="output rate to sdr")
+        parser.add_option("-i", "--if-rate", type="int", default=480000, help="output rate to sdr")
         parser.add_option("-I", "--audio-input", type="string", default="", help="pcm input device name.  E.g., hw:0,0 or /dev/dsp")
+        parser.add_option("-k", "--symbol-sink", type="string", default=None, help="write symbols to file (optional)")
         parser.add_option("-N", "--gains", type="string", default=None, help="gain settings")
         parser.add_option("-O", "--audio-output", type="string", default="default", help="pcm output device name.  E.g., hw:0,0 or /dev/dsp")
         parser.add_option("-o", "--output-file", type="string", default=None, help="specify the output file")
@@ -93,8 +98,10 @@ class my_top_block(gr.top_block):
         parser.add_option("-q", "--frequency-correction", type="float", default=0.0, help="ppm")
         parser.add_option("-Q", "--frequency", type="float", default=0.0, help="Hz")
         parser.add_option("-r", "--repeat", action="store_true", default=False, help="input file repeat")
+        parser.add_option("-P", "--plot-audio", action="store_true", default=False, help="scope input")
         parser.add_option("-R", "--fullrate-mode", action="store_true", default=False, help="ysf fullrate")
-        parser.add_option("-s", "--sample-rate", type="int", default=48000, help="output sample rate")
+        parser.add_option("-s", "--modulator-rate", type="int", default=48000, help="must be submultiple of IF rate - see also -A")
+        parser.add_option("-S", "--alsa-rate", type="int", default=48000, help="sound source/sink sample rate")
         parser.add_option("-t", "--test", type="string", default=None, help="test pattern symbol file")
         parser.add_option("-v", "--verbose", type="int", default=0, help="additional output")
         (options, args) = parser.parse_args()
@@ -105,8 +112,8 @@ class my_top_block(gr.top_block):
             print 'protocol [-p] option missing'
             sys.exit(0)
 
-        if options.protocol == 'ysf' or options.protocol == 'dmr':
-            assert options.config_file # dmr and ysf require config file ("-c FILENAME" option)
+        if options.protocol == 'ysf' or options.protocol == 'dmr' or options.protocol == 'dstar':
+            assert options.config_file # dstar, dmr and ysf require config file ("-c FILENAME" option)
 
 	output_gain = output_gains[options.protocol]
 
@@ -124,7 +131,7 @@ class my_top_block(gr.top_block):
             ENCODER = op25_repeater.dstar_tx_sb(options.verbose, options.config_file)
         elif options.protocol == 'p25':
             ENCODER = op25_repeater.vocoder(True,		# 0=Decode,True=Encode
-                                  0,	# Verbose flag
+                                  False,	# Verbose flag
                                   0,	# flex amount
                                   "",			# udp ip address
                                   0,			# udp port
@@ -135,7 +142,7 @@ class my_top_block(gr.top_block):
                 ENCODER.set_gain_adjust(gain_adjust_fullrate['ysf'])
             else:
                 ENCODER.set_gain_adjust(gain_adjust['ysf'])
-        if options.protocol == 'p25':
+        if options.protocol == 'p25' and not options.test:
             ENCODER.set_gain_adjust(gain_adjust_fullrate[options.protocol])
         elif not options.test and not options.protocol == 'ysf':
             ENCODER.set_gain_adjust(gain_adjust[options.protocol])
@@ -145,13 +152,16 @@ class my_top_block(gr.top_block):
         if options.file2 and options.protocol == 'dmr':
             nfiles += 1
         if nfiles < max_inputs and not options.test:
-            AUDIO = audio.source(options.sample_rate, options.audio_input)
-            lpf_taps = filter.firdes.low_pass(1.0, options.sample_rate, 3400.0, 3400 * 0.1, filter.firdes.WIN_HANN)
+            AUDIO = audio.source(options.alsa_rate, options.audio_input)
+            lpf_taps = filter.firdes.low_pass(1.0, options.alsa_rate, 3400.0, 3400 * 0.1, filter.firdes.WIN_HANN)
             audio_rate = 8000
-            AUDIO_DECIM = filter.fir_filter_fff (int(options.sample_rate / audio_rate), lpf_taps)
+            AUDIO_DECIM = filter.fir_filter_fff (int(options.alsa_rate / audio_rate), lpf_taps)
             AUDIO_SCALE = blocks.multiply_const_ff(32767.0 * options.gain)
             AUDIO_F2S = blocks.float_to_short()
             self.connect(AUDIO, AUDIO_DECIM, AUDIO_SCALE, AUDIO_F2S)
+            if options.plot_audio:
+                PLOT_F = float_sink_f()
+                self.connect(AUDIO, PLOT_F)
 
         if options.file1: 
             IN1 = blocks.file_source(gr.sizeof_short, options.file1, options.repeat)
@@ -172,24 +182,42 @@ class my_top_block(gr.top_block):
             else:
                 self.connect(AUDIO_F2S, ENCODER2)
 
-        MOD = p25_mod_bf(output_sample_rate = options.sample_rate, dstar = (options.protocol == 'dstar'), bt = options.bt, rc = RC_FILTER[options.protocol])
+        MOD = p25_mod_bf(output_sample_rate = options.modulator_rate, dstar = (options.protocol == 'dstar'), bt = options.bt, rc = RC_FILTER[options.protocol])
         AMP = blocks.multiply_const_ff(output_gain)
 
         if options.output_file:
             OUT = blocks.file_sink(gr.sizeof_float, options.output_file)
         elif not options.args:
-            OUT = audio.sink(options.sample_rate, options.audio_output)
+            OUT = audio.sink(options.alsa_rate, options.audio_output)
 
+        if options.symbol_sink:
+            SYMBOL_SINK = blocks.file_sink(gr.sizeof_char, options.symbol_sink)
         if options.protocol == 'dmr' and not options.test:
             self.connect(DMR, MOD)
+            if options.symbol_sink:
+                self.connect(DMR, SYMBOL_SINK)
         else:
             self.connect(ENCODER, MOD)
+            if options.symbol_sink:
+                self.connect(ENCODER, SYMBOL_SINK)
 
         if options.args:
             self.setup_sdr_output(options, mod_adjust[options.protocol])
-            interp = filter.rational_resampler_fff(options.if_rate / options.sample_rate, 1)
-            self.attn = blocks.multiply_const_cc(0.25)
-            self.connect(MOD, AMP, interp, self.fm_modulator, self.attn, self.u)
+            f1 = float(options.if_rate) / options.modulator_rate
+            i1 = int(options.if_rate / options.modulator_rate)
+            if f1 - i1 > 1e-3:
+                f1 = float(options.if_rate) / options.alt_modulator_rate
+                i1 = int(options.if_rate / options.alt_modulator_rate)
+                if f1 - i1 > 1e-3:
+                    print '*** Error, sdr rate %d not an integer multiple of alt modulator rate %d - ratio=%f' % (options.if_rate, options.alt_modulator_rate, f1)
+                    sys.exit(0)
+                a_resamp = filter.pfb.arb_resampler_fff(options.alt_modulator_rate / float(options.modulator_rate))
+                sys.stderr.write('adding resampler for rate change %d ===> %d\n' % (options.modulator_rate, options.alt_modulator_rate))
+                interp = filter.rational_resampler_fff(options.if_rate / options.alt_modulator_rate, 1)
+                self.connect(MOD, AMP, a_resamp, interp, self.fm_modulator, self.u)
+            else:
+                interp = filter.rational_resampler_fff(options.if_rate / options.modulator_rate, 1)
+                self.connect(MOD, AMP, interp, self.fm_modulator, self.u)
         else:
             self.connect(MOD, AMP, OUT)
 
@@ -212,7 +240,6 @@ class my_top_block(gr.top_block):
                 print "setting gain %s to %d" % (name, gain)
                 self.u.set_gain(gain, name)
 
-        print 'setting sample rate'
         self.u.set_sample_rate(options.if_rate)
         self.u.set_center_freq(options.frequency)
         self.u.set_freq_corr(options.frequency_correction)

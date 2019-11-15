@@ -37,6 +37,7 @@
 #include <string.h>
 
 #include "p25_frame.h"
+#include "p25p2_framer.h"
 #include "check_frame_sync.h"
 
 #define ENABLE_COSTAS_CQPSK_HACK 0
@@ -47,6 +48,8 @@ static const float M_TWOPI = 2 * M_PI;
 static const gr_complex PT_45 = gr_expj( M_PI / 4.0 );
 static const int NUM_COMPLEX=100;
 
+static const int FM_COUNT=500;	// number of samples per measurement frame
+
 namespace gr {
   namespace op25_repeater {
 
@@ -56,10 +59,17 @@ static inline std::complex<float> sgn(std::complex<float>c) {
 	return c/abs(c);
 }
 
+#define UPDATE_COUNT(c) if (d_event_type == c) {	\
+				d_event_count ++;	\
+			} else {			\
+				d_event_count = 1;	\
+				d_event_type = c;	\
+			}
+
 uint8_t gardner_costas_cc_impl::slicer(float sym) {
     uint8_t dibit = 0;
     static const float PI_4 = M_PI / 4.0;
-    static const float d_slice_levels[4] = {-2.0*PI_4, 0.0*PI_4, 2.0*PI_4, 4.0*PI_4};
+    static const float d_slice_levels[4] = {(float)-2.0*PI_4, (float)0.0*PI_4, (float)2.0*PI_4, (float)4.0*PI_4};
     if (d_slice_levels[3] < 0) {
       dibit = 1;
       if (d_slice_levels[3] <= sym && sym < d_slice_levels[0])
@@ -78,16 +88,35 @@ uint8_t gardner_costas_cc_impl::slicer(float sym) {
 
 	if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ P25_FRAME_SYNC_MAGIC, 0, 48)) {
 //		fprintf(stderr, "P25P1 Framing detect\n");
+		UPDATE_COUNT(' ')
 	}
-	if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ 0x001050551155LL, 0, 48)) {
-		fprintf(stderr, "tuning error -1200\n");
+	else if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ 0x001050551155LL, 0, 48)) {
+//		fprintf(stderr, "tuning error -1200\n");
+		UPDATE_COUNT('-')
 	}
-	if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ 0xFFEFAFAAEEAALL, 0, 48)) {
-		fprintf(stderr, "tuning error +1200\n");
+	else if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ 0xFFEFAFAAEEAALL, 0, 48)) {
+//		fprintf(stderr, "tuning error +1200\n");
+		UPDATE_COUNT('+')
 	}
-	if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ 0xAA8A0A008800LL, 0, 48)) {
-		fprintf(stderr, "tuning error +/- 2400\n");
+	else if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ 0xAA8A0A008800LL, 0, 48)) {
+//		fprintf(stderr, "tuning error +/- 2400\n");
+		UPDATE_COUNT('|')
 	}
+	else if(check_frame_sync((nid_accum & P25P2_FRAME_SYNC_MASK) ^ P25P2_FRAME_SYNC_MAGIC, 0, 40)) {
+//		fprintf(stderr, "P25P2 Framing detect\n");
+		UPDATE_COUNT(' ')
+	}
+    if (d_event_type == ' ' || d_event_count < 5) {
+        d_update_request = 0;
+    } else {
+        if (d_event_type == '+' && d_fm > 0)
+            d_update_request = -1;
+        else if (d_event_type == '-' && d_fm < 0)
+            d_update_request = 1;
+        else if (d_event_type == '|')
+            d_update_request = (d_fm < 0) ? 2 : -2;
+        else d_update_request = 0;
+    }
     return dibit;
 }
 
@@ -117,7 +146,11 @@ uint8_t gardner_costas_cc_impl::slicer(float sym) {
     d_alpha(alpha), d_beta(beta), 
     d_interp_counter(0),
     d_theta(M_PI / 4.0), d_phase(0), d_freq(0), d_max_freq(max_freq),
-    nid_accum(0)
+    nid_accum(0), d_prev(0),
+    d_event_count(0), d_event_type(' '),
+    d_symbol_seq(samples_per_symbol * 4800),
+    d_update_request(0),
+    d_fm(0), d_fm_accum(0), d_fm_count(0)
     {
   set_omega(samples_per_symbol);
   set_relative_rate (1.0 / d_omega);
@@ -146,6 +179,13 @@ void gardner_costas_cc_impl::set_omega (float omega) {
     memset(d_dl, 0, NUM_COMPLEX * sizeof(gr_complex));
 }
 
+float gardner_costas_cc_impl::get_freq_error (void) {
+	return (d_freq);
+}
+
+int gardner_costas_cc_impl::get_error_band (void) {
+	return (d_update_request);
+}
 
 void
 gardner_costas_cc_impl::forecast(int noutput_items, gr_vector_int &ninput_items_required)
@@ -241,6 +281,15 @@ gardner_costas_cc_impl::general_work (int noutput_items,
 	d_dl_index = d_dl_index % d_twice_sps;
 
 	i++;
+	gr_complex df = symbol * conj(d_prev);
+	float fmd = atan2f(df.imag(), df.real());
+	d_fm_accum += fmd;
+        d_fm_count ++;
+	if (d_fm_count % FM_COUNT == 0) {
+	d_fm = d_fm_accum / FM_COUNT;
+	d_fm_accum = 0;
+	}
+	d_prev = symbol;
     }
     
     if(i < ninput_items[0]) {
@@ -261,7 +310,7 @@ gardner_costas_cc_impl::general_work (int noutput_items,
 		float error_real = (d_last_sample.real() - interp_samp.real()) * interp_samp_mid.real();
 		float error_imag = (d_last_sample.imag() - interp_samp.imag()) * interp_samp_mid.imag();
 		gr_complex diffdec = interp_samp * conj(d_last_sample);
-		(void)slicer(std::arg(diffdec));
+		/* cpu reduction */ (void)slicer(std::arg(diffdec));
 		d_last_sample = interp_samp;	// save for next time
 #if 1
 		float symbol_error = error_real + error_imag; // Gardner loop error

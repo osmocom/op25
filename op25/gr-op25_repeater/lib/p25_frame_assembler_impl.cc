@@ -39,17 +39,24 @@ namespace gr {
 
     void p25_frame_assembler_impl::p25p2_queue_msg(int duid)
     {
-	static const char wbuf[2] = {0xff, 0xff}; // dummy NAC
+	static const unsigned char wbuf[2] = { (unsigned char) ((d_nac >> 8) & 0xff), (unsigned char) (d_nac & 0xff) };
 	if (!d_do_msgq)
 		return;
 	if (d_msg_queue->full_p())
 		return;
-	gr::message::sptr msg = gr::message::make_from_string(std::string(wbuf, 2), duid, 0, 0);
+	if (!d_nac)
+		return;
+	gr::message::sptr msg = gr::message::make_from_string(std::string((const char *)wbuf, 2), duid, 0, 0);
 	d_msg_queue->insert_tail(msg);
     }
 
     void p25_frame_assembler_impl::set_xormask(const char*p) {
 	p2tdma.set_xormask(p);
+    }
+
+    void p25_frame_assembler_impl::set_nac(int nac) {
+	d_nac = nac;
+	p2tdma.set_nac(nac);
     }
 
     void p25_frame_assembler_impl::set_slotid(int slotid) {
@@ -87,17 +94,16 @@ static const int MAX_IN = 1;	// maximum number of input streams
 	d_do_imbe(do_imbe),
 	d_do_output(do_output),
 	output_queue(),
-	p1fdma(udp_host, port, debug, do_imbe, do_output, do_msgq, queue, output_queue, do_audio_output),
+        op25audio(udp_host, port, debug),
+	p1fdma(op25audio, debug, do_imbe, do_output, do_msgq, queue, output_queue, do_audio_output),
 	d_do_audio_output(do_audio_output),
 	d_do_phase2_tdma(do_phase2_tdma),
-	p2tdma(udp_host, port, 0, debug, output_queue),
+	p2tdma(op25audio, 0, debug, do_msgq, queue, output_queue, do_audio_output),
 	d_do_msgq(do_msgq),
-	d_msg_queue(queue)
+	d_msg_queue(queue),
+	d_nac(0)
 {
-	if (d_do_audio_output && !d_do_imbe)
-		fprintf(stderr, "p25_frame_assembler: error: do_imbe must be enabled if do_audio_output is enabled\n");
-	if (d_do_phase2_tdma && !d_do_audio_output)
-		fprintf(stderr, "p25_frame_assembler: error: do_audio_output must be enabled if do_phase2_tdma is enabled\n");
+        fprintf(stderr, "p25_frame_assembler_impl: do_imbe[%d], do_output[%d], do_audio_output[%d], do_phase2_tdma[%d]\n", do_imbe, do_output, do_audio_output, do_phase2_tdma);
 }
 
 void
@@ -113,6 +119,7 @@ p25_frame_assembler_impl::forecast(int nof_output_items, gr_vector_int &nof_inpu
    nof_samples_reqd = nof_output_items;
    if (d_do_audio_output)
      nof_samples_reqd = 0.6 * nof_output_items;
+   nof_samples_reqd = std::max(nof_samples_reqd, 256);
    std::fill(&nof_input_items_reqd[0], &nof_input_items_reqd[nof_inputs], nof_samples_reqd);
 }
 
@@ -130,9 +137,10 @@ p25_frame_assembler_impl::general_work (int noutput_items,
 	for (int i = 0; i < ninput_items[0]; i++) {
 		if(p2tdma.rx_sym(in[i])) {
 			int rc = p2tdma.handle_frame();
-			if (rc > -1)
+			if (rc > -1) {
 				p25p2_queue_msg(rc);
 				p1fdma.reset_timer(); // prevent P1 timeouts due to long TDMA transmissions
+			}
 		}
 	}
   }

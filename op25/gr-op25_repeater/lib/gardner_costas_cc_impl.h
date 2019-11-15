@@ -67,6 +67,8 @@ namespace gr {
 
   //! Sets value of omega and its min and max values 
   void set_omega (float omega);
+  float get_freq_error(void);
+  int get_error_band(void);
 
 protected:
   bool input_sample0(gr_complex, gr_complex& outp);
@@ -99,6 +101,15 @@ protected:
   float				d_max_freq;
 
   uint64_t			nid_accum;
+
+  gr_complex			d_prev;
+  int				d_event_count;
+  char				d_event_type;
+  int				d_symbol_seq;
+  int				d_update_request;
+  float				d_fm;
+  float				d_fm_accum;
+  int				d_fm_count;
 
   float phase_error_detector_qpsk(gr_complex sample);
   void phase_error_tracking(gr_complex sample);
