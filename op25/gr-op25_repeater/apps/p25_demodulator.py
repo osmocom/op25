@@ -2,7 +2,7 @@
 # Copyright 2005,2006,2007 Free Software Foundation, Inc.
 #
 # OP25 Demodulator Block
-# Copyright 2009, 2010, 2011, 2012, 2013, 2014, 2015 Max H. Parke KA1RBI
+# Copyright 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020 Max H. Parke KA1RBI
 # 
 # This file is part of GNU Radio and part of OP25
 # 
@@ -62,7 +62,7 @@ def get_decim(speed):
 	for i_f in if_freqs:
 		if s % i_f != 0:
 			continue
-		q = s / i_f
+		q = int(s / i_f)
 		if q & 1:
 			continue
 		if q >= 40 and q & 3 == 0:
@@ -71,7 +71,7 @@ def get_decim(speed):
 		else:
 			decim = q/2
 			decim2 = 2
-		return decim, decim2
+		return int(decim), int(decim2)
 	return None
 
 class p25_demod_base(gr.hier_block2):
@@ -92,14 +92,18 @@ class p25_demod_base(gr.hier_block2):
 
         self.baseband_amp = blocks.multiply_const_ff(_def_bb_gain)
         coeffs = op25_c4fm_mod.c4fm_taps(sample_rate=self.if_rate, span=9, generator=op25_c4fm_mod.transfer_function_rx).generate()
-        sps = self.if_rate / 4800
+        sps = self.if_rate / self.symbol_rate
         if filter_type == 'rrc':
             ntaps = 7 * sps
             if ntaps & 1 == 0:
                 ntaps += 1
             coeffs = filter.firdes.root_raised_cosine(1.0, if_rate, symbol_rate, excess_bw, ntaps)
         if filter_type == 'nxdn':
-            coeffs = op25_c4fm_mod.c4fm_taps(sample_rate=self.if_rate, span=9, generator=op25_c4fm_mod.transfer_function_nxdn).generate()
+            coeffs = op25_c4fm_mod.c4fm_taps(sample_rate=self.if_rate, span=9, generator=op25_c4fm_mod.transfer_function_nxdn, symbol_rate=self.symbol_rate).generate()
+            gain_adj = 1.8	# for nxdn48 6.25 KHz
+            if self.symbol_rate == 4800:
+               gain_adj = 0.77	# nxdn96 12.5 KHz
+            coeffs = [x * gain_adj for x in coeffs]
         if filter_type == 'gmsk':
             # lifted from gmsk.py
             _omega = sps
@@ -171,7 +175,7 @@ class p25_demod_fb(p25_demod_base):
         @type input_rate: int
 	"""
 
-	gr.hier_block2.__init__(self, "p25_demod_fb",
+        gr.hier_block2.__init__(self, "p25_demod_fb",
 				gr.io_signature(1, 1, gr.sizeof_float),       # Input signature
 				gr.io_signature(1, 1, gr.sizeof_char)) # Output signature
 
@@ -216,7 +220,7 @@ class p25_demod_cb(p25_demod_base):
         @type input_rate: int
 	"""
 
-	gr.hier_block2.__init__(self, "p25_demod_cb",
+        gr.hier_block2.__init__(self, "p25_demod_cb",
 				gr.io_signature(1, 1, gr.sizeof_gr_complex),       # Input signature
 				gr.io_signature(1, 1, gr.sizeof_char)) # Output signature
 #				gr.io_signature(0, 0, 0)) # Output signature
@@ -248,6 +252,8 @@ class p25_demod_cb(p25_demod_base):
             self.t_cache[0] = bpf_coeffs
             fa = 6250
             fb = self.if2 / 2
+            if filter_type == 'nxdn' and self.symbol_rate == 2400:	# nxdn48 6.25 KHz
+                fa = 3125
             lpf_coeffs = filter.firdes.low_pass(1.0, self.if1, (fb+fa)/2, fb-fa, filter.firdes.WIN_HAMMING)
             self.bpf = filter.fir_filter_ccc(self.decim,  bpf_coeffs)
             self.lpf = filter.fir_filter_ccf(self.decim2, lpf_coeffs)
@@ -259,7 +265,12 @@ class p25_demod_cb(p25_demod_base):
             sys.stderr.write( 'Unable to use two-stage decimator for speed=%d\n' % (input_rate))
             # local osc
             self.lo = analog.sig_source_c (input_rate, analog.GR_SIN_WAVE, 0, 1.0, 0)
-            lpf_coeffs = filter.firdes.low_pass(1.0, input_rate, 7250, 1450, filter.firdes.WIN_HANN)
+            f1 = 7250
+            f2 = 1450
+            if filter_type == 'nxdn' and self.symbol_rate == 2400:	# nxdn48 6.25 KHz
+                f1 = 3125
+                f2 = 625
+            lpf_coeffs = filter.firdes.low_pass(1.0, input_rate, f1, f2, filter.firdes.WIN_HANN)
             decimation = int(input_rate / if_rate)
             self.lpf = filter.fir_filter_ccf(decimation, lpf_coeffs)
             resampled_rate = float(input_rate) / float(decimation) # rate at output of self.lpf
@@ -319,7 +330,7 @@ class p25_demod_cb(p25_demod_base):
         if sps == self.sps:
             return
         self.sps = sps
-        print 'set_omega %d %f' % (omega, sps)
+        print ('set_omega %d %f' % (omega, sps))
         self.clock.set_omega(self.sps)
 
     def set_relative_frequency(self, freq):
@@ -363,7 +374,7 @@ class p25_demod_cb(p25_demod_base):
         elif demod_type == 'cqpsk':
             self.connect(self.if_out, self.cutoff, self.agc, self.clock, self.diffdec, self.to_float, self.rescale, self.slicer)
         else:
-            print 'connect_chain failed, type: %s' % demod_type
+            print ('connect_chain failed, type: %s' % demod_type)
             assert 0 == 1
         if self.float_sink is not None:
             self.connect_float(self.float_sink[1])
@@ -385,7 +396,7 @@ class p25_demod_cb(p25_demod_base):
             self.connect(self.fsk4_demod, sink)
             self.float_sink = [self.fsk4_demod, sink]
         else:
-            print 'connect_float: state error', self.connect_state
+            print ('connect_float: state error', self.connect_state)
             assert 0 == 1
 
     def connect_complex(self, src, sink):
