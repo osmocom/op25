@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2011, 2012, 2013, 2014, 2015, 2016, 2017 Max H. Parke KA1RBI
+# Copyright 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020 Max H. Parke KA1RBI
 # 
 # This file is part of OP25
 # 
@@ -51,6 +51,8 @@ _def_symbol_rate = 4800
 #
 
 def byteify(input):	# thx so
+    if sys.version[0] != '2':	# hack, must be a better way
+        return input
     if isinstance(input, dict):
         return {byteify(key): byteify(value)
                 for key, value in input.iteritems()}
@@ -237,7 +239,7 @@ class rx_main(object):
 
         # wait for gdb
         if options.pause:
-            print 'Ready for GDB to attach (pid = %d)' % (os.getpid(),)
+            print ('Ready for GDB to attach (pid = %d)' % (os.getpid(),))
             raw_input("Press 'Enter' to continue...")
 
         if options.config_file == '-':

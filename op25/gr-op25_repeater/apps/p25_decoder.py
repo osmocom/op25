@@ -67,7 +67,7 @@ class p25_decoder_sink_b(gr.hier_block2):
         @type debug: int
 	"""
 
-	gr.hier_block2.__init__(self, "p25_demod_c",
+        gr.hier_block2.__init__(self, "p25_demod_c",
 				gr.io_signature(1, 1, gr.sizeof_char),       # Input signature
 				gr.io_signature(0, 0, 0)) # Output signature
 
@@ -99,7 +99,7 @@ class p25_decoder_sink_b(gr.hier_block2):
         num_decoders = 1
         if num_ambe > 1:
            num_decoders += num_ambe - 1
-        for slot in xrange(num_decoders):
+        for slot in range(num_decoders):
             self.p25_decoders.append(op25_repeater.p25_frame_assembler(wireshark_host, udp_port, debug, do_imbe, do_output, do_msgq, msgq, do_audio_output, do_phase2_tdma))
             self.p25_decoders[slot].set_slotid(slot)
 

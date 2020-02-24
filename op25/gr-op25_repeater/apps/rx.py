@@ -2,7 +2,7 @@
 
 # Copyright 2008-2011 Steve Glass
 # 
-# Copyright 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019 Max H. Parke KA1RBI
+# Copyright 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020 Max H. Parke KA1RBI
 # 
 # Copyright 2003,2004,2005,2006 Free Software Foundation, Inc.
 #         (from radiorausch)
@@ -114,27 +114,27 @@ class p25_rx_block (gr.top_block):
                 import osmosdr
                 self.src = osmosdr.source(options.args)
             except Exception:
-                print "osmosdr source_c creation failure"
+                print ("osmosdr source_c creation failure")
                 ignore = True
  
             if any(x in options.args.lower() for x in ['rtl', 'airspy', 'hackrf', 'uhd']):
-                #print "'rtl' has been found in options.args (%s)" % (options.args)
+                #print ("'rtl' has been found in options.args (%s)" % (options.args))
                 self.rtl_found = True
 
             gain_names = self.src.get_gain_names()
             for name in gain_names:
-                range = self.src.get_gain_range(name)
-                print "gain: name: %s range: start %d stop %d step %d" % (name, range[0].start(), range[0].stop(), range[0].step())
+                range1 = self.src.get_gain_range(name)
+                print ("gain: name: %s range: start %d stop %d step %d" % (name, range1[0].start(), range1[0].stop(), range1[0].step()))
             if options.gains:
                 for tup in options.gains.split(","):
                     name, gain = tup.split(":")
                     gain = int(gain)
-                    print "setting gain %s to %d" % (name, gain)
+                    print ("setting gain %s to %d" % (name, gain))
                     self.src.set_gain(gain, name)
 
             rates = self.src.get_sample_rates()
             try:
-                print 'supported sample rates %d-%d step %d' % (rates.start(), rates.stop(), rates.step())
+                print ('supported sample rates %d-%d step %d' % (rates.start(), rates.stop(), rates.step()))
             except:
                 pass	# ignore
 
@@ -166,7 +166,7 @@ class p25_rx_block (gr.top_block):
 
         self.constellation_scope_connected = False
 
-        for i in xrange(len(speeds)):
+        for i in range(len(speeds)):
             if speeds[i] == _default_speed:
                 self.current_speed = i
                 self.default_speed_idx = i
@@ -176,7 +176,7 @@ class p25_rx_block (gr.top_block):
 
         # wait for gdb
         if options.pause:
-            print 'Ready for GDB to attach (pid = %d)' % (os.getpid(),)
+            print ('Ready for GDB to attach (pid = %d)' % (os.getpid(),))
             raw_input("Press 'Enter' to continue...")
 
         self.input_q = gr.msg_queue(10)
@@ -298,7 +298,7 @@ class p25_rx_block (gr.top_block):
         if self.options.phase2_tdma:
             num_ambe = 2
         if self.options.logfile_workers:
-            for i in xrange(self.options.logfile_workers):
+            for i in range(self.options.logfile_workers):
                 demod = p25_demodulator.p25_demod_cb(input_rate=capture_rate,
                                                      demod_type=self.options.demod_type,
                                                      offset=self.options.offset)
@@ -458,7 +458,7 @@ class p25_rx_block (gr.top_block):
         if self.rtl_found:
             self.src.set_gain(gain, 'LNA')
             if self.options.verbosity:
-                print 'RTL Gain of %d set to: %.1f' % (gain, self.src.get_gain('LNA'))
+                print ('RTL Gain of %d set to: %.1f' % (gain, self.src.get_gain('LNA')))
         else:
             if self.baseband_input:
                 f = 1.0
@@ -467,7 +467,7 @@ class p25_rx_block (gr.top_block):
             self.demod.set_baseband_gain(float(gain) * f)
 
     def set_audio_scaler(self, vol):
-        #print 'audio scaler: %f' % ((1 / 32768.0) * (vol * 0.1))
+        #print ('audio scaler: %f' % ((1 / 32768.0) * (vol * 0.1)))
         if hasattr(self.decoder, 'set_scaler_k'):
             self.decoder.set_scaler_k((1 / 32768.0) * (vol * 0.1))
 
@@ -571,7 +571,7 @@ class p25_rx_block (gr.top_block):
         if file_seek > 0:
             rc = ifile.seek(file_seek*1024, gr.SEEK_SET)
             assert rc == True
-            #print "seek: %d, rc = %d" % (file_seek, rc)
+            #print ("seek: %d, rc = %d" % (file_seek, rc))
         throttle = blocks.throttle(gr.sizeof_gr_complex, speed)
         self.source = blocks.multiply_const_cc(gain)
         self.connect(ifile, throttle, self.source)
@@ -645,6 +645,9 @@ class p25_rx_block (gr.top_block):
         if t == -4:
             d = json.loads(s)
             s = d['command']
+        if type(s) is not str and isinstance(s, bytes):
+            # should only get here if python3
+            s = s.decode()
         if s == 'quit': return True
         elif s == 'update':
             self.freq_update()

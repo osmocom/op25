@@ -131,13 +131,13 @@ class wrap_gp(object):
 				s += 'e\n'
 				self.buf=self.buf[self.sps:]
 				plots.append('"-" with lines')
- 			elif mode == 'constellation':
+			elif mode == 'constellation':
 				plot_size = (240,240)
 				self.buf = self.buf[:100]
- 				for b in self.buf:
+				for b in self.buf:
 					s += '%f\t%f\n' % (degrees(np.angle(b)), limit(np.abs(b),1.0))
- 				s += 'e\n'
- 				plots.append('"-" with points')
+				s += 'e\n'
+				plots.append('"-" with points')
 				for b in self.buf:
 					#s += '%f\t%f\n' % (b.real, b.imag)
 					s += '%f\t%f\n' % (degrees(np.angle(b)), limit(np.abs(b),1.0))
@@ -159,7 +159,7 @@ class wrap_gp(object):
 				tune_freq = (self.center_freq - self.relative_freq) / 1e6
 				if self.center_freq and self.width:
                                 	self.freqs = ((self.freqs * self.width) + self.center_freq + self.offset_freq) / 1e6
-				for i in xrange(len(self.ffts)):
+				for i in range(len(self.ffts)):
 					if mode == 'fft':
 						self.avg_pwr[i] = ((1.0 - FFT_AVG) * self.avg_pwr[i]) + (FFT_AVG * np.abs(self.ffts[i]))
 					else:
@@ -223,37 +223,39 @@ class wrap_gp(object):
 			h += 'set format ""\n'
 			h += 'set style line 11 lt 1 lw 2 pt 2 ps 2\n'
 
-                        h+= 'set title "Constellation"\n'
+			h+= 'set title "Constellation"\n'
 		elif mode == 'eye':
 			h+= background
 			h+= 'set yrange [-4:4]\n'
-                        h+= 'set title "Datascope"\n'
+			h+= 'set title "Datascope"\n'
 		elif mode == 'symbol':
 			h+= background
 			h+= 'set yrange [-4:4]\n'
-                        h+= 'set title "Symbol"\n'
+			h+= 'set title "Symbol"\n'
 		elif mode == 'fft' or mode == 'mixer':
 			h+= 'unset arrow; unset title\n'
 			h+= 'set xrange [%f:%f]\n' % (self.freqs[0], self.freqs[len(self.freqs)-1])
-                        h+= 'set xlabel "Frequency"\n'
-                        h+= 'set ylabel "Power(dB)"\n'
-                        h+= 'set grid\n'
+			h+= 'set xlabel "Frequency"\n'
+			h+= 'set ylabel "Power(dB)"\n'
+			h+= 'set grid\n'
 			h+= 'set yrange [-100:0]\n'
 			if mode == 'mixer':	# mixer
-                                h+= 'set title "Mixer: balance %3.0f (smaller is better)"\n' % (np.abs(self.avg_sum_pwr * 1000))
+				h+= 'set title "Mixer: balance %3.0f (smaller is better)"\n' % (np.abs(self.avg_sum_pwr * 1000))
 			else:			# fft
-                                h+= 'set title "Spectrum"\n'
+				h+= 'set title "Spectrum"\n'
 				if self.center_freq:
 					arrow_pos = (self.center_freq - self.relative_freq) / 1e6
 					h+= 'set arrow from %f, graph 0 to %f, graph 1 nohead\n' % (arrow_pos, arrow_pos)
 					h+= 'set title "Spectrum: tuned to %f Mhz"\n' % arrow_pos
 		elif mode == 'float':
 			h+= 'set yrange [-2:2]\n'
-                        h+= 'set title "Oscilloscope"\n'
+			h+= 'set title "Oscilloscope"\n'
 		dat = '%s%splot %s\n%s' % (h0, h, ','.join(plots), s)
-                if self.logfile is not None:
-                    with open(self.logfile, 'a') as fd:
-                        fd.write(dat)
+		if sys.version[0] != '2':
+			dat = bytes(dat, 'utf8')
+		if self.logfile is not None:
+			with open(self.logfile, 'a') as fd:
+				fd.write(dat)
 		self.gp.poll()
 		if self.gp.returncode is None:	# make sure gnuplot is still running 
 			try:
@@ -293,7 +295,7 @@ class eye_sink_f(gr.sync_block):
 
     def work(self, input_items, output_items):
         in0 = input_items[0]
-	consumed = self.gnuplot.plot(in0, 100 * self.sps, mode='eye')
+        consumed = self.gnuplot.plot(in0, 100 * self.sps, mode='eye')
         return consumed ### len(input_items[0])
 
     def kill(self):
@@ -312,7 +314,7 @@ class constellation_sink_c(gr.sync_block):
 
     def work(self, input_items, output_items):
         in0 = input_items[0]
-	self.gnuplot.plot(in0, 1000, mode='constellation')
+        self.gnuplot.plot(in0, 1000, mode='constellation')
         return len(input_items[0])
 
     def kill(self):
@@ -335,7 +337,7 @@ class fft_sink_c(gr.sync_block):
         if self.skip >= 50:
             self.skip = 0
             in0 = input_items[0]
-	    self.gnuplot.plot(in0, FFT_BINS, mode='fft')
+            self.gnuplot.plot(in0, FFT_BINS, mode='fft')
         return len(input_items[0])
 
     def kill(self):
@@ -343,7 +345,7 @@ class fft_sink_c(gr.sync_block):
 
     def set_center_freq(self, f):
         self.gnuplot.set_center_freq(f)
-	self.gnuplot.set_relative_freq(0.0)
+        self.gnuplot.set_relative_freq(0.0)
 
     def set_relative_freq(self, f):
         self.gnuplot.set_relative_freq(f)
@@ -390,7 +392,7 @@ class symbol_sink_f(gr.sync_block):
 
     def work(self, input_items, output_items):
         in0 = input_items[0]
-	self.gnuplot.plot(in0, 2400, mode='symbol')
+        self.gnuplot.plot(in0, 2400, mode='symbol')
         return len(input_items[0])
 
     def kill(self):

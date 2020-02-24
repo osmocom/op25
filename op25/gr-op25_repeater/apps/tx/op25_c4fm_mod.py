@@ -54,7 +54,7 @@ def transfer_function_rx(symbol_rate=_def_symbol_rate):
 	# Specs undefined above 2,880 Hz.  It would be nice to have a sharper
 	# rolloff, but this filter is cheap enough....
 	xfer = []	# frequency domain transfer function
-	for f in xrange(0,symbol_rate):
+	for f in range(0,symbol_rate):
 		# D(f)
 		t = pi * f / symbol_rate
 		if t < 1e-6:
@@ -66,7 +66,7 @@ def transfer_function_rx(symbol_rate=_def_symbol_rate):
 
 def transfer_function_tx(symbol_rate=_def_symbol_rate):
 	xfer = []	# frequency domain transfer function
-	for f in xrange(0, 2881):	# specs cover 0 - 2,880 Hz
+	for f in range(0, 2881):	# specs cover 0 - 2,880 Hz
 		# H(f)
 		if f < 1920:
 			hf = 1.0
@@ -84,7 +84,7 @@ def transfer_function_tx(symbol_rate=_def_symbol_rate):
 
 def transfer_function_dmr(symbol_rate=_def_symbol_rate):
 	xfer = []	# frequency domain transfer function
-	for f in xrange(0, 2881):	# specs cover 0 - 2,880 Hz
+	for f in range(0, 2881):	# specs cover 0 - 2,880 Hz
 		if f < 1920:
 			hf = 1.0
 		else:
@@ -102,7 +102,7 @@ def transfer_function_nxdn(symbol_rate=_def_symbol_rate):
 	fh = int(0.5+(1+a)/(2*T))
 
 	xfer = []
-	for f in xrange(0, symbol_rate):
+	for f in range(0, symbol_rate):
 		if f < fl:
 			hf = 1.0
 		elif f >= fl and f <= fh:
@@ -132,7 +132,7 @@ class c4fm_taps(object):
 
 	def generate(self):
 		impulse_response = np.fft.fftshift(np.fft.irfft(self.generator(symbol_rate=self.symbol_rate), self.sample_rate))
-		start = np.argmax(impulse_response) - (self.ntaps-1) / 2
+		start = np.argmax(impulse_response) - (self.ntaps-1) // 2
 		coeffs = impulse_response[start: start+self.ntaps]
 		gain = self.filter_gain / sum(coeffs)
 		return coeffs * gain
@@ -149,7 +149,7 @@ class gmsk_taps(object):
 		self.bt = bt
 
 		self.samples_per_symbol = self.sample_rate / self.symbol_rate
-	        self.ntaps = self.span * self.samples_per_symbol
+		self.ntaps = self.span * self.samples_per_symbol
 
 	def generate(self):
 		# from gnuradio gr-digital/python/digital/gmsk.py
@@ -201,7 +201,7 @@ class p25_mod_bf(gr.hier_block2):
         @type debug: bool
 	"""
 
-	gr.hier_block2.__init__(self, "p25_c4fm_mod_bf",
+        gr.hier_block2.__init__(self, "p25_c4fm_mod_bf",
 				gr.io_signature(1, 1, gr.sizeof_char),       # Input signature
 				gr.io_signature(1, 1, gr.sizeof_float)) # Output signature
 
@@ -249,11 +249,11 @@ class p25_mod_bf(gr.hier_block2):
             self.connect(self.filter, self)
 
     def _print_verbage(self):
-        print "\nModulator:"
-        print "interpolation: %d decimation: %d" %(self._interp_factor, self._decimation)
+        print ("\nModulator:")
+        print ("interpolation: %d decimation: %d" %(self._interp_factor, self._decimation))
 
     def _setup_logging(self):
-        print "Modulation logging turned on."
+        print ("Modulation logging turned on.")
         self.connect(self.C2S,
                      gr.file_sink(gr.sizeof_float, "tx_chunks2symbols.dat"))
         self.connect(self.polarity,

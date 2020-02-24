@@ -68,7 +68,7 @@ class curses_terminal(threading.Thread):
         self.maxy, self.maxx = self.stdscr.getmaxyx()
         if (self.maxy < 6) or (self.maxx < 60):
             sys.stderr.write("Terminal window too small! Minimum size [70 x 6], actual [%d x %d]\n" % (self.maxx, self.maxy))
-            print "Terminal window too small! Minimum size [70 x 6], actual [%d x %d]\n" % (self.maxx, self.maxy)
+            print ("Terminal window too small! Minimum size [70 x 6], actual [%d x %d]\n" % (self.maxx, self.maxy))
             self.keep_running = False
             return
 
@@ -157,7 +157,7 @@ class curses_terminal(threading.Thread):
         if c in COMMANDS.keys():
             self.send_command(COMMANDS[c], 0)
         elif c == ord('q'):
-		return True
+            return True
         elif c == ord('t'):
             if self.current_nac:
                 self.send_command('add_default_config', int(self.current_nac))
@@ -220,7 +220,7 @@ class curses_terminal(threading.Thread):
             self.top_bar.addstr(0, 0, s)
             self.top_bar.refresh()
             self.freq_list.erase()
-            for i in xrange(len(freqs)):
+            for i in range(len(freqs)):
                 if i > (self.maxy - 6):
                     break
                 s=msg[current_nac]['frequencies'][freqs[i]]
@@ -346,7 +346,7 @@ class zeromq_terminal(threading.Thread):
 
 class http_terminal(threading.Thread):
     def __init__(self, input_q,  output_q, endpoint, **kwds):
-        from http import http_server
+        from http_server import http_server
 
         threading.Thread.__init__ (self, **kwds)
         self.setDaemon(1)

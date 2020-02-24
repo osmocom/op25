@@ -41,6 +41,16 @@ def crc16(dat,len):	# slow version
     crc = crc ^ 0xffff
     return crc
 
+def get_ordinals(s):
+	t = 0
+	if type(s) is not str and isinstance(s, bytes):
+		for c in s:
+			t = (t << 8) + c
+	else:
+		for c in s:
+			t = (t << 8) + ord(c)
+	return t
+
 class trunked_system (object):
     def __init__(self, debug=0, config=None):
         self.debug = debug
@@ -104,7 +114,7 @@ class trunked_system (object):
         d['rxchan'] = self.rfss_chan
         d['txchan'] = self.rfss_txchan
         d['wacn'] = self.ns_wacn
-        d['secondary'] = self.secondary.keys()
+        d['secondary'] = [k for k in self.secondary.keys()]
         d['tsbks'] = self.stats['tsbks']
         d['frequencies'] = {}
         d['frequency_data'] = {}
@@ -120,7 +130,7 @@ class trunked_system (object):
             d['frequencies'][f] = 'voice frequency %f tgid(s) %s %4.1fs ago count %d' %  (f / 1000000.0, tgs, t - self.voice_frequencies[f]['time'], self.voice_frequencies[f]['counter'])
 
             d['frequency_data'][f] = {'tgids': self.voice_frequencies[f]['tgid'], 'last_activity': '%7.1f' % (t - self.voice_frequencies[f]['time']), 'counter': self.voice_frequencies[f]['counter']}
-	d['adjacent_data'] = self.adjacent_data
+        d['adjacent_data'] = self.adjacent_data
         return json.dumps(d)
 
     def to_string(self):
@@ -608,7 +618,7 @@ class rx_ctl (object):
                 self.build_config_json(conf_file)
             else:
                 self.build_config(conf_file)
-            self.nacs = self.configs.keys()
+            self.nacs = [int (x) for x in self.configs.keys()]
             self.current_nac = self.find_next_tsys()
             self.current_state = self.states.CC
 
@@ -755,10 +765,10 @@ class rx_ctl (object):
         return s
 
     def process_qmsg(self, msg):
-        type = msg.type()
+        mtype = msg.type()
         updated = 0
         curr_time = time.time()
-        if type == -3:		# P25 call signalling data
+        if mtype == -3:		# P25 call signalling data
             if self.debug > 10:
                 sys.stderr.write("%f process_qmsg: P25 info: %s\n" % (time.time(), msg.to_string()))
             js = json.loads(msg.to_string())
@@ -777,55 +787,50 @@ class rx_ctl (object):
             if 'keyid' in js.keys():
                 tsys.current_keyid = js['keyid']
             return
-        elif type == -2:	# request from gui
+        elif mtype == -2:	# request from gui
             cmd = msg.to_string()
             if self.debug > 10:
                 sys.stderr.write('process_qmsg: command: %s\n' % cmd)
             self.update_state(cmd, curr_time)
             return
-        elif type == -1:	# timeout
+        elif mtype == -1:	# timeout
             if self.debug > 10:
                 sys.stderr.write('%f process_data_unit timeout\n' % time.time())
             self.update_state('timeout', curr_time)
             if self.logfile_workers:
                 self.logging_scheduler(curr_time)
             return
-        elif type < 0:
-            sys.stderr.write('unknown message type %d\n' % (type))
+        elif mtype < 0:
+            sys.stderr.write('unknown message type %d\n' % (mtype))
             return
         s = msg.to_string()
         # nac is always 1st two bytes
-        nac = (ord(s[0]) << 8) + ord(s[1])
+        nac = get_ordinals(s[:2])
         #assert nac != 0xffff   # FIXME: uncomment this after any remaining usages of 0xffff removed
         if nac == 0xffff:
-            if (type != 7) and (type != 12): # TDMA duid (end of call etc)
-                self.update_state('tdma_duid%d' % type, curr_time)
+            if (mtype != 7) and (mtype != 12): # TDMA duid (end of call etc)
+                self.update_state('tdma_duid%d' % mtype, curr_time)
                 return
             else: # voice channel derived TSBK or MBT PDU
                 nac = self.current_nac
         s = s[2:]
         if self.debug > 10:
-            sys.stderr.write('nac %x type %d at %f state %d len %d\n' %(nac, type, time.time(), self.current_state, len(s)))
-        if (type == 7 or type == 12) and nac not in self.trunked_systems:
+            sys.stderr.write('nac %x type %d at %f state %d len %d\n' %(nac, mtype, time.time(), self.current_state, len(s)))
+        if (mtype == 7 or mtype == 12) and nac not in self.trunked_systems:
             if not self.configs:
                 # TODO: allow whitelist/blacklist rather than blind automatic-add
                 self.add_trunked_system(nac)
             else:
                 sys.stderr.write("%f NAC %x not configured\n" % (time.time(), nac))
                 return
-        if type == 7:	# trunk: TSBK
-            t = 0
-            for c in s:
-                t = (t << 8) + ord(c)
+        if mtype == 7:	# trunk: TSBK
+            t = get_ordinals(s)
             updated += self.trunked_systems[nac].decode_tsbk(t)
-        elif type == 12:	# trunk: MBT
+        elif mtype == 12:	# trunk: MBT
             s1 = s[:10]		# header without crc
             s2 = s[12:]
-            header = mbt_data = 0
-            for c in s1:
-                header = (header << 8) + ord(c)
-            for c in s2:
-                mbt_data = (mbt_data << 8) + ord(c)
+            header = get_ordinals(s1)
+            mbt_data = get_ordinals(s2)
 
             fmt = (header >> 72) & 0x1f
             sap = (header >> 64) & 0x3f
@@ -835,12 +840,15 @@ class rx_ctl (object):
 
             opcode = (header >> 16) & 0x3f
             if self.debug > 10:
-                sys.stderr.write('type %d at %f state %d len %d/%d opcode %x [%x/%x]\n' %(type, time.time(), self.current_state, len(s1), len(s2), opcode, header,mbt_data))
+                sys.stderr.write('type %d at %f state %d len %d/%d opcode %x [%x/%x]\n' %(mtype, time.time(), self.current_state, len(s1), len(s2), opcode, header,mbt_data))
             updated += self.trunked_systems[nac].decode_mbt_data(opcode, src, header << 16, mbt_data << 32)
 
         if nac != self.current_nac:
             if self.debug > 10: # this is occasionally expected if cycling between different tsys
-                sys.stderr.write("%f received NAC %x does not match expected NAC %x\n" % (time.time(), nac, self.current_nac))
+                cnac = self.current_nac
+                if cnac is None:
+                    cnac = 0
+                sys.stderr.write("%f received NAC %x does not match expected NAC %x\n" % (time.time(), nac, cnac))
             return
 
         if self.logfile_workers:
@@ -850,7 +858,7 @@ class rx_ctl (object):
         if updated:
             self.update_state('update', curr_time)
         else:
-            self.update_state('duid%d' % type, curr_time)
+            self.update_state('duid%d' % mtype, curr_time)
 
     def find_available_worker(self):
         for worker in self.logfile_workers:
@@ -962,6 +970,9 @@ class rx_ctl (object):
         if not self.configs:
             return	# run in "manual mode" if no conf
 
+        if type(command) is not str and isinstance(command, bytes):
+            command = command.decode()
+
         nac = self.current_nac
         tsys = self.trunked_systems[nac]
 
@@ -1064,7 +1075,7 @@ class rx_ctl (object):
                 self.tgid_hold = self.current_tgid
                 self.tgid_hold_until = curr_time + 86400 * 10000
                 self.hold_mode = True
-                print 'set hold until %f' % self.tgid_hold_until
+                print ('set hold until %f' % self.tgid_hold_until)
         elif command == 'unset_hold':
             self.last_command = {'command': command, 'time': curr_time}
             if self.current_tgid:

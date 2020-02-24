@@ -62,16 +62,16 @@ def get_decim(speed):
 	for i_f in if_freqs:
 		if s % i_f != 0:
 			continue
-		q = int(s / i_f)
+		q = s // i_f
 		if q & 1:
 			continue
 		if q >= 40 and q & 3 == 0:
-			decim = q/4
+			decim = q//4
 			decim2 = 4
 		else:
-			decim = q/2
+			decim = q//2
 			decim2 = 2
-		return int(decim), int(decim2)
+		return decim, decim2
 	return None
 
 class p25_demod_base(gr.hier_block2):
@@ -92,7 +92,7 @@ class p25_demod_base(gr.hier_block2):
 
         self.baseband_amp = blocks.multiply_const_ff(_def_bb_gain)
         coeffs = op25_c4fm_mod.c4fm_taps(sample_rate=self.if_rate, span=9, generator=op25_c4fm_mod.transfer_function_rx).generate()
-        sps = self.if_rate / self.symbol_rate
+        sps = self.if_rate // self.symbol_rate
         if filter_type == 'rrc':
             ntaps = 7 * sps
             if ntaps & 1 == 0:

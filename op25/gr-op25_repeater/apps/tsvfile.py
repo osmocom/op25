@@ -42,14 +42,14 @@ def get_int_dict(s):
             v = v.split("\t",1) # split on tab
             try:
                 v0 = int(v[0])				# first parameter is tgid or start of tgid range
-		v1 = v0
-		if (len(v) > 1) and (int(v[1]) > v0):	# second parameter if present is end of tgid range
+                v1 = v0
+                if (len(v) > 1) and (int(v[1]) > v0):	# second parameter if present is end of tgid range
                 	v1 = int(v[1])
-		
-		for tg in range(v0, (v1 + 1)):
-                	if tg not in d:      # is this a new tg?
-                		d[tg] = []   # if so, add to dict (key only, value null)
-                		sys.stderr.write('added talkgroup %d from %s\n' % (tg,s))
+
+                for tg in range(v0, (v1 + 1)):
+                    if tg not in d:      # is this a new tg?
+                       d[tg] = []   # if so, add to dict (key only, value null)
+                       sys.stderr.write('added talkgroup %d from %s\n' % (tg,s))
 
             except (IndexError, ValueError) as ex:
                 continue
@@ -62,7 +62,7 @@ def utf_ascii(ustr):
 def load_tsv(tsv_filename):
     hdrmap = []
     configs = {}
-    with open(tsv_filename, 'rb') as csvfile:
+    with open(tsv_filename, 'r') as csvfile:
         sreader = csv.reader(csvfile, delimiter='\t', quotechar='"', quoting=csv.QUOTE_ALL)
         for row in sreader:
             if not hdrmap:
@@ -73,7 +73,7 @@ def load_tsv(tsv_filename):
                     hdrmap.append(hdr)
                 continue
             fields = {}
-            for i in xrange(len(row)):
+            for i in range(len(row)):
                 if row[i]:
                     fields[hdrmap[i]] = row[i]
                     if hdrmap[i] != 'sysname':
@@ -99,12 +99,12 @@ def make_config(configs):
                 result_config[nac][k] = get_int_dict(configs[nac][k])
         if 'tgid_tags_file' in configs[nac]:
             import csv
-            with open(configs[nac]['tgid_tags_file'], 'rb') as csvfile:
+            with open(configs[nac]['tgid_tags_file'], 'r') as csvfile:
                 sreader = csv.reader(csvfile, delimiter='\t', quotechar='"', quoting=csv.QUOTE_ALL)
                 for row in sreader:
                     try:
                         tgid = int(row[0])
-                        txt = utf_ascii(row[1])
+                        txt = row[1]
                     except (IndexError, ValueError) as ex:
                         continue
                     if len(row) >= 3:
@@ -122,7 +122,7 @@ def make_config(configs):
 def main():
     import json
     result = make_config(load_tsv(sys.argv[1]))
-    print json.dumps(result, indent=4, separators=[',',':'], sort_keys=True)
+    print (json.dumps(result, indent=4, separators=[',',':'], sort_keys=True))
 
 if __name__ == '__main__':
     main()
