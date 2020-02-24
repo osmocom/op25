@@ -94,7 +94,7 @@ def transfer_function_dmr(symbol_rate=_def_symbol_rate):
 	xfer = np.sqrt(xfer)	# root cosine
 	return xfer
 
-def transfer_function_nxdn(symbol_rate=_def_symbol_rate):
+def _transfer_function_nxdn(symbol_rate, modulator=False):
 	assert symbol_rate == 2400 or symbol_rate == 4800
 	T = 1.0 / symbol_rate
 	a = 0.2		# rolloff
@@ -114,11 +114,22 @@ def transfer_function_nxdn(symbol_rate=_def_symbol_rate):
 			if x == 0 or sin(x) == 0:
 				df = 1.0
 			else:
-				df = x / sin(x)
+				if modulator:
+					df = sin(x) / x
+				else:		# rx mode: demodulator
+					df = x / sin(x)
 		else:
-				df = 2.0
+				df = 0.0
 		xfer.append(hf * df)
 	return xfer
+
+# rx / demod case
+def transfer_function_nxdn(symbol_rate=_def_symbol_rate):
+	return _transfer_function_nxdn(symbol_rate)
+
+# tx / modulator case
+def transfer_function_nxdn_tx(symbol_rate=_def_symbol_rate):
+	return _transfer_function_nxdn(symbol_rate, modulator=True)
 
 class c4fm_taps(object):
 	"""Generate filter coefficients as per P25 C4FM spec"""
