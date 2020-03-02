@@ -103,7 +103,7 @@ class p25_demod_base(gr.hier_block2):
             gain_adj = 1.8	# for nxdn48 6.25 KHz
             if self.symbol_rate == 4800:
                gain_adj = 0.77	# nxdn96 12.5 KHz
-            coeffs = [x * gain_adj for x in coeffs]
+            coeffs = coeffs * gain_adj
         if filter_type == 'gmsk':
             # lifted from gmsk.py
             _omega = sps

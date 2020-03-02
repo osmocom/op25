@@ -155,7 +155,7 @@ class channel(object):
         for plot in config['plot'].split(','):
             if plot == 'datascope':
                 assert config['demod_type'] == 'fsk4'   ## datascope plot requires fsk4 demod type
-                sink = eye_sink_f(sps=config['if_rate'] / self.symbol_rate)
+                sink = eye_sink_f(sps=config['if_rate'] // self.symbol_rate)
                 self.demod.connect_bb('symbol_filter', sink)
                 self.kill_sink.append(sink)
             elif plot == 'symbol':
@@ -247,6 +247,7 @@ class rx_main(object):
         else:
             config = json.loads(open(options.config_file).read())
         self.tb = rx_block(options.verbosity, config = byteify(config))
+        sys.stderr.write('python version detected: %s\n' % sys.version)
 
     def run(self):
         try:
