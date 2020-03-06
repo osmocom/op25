@@ -221,6 +221,9 @@ class rx_block (gr.top_block):
             chan = channel(cfg, dev, self.verbosity)
             self.channels.append(chan)
             self.connect(dev.src, chan.demod, chan.decoder)
+            if 'log_symbols' in cfg.keys():
+                chan.logfile = blocks.file_sink(gr.sizeof_char, cfg['log_symbols'])
+                self.connect(chan.demod, chan.logfile)
 
     def scan_channels(self):
         for chan in self.channels:
