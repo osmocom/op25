@@ -51,6 +51,8 @@ namespace gr {
       virtual void set_xormask(const char*p) {}
       virtual void set_nac(int nac) {}
       virtual void set_slotid(int slotid) {}
+      virtual void insert_whitelist(int grpaddr) {}
+      virtual void insert_blacklist(int grpaddr) {}
     };
 
   } // namespace op25_repeater

@@ -50,6 +50,8 @@ namespace gr {
     void set_xormask(const char*p) ;
     void set_nac(int nac) ;
     void set_slotid(int slotid) ;
+    void insert_whitelist(int grpaddr);
+    void insert_blacklist(int grpaddr);
 
  public:
 

@@ -148,6 +148,14 @@ class channel(object):
 
         self.kill_sink = []
 
+        if 'blacklist' in config.keys():
+            for g in config['blacklist'].split(','):
+                self.decoder.insert_blacklist(int(g))
+
+        if 'whitelist' in config.keys():
+            for g in config['whitelist'].split(','):
+                self.decoder.insert_whitelist(int(g))
+
         if 'plot' not in config.keys():
             return
 

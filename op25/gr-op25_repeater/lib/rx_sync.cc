@@ -132,12 +132,104 @@ void rx_sync::ysf_sync(const uint8_t dibitbuf[], bool& ysf_fullrate, bool& unmut
 		fprintf(stderr, "ysf_sync: muting audio: dt: %d, rc: %d\n", d_shift_reg, rc);
 }
 
+static int decode_embedded(uint8_t result_lc[72], const uint8_t src[32*4], int srclen) {
+// return code < 0 indicates decode failure
+	static const int lengths[] = {11, 11, 10, 10, 10, 10, 10};
+	int s_index = 0;
+	uint8_t decode[16*8];
+	uint8_t decode_lc[72+5];
+	int srcp = 0;
+	if (srclen != 32*4)
+		return -4;
+	for (int i=0; i<16; i++) {
+		for (int j=0; j<8; j++){
+			decode[i+16*j] = src[srcp++]; 
+		}
+	}
+	for (int i=0; i<7; i++) {
+		int v = load_i(&decode[16*i], 16);
+		int rc = hamming_16_11_decode(v);
+		if (rc < 0)
+			return rc;
+		store_i(rc, &decode_lc[11*i], 11);
+		memcpy(&result_lc[s_index], &decode_lc[11*i], lengths[i]);
+		s_index += lengths[i];
+	}
+	uint16_t r_csum = 0;
+	for (int i=0; i<5; i++) {
+		r_csum <<= 1;
+		r_csum |= decode_lc[(i+2)*11+10] & 1;
+	}
+	uint16_t c_csum = 0;
+	for (int i=0; i<9; i++) {
+		c_csum += load_i(&result_lc[i*8], 8);
+	}
+	c_csum = c_csum % 31;
+	if (r_csum != c_csum)
+		return -3;
+	return 0;	// OK return
+}
+
+static void init_xlist(int * lp) {
+	for (int i=0; i < XLIST_SIZE; i++) {
+		lp[i] = -1;
+	}
+}
+
+static bool find_xlist(const int grp, const int * lp) {
+	for (int i=0; i < XLIST_SIZE; i++) {
+		if (lp[i] == grp && grp > 0)
+			return true;
+	}
+	return false;
+}
+
+static bool add_xlist(const int grp, int * lp) {
+// returns false if failed (grp bad, dup or list full), otherwise true
+	for (int i=0; i < XLIST_SIZE; i++) {
+		if (lp[i] == grp || grp < 1)
+			return false;	// dup or group invalid
+		if (lp[i] == -1) {
+			lp[i] = grp;
+			return true;
+		}
+	}
+	return false;
+}
+
+static int count_xlist(const int * lp) {
+	int res=0;
+	for (int i=0; i < XLIST_SIZE; i++) {
+		if (lp[i] > 0)
+			res += 1;
+	}
+	return res;
+}
+
+void rx_sync::insert_whitelist(int grpaddr) {
+	bool rc =  add_xlist(grpaddr, d_whitelist);
+	if (rc == false)
+		fprintf(stderr, "insert_whitelist failed for grp=%d- dup or list full\n", grpaddr);
+	else if (d_debug)
+		fprintf(stderr, "insert_whitelist complete for grp=%d\n", grpaddr);
+}
+
+void rx_sync::insert_blacklist(int grpaddr) {
+	bool rc =  add_xlist(grpaddr, d_blacklist);
+	if (rc == false)
+		fprintf(stderr, "insert_blacklist failed for grp=%d- dup or list full\n", grpaddr);
+	else if (d_debug)
+		fprintf(stderr, "insert_blacklist complete for grp=%d\n", grpaddr);
+}
+
 void rx_sync::dmr_sync(const uint8_t bitbuf[], int& current_slot, bool& unmute) {
 	static const int slot_ids[] = {0, 1, 0, 0, 1, 1, 0, 1};
+	static const uint32_t BURST_SZ = 32;	// embedded burst size (bits)
 	int tact;
 	int chan;
 	int fstype;
 	uint8_t tactbuf[sizeof(cach_tact_bits)];
+	uint8_t lc72[72];
 
 	for (size_t i=0; i<sizeof(cach_tact_bits); i++)
 		tactbuf[i] = bitbuf[cach_tact_bits[i]];
@@ -145,6 +237,9 @@ void rx_sync::dmr_sync(const uint8_t bitbuf[], int& current_slot, bool& unmute) 
 	chan = (tact>>2) & 1;
 	d_shift_reg = (d_shift_reg << 1) + chan;
 	current_slot = slot_ids[d_shift_reg & 7];
+
+	if (d_groupid_valid[current_slot] > 0)
+		d_groupid_valid[current_slot] -= 1;
 
 	uint64_t sync = load_reg64(bitbuf + (MODE_DATA[RX_TYPE_DMR].sync_offset << 1), MODE_DATA[RX_TYPE_DMR].sync_len);
 	if (check_frame_sync(DMR_VOICE_SYNC_MAGIC ^ sync, d_threshold, MODE_DATA[RX_TYPE_DMR].sync_len))
@@ -157,17 +252,83 @@ void rx_sync::dmr_sync(const uint8_t bitbuf[], int& current_slot, bool& unmute) 
 		d_expires = d_symbol_count + MODE_DATA[d_current_type].expiration;
 	if (fstype == 1) {
 		if (!d_unmute_until[current_slot] && d_debug > 5)
-			fprintf(stderr, "unmute slot %d\n", current_slot);
+			fprintf(stderr, "%d unmute slot %d\n", d_symbol_count, current_slot);
 		d_unmute_until[current_slot] = d_symbol_count + MODE_DATA[d_current_type].expiration;
 	} else if (fstype == 2) {
 		if (d_unmute_until[current_slot] && d_debug > 5)
-			fprintf(stderr, "mute slot %d\n", current_slot);
+			fprintf(stderr, "%d mute slot %d\n", d_symbol_count, current_slot);
 		d_unmute_until[current_slot] = 0;
 	}
 	if (d_unmute_until[current_slot] <= d_symbol_count) {
 		d_unmute_until[current_slot] = 0;
 	}
 	unmute = d_unmute_until[current_slot] > 0;
+	if (fstype == 0) {
+		uint16_t emb = (load_i(bitbuf+132, 8) << 8) + load_i(bitbuf+172, 8);
+		int emb_decode = hamming_16_7_decode(emb);
+		if (emb_decode >= 0) {
+			uint8_t cc = emb_decode >> 3; 
+			uint8_t pi = (emb_decode >> 2) & 1; 
+			uint8_t lcss = emb_decode & 3; 
+			switch (lcss) {
+			case 0:
+				break;
+			case 1:
+				memcpy(d_burstb[current_slot], bitbuf+140, BURST_SZ);
+				d_burstl[current_slot] = BURST_SZ;
+				break;
+			case 2:
+				if (d_burstl[current_slot] && d_burstl[current_slot]+BURST_SZ <= sizeof(d_burstb)) {
+					memcpy(d_burstb[current_slot] + d_burstl[current_slot], bitbuf+140, BURST_SZ);
+					d_burstl[current_slot] += BURST_SZ;
+					int rc = decode_embedded(lc72, d_burstb[current_slot], d_burstl[current_slot]);
+					if (rc >= 0) {
+						int opcode = load_i(lc72+2, 6);
+						if (opcode == 0) {	// group voice channel user
+							int grpaddr = load_i(lc72+24, 24);
+							if (grpaddr > 0) {
+								d_groupid[current_slot] = grpaddr;
+								d_groupid_valid[current_slot] = 20;
+							}
+						}
+					} else {
+						if (d_debug)
+							fprintf(stderr, "decode_embedded failed, code %d\n", rc);
+					}
+				}
+				d_burstl[current_slot] = 0;
+				break;
+			case 3:
+				if (d_burstl[current_slot] && d_burstl[current_slot]+BURST_SZ <= sizeof(d_burstb)) {
+					memcpy(d_burstb[current_slot] + d_burstl[current_slot], bitbuf+140, BURST_SZ);
+					d_burstl[current_slot] += BURST_SZ;
+				} else {
+					d_burstl[current_slot] = 0;
+				}
+				break;
+			}
+		} else {
+			d_burstl[current_slot] = 0;
+		}
+	}
+	if (unmute && d_groupid_valid[current_slot] > 0) {
+		if (count_xlist(d_whitelist) > 0 && !find_xlist(d_groupid[current_slot], d_whitelist)) {
+			if (d_debug)
+				fprintf(stderr, "%d group %d not in whitelist, muting slot %d\n", d_symbol_count, d_groupid[current_slot], current_slot);
+			unmute = 0;
+			if (d_unmute_until[current_slot] && d_debug > 5)
+				fprintf(stderr, "%d mute slot %d\n", d_symbol_count, current_slot);
+			d_unmute_until[current_slot] = 0;
+		}
+		if (count_xlist(d_blacklist) > 0 && find_xlist(d_groupid[current_slot], d_blacklist)) {
+			if (d_debug)
+				fprintf(stderr, "group %d in blacklist, muting slot %d\n", d_groupid[current_slot], current_slot);
+			unmute = 0;
+			if (d_unmute_until[current_slot] && d_debug > 5)
+				fprintf(stderr, "%d mute slot %d\n", d_symbol_count, current_slot);
+			d_unmute_until[current_slot] = 0;
+		}
+	}
 }
 
 rx_sync::rx_sync(const char * options, int debug) :	// constructor
@@ -184,6 +345,14 @@ rx_sync::rx_sync(const char * options, int debug) :	// constructor
 	mbe_initMbeParms (&cur_mp[0], &prev_mp[0], &enh_mp[0]);
 	mbe_initMbeParms (&cur_mp[1], &prev_mp[1], &enh_mp[1]);
 	sync_reset();
+	d_burstl[0] = 0;
+	d_burstl[1] = 0;
+	init_xlist(d_whitelist);
+	init_xlist(d_blacklist);
+	d_groupid[0] = 0;
+	d_groupid_valid[0] = 0;
+	d_groupid[1] = 0;
+	d_groupid_valid[1] = 0;
 }
 
 rx_sync::~rx_sync()	// destructor

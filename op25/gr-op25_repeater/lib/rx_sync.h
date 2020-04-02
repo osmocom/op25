@@ -88,12 +88,16 @@ enum codeword_types {
 	CODEWORD_NXDN_EHR
 };
 
+#define XLIST_SIZE 256
+
 class rx_sync {
 public:
 	void rx_sym(const uint8_t sym);
 	void sync_reset(void);
 	rx_sync(const char * options, int debug);
 	~rx_sync();
+        void insert_whitelist(int grpaddr);
+        void insert_blacklist(int grpaddr);
 private:
 	void cbuf_insert(const uint8_t c);
 	void dmr_sync(const uint8_t bitbuf[], int& current_slot, bool& unmute);
@@ -122,6 +126,12 @@ private:
 	bool d_stereo;
 	int d_debug;
 	op25_audio d_audio;
+	uint8_t d_burstb[2][32*4];
+	int d_burstl[2];	// in units of bits
+	int d_groupid[2];
+	unsigned int d_groupid_valid[2];
+	int d_whitelist[XLIST_SIZE];
+	int d_blacklist[XLIST_SIZE];
 };
 
     } // end namespace op25_repeater

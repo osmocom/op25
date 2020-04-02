@@ -46,6 +46,13 @@ namespace gr {
     void frame_assembler_impl::set_slotid(int slotid) {
     }
 
+    void frame_assembler_impl::insert_whitelist(int grpaddr) {
+        d_sync.insert_whitelist(grpaddr);
+    }
+    void frame_assembler_impl::insert_blacklist(int grpaddr) {
+        d_sync.insert_blacklist(grpaddr);
+    }
+
     frame_assembler::sptr
     frame_assembler::make(const char* options, int debug, gr::msg_queue::sptr queue)
     {
