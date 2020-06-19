@@ -2,7 +2,7 @@
 
 #################################################################################
 # 
-# Multiprotocol Digital Voice TX (C) Copyright 2017 Max H. Parke KA1RBI
+# Multiprotocol Digital Voice TX (C) Copyright 2017, 2018, 2019, 2020 Max H. Parke KA1RBI
 # 
 # This file is part of OP25
 # 
@@ -40,18 +40,22 @@ from op25_c4fm_mod import p25_mod_bf
 sys.path.append('..')
 from gr_gnuplot import float_sink_f
 
-RC_FILTER = {'dmr': 'rrc', 'p25': 'rc', 'ysf': 'rrc', 'dstar': None}
+RC_FILTER = {'dmr': 'rrc', 'p25': 'rc', 'ysf': 'rrc', 'dstar': None, 'nxdn48': 'nxdn48', 'nxdn96': 'nxdn96'}
 
 output_gains = {
 	'dmr': 5.5,
 	'dstar': 0.95,
 	'p25': 4.5,
-	'ysf': 5.5
+	'ysf': 5.5,
+	'nxdn48': 1.0,
+	'nxdn96': 1.0
 }
 gain_adjust = {
 	'dmr': 3.0,
 	'dstar': 7.5,
-	'ysf': 4.0
+	'ysf': 4.0,
+	'nxdn48': 1.0,
+	'nxdn96': 1.0
 }
 gain_adjust_fullrate = {
 	'p25': 2.0,
@@ -61,7 +65,9 @@ mod_adjust = {	# rough values
 	'dmr': 0.35,
 	'dstar': 0.075,
 	'p25': 0.33,
-	'ysf': 0.42
+	'ysf': 0.42,
+	'nxdn48': 1.66667,
+	'nxdn96': 1.93
 }
 
 class my_top_block(gr.top_block):
@@ -94,7 +100,7 @@ class my_top_block(gr.top_block):
         parser.add_option("-N", "--gains", type="string", default=None, help="gain settings")
         parser.add_option("-O", "--audio-output", type="string", default="default", help="pcm output device name.  E.g., hw:0,0 or /dev/dsp")
         parser.add_option("-o", "--output-file", type="string", default=None, help="specify the output file")
-        parser.add_option("-p", "--protocol", type="choice", default=None, choices=('dmr', 'dstar', 'p25', 'ysf'), help="specify protocol: dmr, dstar, p25, ysf")
+        parser.add_option("-p", "--protocol", type="choice", default=None, choices=('dmr', 'dstar', 'p25', 'ysf', 'nxdn48', 'nxdn96'), help="specify protocol: dmr, dstar, p25, ysf, nxdn48, nxdn96")
         parser.add_option("-q", "--frequency-correction", type="float", default=0.0, help="ppm")
         parser.add_option("-Q", "--frequency", type="float", default=0.0, help="Hz")
         parser.add_option("-r", "--repeat", action="store_true", default=False, help="input file repeat")
@@ -108,14 +114,14 @@ class my_top_block(gr.top_block):
 
         max_inputs = 1
 
-	if options.protocol is None:
-            print 'protocol [-p] option missing'
+        if options.protocol is None:
+            print ('protocol [-p] option missing')
             sys.exit(0)
 
-        if options.protocol == 'ysf' or options.protocol == 'dmr' or options.protocol == 'dstar':
-            assert options.config_file # dstar, dmr and ysf require config file ("-c FILENAME" option)
+        if options.protocol == 'ysf' or options.protocol == 'dmr' or options.protocol == 'dstar' or options.protocol.startswith('nxdn'):
+            assert options.config_file # dstar, dmr, ysf, and nxdn require config file ("-c FILENAME" option)
 
-	output_gain = output_gains[options.protocol]
+        output_gain = output_gains[options.protocol]
 
         if options.test: # input file is in symbols of size=char
             ENCODER = blocks.file_source(gr.sizeof_char, options.test, True)
@@ -142,6 +148,8 @@ class my_top_block(gr.top_block):
                 ENCODER.set_gain_adjust(gain_adjust_fullrate['ysf'])
             else:
                 ENCODER.set_gain_adjust(gain_adjust['ysf'])
+        elif options.protocol.startswith('nxdn'):
+            ENCODER = op25_repeater.nxdn_tx_sb(options.verbose, options.config_file, options.protocol == 'nxdn96')
         if options.protocol == 'p25' and not options.test:
             ENCODER.set_gain_adjust(gain_adjust_fullrate[options.protocol])
         elif not options.test and not options.protocol == 'ysf':
@@ -209,14 +217,14 @@ class my_top_block(gr.top_block):
                 f1 = float(options.if_rate) / options.alt_modulator_rate
                 i1 = int(options.if_rate / options.alt_modulator_rate)
                 if f1 - i1 > 1e-3:
-                    print '*** Error, sdr rate %d not an integer multiple of alt modulator rate %d - ratio=%f' % (options.if_rate, options.alt_modulator_rate, f1)
+                    print ('*** Error, sdr rate %d not an integer multiple of alt modulator rate %d - ratio=%f' % (options.if_rate, options.alt_modulator_rate, f1))
                     sys.exit(0)
                 a_resamp = filter.pfb.arb_resampler_fff(options.alt_modulator_rate / float(options.modulator_rate))
                 sys.stderr.write('adding resampler for rate change %d ===> %d\n' % (options.modulator_rate, options.alt_modulator_rate))
                 interp = filter.rational_resampler_fff(options.if_rate / options.alt_modulator_rate, 1)
                 self.connect(MOD, AMP, a_resamp, interp, self.fm_modulator, self.u)
             else:
-                interp = filter.rational_resampler_fff(options.if_rate / options.modulator_rate, 1)
+                interp = filter.rational_resampler_fff(options.if_rate // options.modulator_rate, 1)
                 self.connect(MOD, AMP, interp, self.fm_modulator, self.u)
         else:
             self.connect(MOD, AMP, OUT)
@@ -232,12 +240,12 @@ class my_top_block(gr.top_block):
         gain_names = self.u.get_gain_names()
         for name in gain_names:
             range = self.u.get_gain_range(name)
-            print "gain: name: %s range: start %d stop %d step %d" % (name, range[0].start(), range[0].stop(), range[0].step())
+            print ("gain: name: %s range: start %d stop %d step %d" % (name, range[0].start(), range[0].stop(), range[0].step()))
         if options.gains:
             for tuple in options.gains.split(","):
                 name, gain = tuple.split(":")
                 gain = int(gain)
-                print "setting gain %s to %d" % (name, gain)
+                print ("setting gain %s to %d" % (name, gain))
                 self.u.set_gain(gain, name)
 
         self.u.set_sample_rate(options.if_rate)
@@ -246,7 +254,7 @@ class my_top_block(gr.top_block):
         #self.u.set_bandwidth(options.if_rate)
 
 if __name__ == "__main__":
-    print 'Multiprotocol Digital Voice TX (C) Copyright 2017 Max H. Parke KA1RBI'
+    print ('Multiprotocol Digital Voice TX (C) Copyright 2017-2020 Max H. Parke KA1RBI')
     try:
         my_top_block().run()
     except KeyboardInterrupt:

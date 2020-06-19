@@ -274,12 +274,11 @@ static const int MAX_OUT = 1;
               d_verbose_flag(verbose_flag),
               d_config_file(config_file),
               d_nxdn96_mode(nxdn96_mode),
-              d_output_amount(0),
+              d_output_amount((nxdn96_mode) ? 384 : 192);
               d_sacch_seq(0),
               d_lich(0),
               d_ran(0)
     {
-      d_output_amount = (nxdn96_mode) ? 384 : 192;
       set_output_multiple(d_output_amount);
       memset(d_acch, 0, sizeof(d_acch));
       config();

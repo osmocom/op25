@@ -22,7 +22,7 @@
 #ifndef INCLUDED_NXDN_H
 #define INCLUDED_NXDN_H
 
-void nxdn_frame(const uint8_t dibits[], int ndibits);
+void nxdn_frame(const uint8_t dibits[], int ndibits, uint8_t*answer, int*answer_len);
 void nxdn_descramble(uint8_t dibits[], int len);
 
 #endif /* INCLUDED_NXDN_H */

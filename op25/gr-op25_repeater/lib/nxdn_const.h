@@ -27,6 +27,7 @@
 /* postamble + frame sync (FS) */
 static const uint64_t NXDN_POSTFS_SYNC_MAGIC = 0x5775fdcdf59LL;
 /* frame sync + scrambled rendition of LICH=0x6e (a halfrate voice 4V) */
+static const uint64_t NXDN_CONV_SYNC_MAGIC   = 0xcdf59d5dfLL;
 static const uint64_t NXDN_FS6E_SYNC_MAGIC   = 0xcdf5975d7LL;
 
 #endif /* INCLUDED_NXDN_CONST_H */

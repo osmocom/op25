@@ -159,7 +159,7 @@ class gmsk_taps(object):
 		self.span = span
 		self.bt = bt
 
-		self.samples_per_symbol = self.sample_rate / self.symbol_rate
+		self.samples_per_symbol = self.sample_rate // self.symbol_rate
 		self.ntaps = self.span * self.samples_per_symbol
 
 	def generate(self):
@@ -216,7 +216,10 @@ class p25_mod_bf(gr.hier_block2):
 				gr.io_signature(1, 1, gr.sizeof_char),       # Input signature
 				gr.io_signature(1, 1, gr.sizeof_float)) # Output signature
 
-        input_sample_rate = 4800   # P25 baseband symbol rate
+        input_sample_rate = 4800   # P25/ysf/dmr/dstar baseband symbol rate
+        if rc == 'nxdn48':
+            input_sample_rate = 2400   # only exception is nxdn48 = 2400 rate
+
         intermediate_rate = 48000
         self._interp_factor = intermediate_rate / input_sample_rate
 
@@ -235,13 +238,15 @@ class p25_mod_bf(gr.hier_block2):
 
         self.generator = generator
 
-        assert rc is None or rc == 'rc' or rc == 'rrc'
+        assert rc is None or rc == 'rc' or rc == 'rrc' or rc.startswith('nxdn')
         if rc:
             coeffs = filter.firdes.root_raised_cosine(1.0, intermediate_rate, input_sample_rate, 0.2, 91)
         if rc == 'rc':
             coeffs = c4fm_taps(sample_rate=intermediate_rate).generate()
         elif self.dstar:
             coeffs = gmsk_taps(sample_rate=intermediate_rate, bt=self.bt).generate()
+        elif rc.startswith('nxdn'):
+            coeffs = c4fm_taps(sample_rate=intermediate_rate, generator=transfer_function_nxdn_tx, symbol_rate=input_sample_rate).generate()
         elif not rc:
             coeffs = c4fm_taps(sample_rate=intermediate_rate, generator=self.generator).generate()
         self.filter = filter.interp_fir_filter_fff(self._interp_factor, coeffs)

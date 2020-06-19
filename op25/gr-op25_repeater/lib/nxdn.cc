@@ -121,7 +121,7 @@ void nxdn_descramble(uint8_t dibits[], int len) {
 	}
 }
 
-static inline void decode_cac(const uint8_t dibits[], int len) {
+static inline void decode_cac(const uint8_t dibits[], int len, uint8_t*answer, int*answer_len) {
 	uint8_t cacbits[300];
 	uint8_t deperm[300];
 	uint8_t depunc[350];
@@ -151,13 +151,25 @@ static inline void decode_cac(const uint8_t dibits[], int len) {
 	}
 	trellis_decode(decode, depunc, 171);
 	crc = crc16(decode, 171, 0xc3ee);
-	if (crc != 0)
+	if (crc != 0) {
+		*answer_len = 0;
 		return;		// ignore msg if crc failed
+	}
 	uint8_t msg_type = load_i(decode+8, 8) & 0x3f;
+	// result length after crc and 3 zero bits removed = 152 = 19 bytes
+	for (int i=0; i<19; i++) {
+		uint8_t c = 0;
+		for (int j=0; j<8; j++) {
+			c = (c << 1) | (decode[(i*8)+j] & 1);
+		}
+		answer[i] = c;
+	}
+	assert (*answer_len >= 19);
+	*answer_len = 19;	/* return 19 bytes */
 	// todo: forward CAC message
 }
 
-void nxdn_frame(const uint8_t dibits[], int ndibits) {
+void nxdn_frame(const uint8_t dibits[], int ndibits, uint8_t*answer, int*answer_len) {
 	uint8_t descrambled[182];
 	uint8_t lich;
 	uint8_t lich_test;
@@ -171,6 +183,8 @@ void nxdn_frame(const uint8_t dibits[], int ndibits) {
 		lich |= (descrambled[i] >> 1) << (7-i);
 	/* todo: parity check & process LICH */
 	if (lich >> 1 == 0x01)
-		decode_cac(descrambled+8, 150);
+		decode_cac(descrambled+8, 150, answer, answer_len);
+	else
+		*answer_len = 0;
 	/* todo: process E: 12 dibits at descrambed+158; */
 }

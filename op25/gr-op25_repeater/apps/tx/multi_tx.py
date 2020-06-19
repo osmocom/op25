@@ -2,7 +2,7 @@
 
 #################################################################################
 # 
-# Multiprotocol Digital Voice TX (C) Copyright 2017 Max H. Parke KA1RBI
+# Multiprotocol Digital Voice TX (C) Copyright 2017, 2018, 2019, 2020 Max H. Parke KA1RBI
 # 
 # This file is part of OP25
 # 
@@ -73,6 +73,9 @@ class pipeline(gr.hier_block2):
         elif protocol == 'ysf':
             assert config_file
             ENCODER = op25_repeater.ysf_tx_sb(verbose, config_file, fullrate_mode)
+        elif protocol.startswith('nxdn'):
+            assert config_file
+            ENCODER = op25_repeater.nxdn_tx_sb(verbose, config_file, protocol == 'nxdn96')
         ENCODER.set_gain_adjust(gain_adjust)
 
         MOD = p25_mod_bf(output_sample_rate = sample_rate, dstar = (protocol == 'dstar'), bt = bt, rc = RC_FILTER[protocol])
@@ -89,7 +92,7 @@ class pipeline(gr.hier_block2):
         else:
             self.connect(self, ENCODER, MOD)
 
-        INTERP = filter.rational_resampler_fff(if_rate / sample_rate, 1)
+        INTERP = filter.rational_resampler_fff(if_rate // sample_rate, 1)
 
         MIXER = blocks.multiply_cc()
         LO = analog.sig_source_c(if_rate, analog.GR_SIN_WAVE, if_freq, 1.0, 0)
@@ -126,15 +129,21 @@ class my_top_block(gr.top_block):
         f1 = float(options.if_rate) / options.modulator_rate
         i1 = int(options.if_rate / options.modulator_rate)
         if f1 - i1 > 1e-3:
-            print '*** Error, sdr rate %d not an integer multiple of modulator rate %d - ratio=%f' % (options.if_rate, options.modulator_rate, f1)
+            print ('*** Error, sdr rate %d not an integer multiple of modulator rate %d - ratio=%f' % (options.if_rate, options.modulator_rate, f1))
             sys.exit(1)
 
-        protocols = 'dmr p25 dstar ysf'.split()
+        protocols = 'nxdn48 dmr dstar ysf p25'.split()
+
+        start_freq = options.frequency
+        end_freq = options.frequency + options.if_offset * (len(protocols)-1)
+        tune_freq = (start_freq + end_freq) // 2
+        print ('start %d end %d center tune %d' % (start_freq, end_freq, tune_freq))
+
         bw = options.if_offset * len(protocols) + 50000
         if bw > options.if_rate:
-            print '*** Error, a %d Hz band is required for %d channels and guardband.' % (bw, len(protocols))
-            print '*** Either reduce channel spacing using -o (current value is %d Hz),' % (options.if_offset) 
-            print '*** or increase SDR output sample rate using -i (current rate is %d Hz)' % (options.if_rate) 
+            print ('*** Error, a %d Hz band is required for %d channels and guardband.' % (bw, len(protocols)))
+            print ('*** Either reduce channel spacing using -o (current value is %d Hz),' % (options.if_offset) )
+            print ('*** or increase SDR output sample rate using -i (current rate is %d Hz)' % (options.if_rate) )
             sys.exit(1)
 
         max_inputs = 1
@@ -155,7 +164,7 @@ class my_top_block(gr.top_block):
 
         SUM = blocks.add_cc()
         input_repeat = True
-        for i in xrange(len(protocols)):
+        for i in range(len(protocols)):
             SOURCE = blocks.file_source(gr.sizeof_short, options.file, input_repeat)
             protocol = protocols[i]
             if (options.fullrate_mode and protocol == 'ysf') or protocol == 'p25':
@@ -168,15 +177,19 @@ class my_top_block(gr.top_block):
                 cfg = 'ysf-cfg.dat'
             elif protocols[i] == 'dstar':
                 cfg = 'dstar-cfg.dat'
+            elif protocols[i].startswith('nxdn'):
+                cfg = 'nxdn-cfg.dat'
             else:
                 cfg = None
-
+            this_freq = start_freq + i * options.if_offset
+            if_freq = this_freq - tune_freq
+            print ('%s\t%d\t%d\t%d' % (protocols[i], this_freq, tune_freq, if_freq))
             CHANNEL = pipeline(
                 protocol = protocols[i],
                 output_gain = output_gains[protocols[i]],
                 gain_adjust = gain_adj,
                 mod_adjust = mod_adjust[protocols[i]],
-                if_freq = (i - len(protocols)/2) * options.if_offset,
+                if_freq = if_freq,
                 if_rate = options.if_rate,
                 sample_rate = options.modulator_rate,
                 bt = options.bt,
@@ -187,29 +200,30 @@ class my_top_block(gr.top_block):
 
         self.u = osmosdr.sink (options.args)
         AMP = blocks.multiply_const_cc(1.0 / float(len(protocols)))
-        self.setup_sdr_output(options)
+        self.setup_sdr_output(options, tune_freq)
 
         self.connect(SUM, AMP, self.u)
 
-    def setup_sdr_output(self, options):
+    def setup_sdr_output(self, options, tune_freq):
         gain_names = self.u.get_gain_names()
         for name in gain_names:
             range = self.u.get_gain_range(name)
-            print "gain: name: %s range: start %d stop %d step %d" % (name, range[0].start(), range[0].stop(), range[0].step())
+            print ("gain: name: %s range: start %d stop %d step %d" % (name, range[0].start(), range[0].stop(), range[0].step()))
         if options.gains:
             for tuple in options.gains.split(","):
                 name, gain = tuple.split(":")
                 gain = int(gain)
-                print "setting gain %s to %d" % (name, gain)
+                print ("setting gain %s to %d" % (name, gain))
                 self.u.set_gain(gain, name)
 
-        print 'setting sample rate'
+        print ('setting sample rate %d' % options.if_rate)
         self.u.set_sample_rate(options.if_rate)
-        self.u.set_center_freq(options.frequency)
+        print ('setting SDR tuning frequency %d' % tune_freq)
+        self.u.set_center_freq(tune_freq)
         self.u.set_freq_corr(options.frequency_correction)
 
 if __name__ == "__main__":
-    print 'Multiprotocol Digital Voice TX (C) Copyright 2017 Max H. Parke KA1RBI'
+    print ('Multiprotocol Digital Voice TX (C) Copyright 2017-2020 Max H. Parke KA1RBI')
     try:
         my_top_block().run()
     except KeyboardInterrupt:

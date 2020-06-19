@@ -458,6 +458,8 @@ void rx_sync::rx_sym(const uint8_t sym)
 	uint8_t tmpcw[144];
 	bool ysf_fullrate;
 	uint8_t dbuf[182];
+	int answer_len=0;
+	uint8_t answer[128];
 
 	d_symbol_count ++;
 	d_sync_reg = (d_sync_reg << 2) | (sym & 3);
@@ -540,16 +542,15 @@ void rx_sync::rx_sym(const uint8_t sym)
 		}
 		break;
 	case RX_TYPE_NXDN_CAC:
-		nxdn_frame(symbol_ptr+22, 170);
+		answer_len = sizeof(answer);
+		nxdn_frame(symbol_ptr+22, 170, answer, &answer_len);
 		break;
 	case RX_TYPE_NXDN_EHR:
 		memcpy(dbuf, symbol_ptr+10, sizeof(dbuf));
 		nxdn_descramble(dbuf, sizeof(dbuf));
 		// todo: process SACCH
-		codeword(dbuf+38+36*0, CODEWORD_NXDN_EHR, 0);
-		codeword(dbuf+38+36*1, CODEWORD_NXDN_EHR, 0);
-		codeword(dbuf+38+36*2, CODEWORD_NXDN_EHR, 0);
-		codeword(dbuf+38+36*3, CODEWORD_NXDN_EHR, 0);
+		for (int vcw = 0; vcw < 4; vcw++)
+			codeword(dbuf+38+36*vcw, CODEWORD_NXDN_EHR, 0);
 		break;
 	case RX_N_TYPES:
 		assert(0==1);     /* should not occur */
