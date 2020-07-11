@@ -82,7 +82,7 @@ static const int MAX_IN = 1;	// maximum number of input streams
 		   gr::io_signature::make (MIN_IN, MAX_IN, sizeof (char)),
 		   gr::io_signature::make (0, 0, 0)),
 	d_msg_queue(queue),
-	d_sync(options, debug)
+	d_sync(options, debug, queue)
 {
 }
 

@@ -63,6 +63,21 @@ void rx_sync::sync_reset(void) {
 	d_unmute_until[1] = 0;
 }
 
+static inline void debug_dump(const char* s, const uint8_t p[], int l) {
+	char buf[64];
+	for (int i=0; i<l; i++) {
+		if (i*2+3 >= sizeof(buf))
+			break;
+		sprintf(buf+i*2, "%02x", p[i]);
+	}
+	fprintf(stderr, "%s: %s\n", s, buf);
+}
+
+static inline void cfill(uint8_t result[], const uint8_t src[], int len) {
+	for (int i=0; i<len; i++)
+		result[i] = load_i(src+i*8, 8);
+}
+
 static int ysf_decode_fich(const uint8_t src[100], uint8_t dest[32]) {   // input is 100 dibits, result is 32 bits
 // return -1 on decode error, else 0
 	static const int pc[] = {0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0, 1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1};
@@ -331,7 +346,7 @@ void rx_sync::dmr_sync(const uint8_t bitbuf[], int& current_slot, bool& unmute) 
 	}
 }
 
-rx_sync::rx_sync(const char * options, int debug) :	// constructor
+rx_sync::rx_sync(const char * options, int debug, gr::msg_queue::sptr queue) :	// constructor
 	d_symbol_count(0),
 	d_sync_reg(0),
 	d_cbuf_idx(0),
@@ -340,7 +355,11 @@ rx_sync::rx_sync(const char * options, int debug) :	// constructor
 	d_expires(0),
 	d_stereo(false),
 	d_debug(debug),
-	d_audio(options, debug)
+	d_audio(options, debug),
+	d_msg_queue(queue),
+	d_previous_nxdn_sync(0),
+	d_previous_nxdn_sr_structure(-1),
+	d_previous_nxdn_sr_ran(-1)
 {
 	mbe_initMbeParms (&cur_mp[0], &prev_mp[0], &enh_mp[0]);
 	mbe_initMbeParms (&cur_mp[1], &prev_mp[1], &enh_mp[1]);
@@ -449,6 +468,35 @@ void rx_sync::output(int16_t * samp_buf, const ssize_t slot_id) {
 	}
 }
 
+bool rx_sync::nxdn_gate(enum rx_types sync_detected) {
+	// if nxdn sync is detected while another type is already active, 
+	// we require two consecutive nxdn frames before allowing change to new type
+	// (to try to prevent falsing due to shortened nxdn sync signature size)
+	// returns false if sync is either not present or should be ignored
+	static const int NXDN_FRSIZE = 192;
+	bool rc;
+	if (sync_detected == RX_TYPE_NONE)
+		return false;
+	if (sync_detected == d_current_type)
+		return true;
+	if (sync_detected != RX_TYPE_NXDN)
+		return true;
+	if (d_current_type == RX_TYPE_NONE)
+		return true;
+	// trying to switch from another type to nxdn
+	if (d_symbol_count - d_previous_nxdn_sync != NXDN_FRSIZE) {
+		if (d_debug)
+			fprintf(stderr, "ignoring NXDN frame sync in state %s, count %d, symbol %d\n", MODE_DATA[d_current_type].type, d_symbol_count - d_previous_nxdn_sync, d_symbol_count);
+		rc = false;
+	} else {
+		if (d_debug)
+			fprintf(stderr, "changing to NXDN from state %s, symbol %d\n", MODE_DATA[d_current_type].type, d_symbol_count);
+		rc = true;
+	}
+	d_previous_nxdn_sync = d_symbol_count;
+	return rc;
+}
+
 void rx_sync::rx_sym(const uint8_t sym)
 {
 	uint8_t bitbuf[864*2];
@@ -457,9 +505,6 @@ void rx_sync::rx_sym(const uint8_t sym)
 	bool unmute;
 	uint8_t tmpcw[144];
 	bool ysf_fullrate;
-	uint8_t dbuf[182];
-	int answer_len=0;
-	uint8_t answer[128];
 
 	d_symbol_count ++;
 	d_sync_reg = (d_sync_reg << 2) | (sym & 3);
@@ -473,7 +518,9 @@ void rx_sync::rx_sym(const uint8_t sym)
 	if (d_current_type == RX_TYPE_NONE && sync_detected == RX_TYPE_NONE)
 		return;
 	d_rx_count ++;
-	if (sync_detected != RX_TYPE_NONE) {
+	if (d_debug && sync_detected == RX_TYPE_NONE && d_rx_count == MODE_DATA[d_current_type].sync_offset + (MODE_DATA[d_current_type].sync_len >> 1))
+		fprintf(stderr, "missing expected %s sync, symbol %d\n", MODE_DATA[d_current_type].type, d_symbol_count);
+	if (nxdn_gate(sync_detected)) {
 		if (d_current_type != sync_detected) {
 			d_current_type = sync_detected;
 			d_expires = d_symbol_count + MODE_DATA[d_current_type].expiration;
@@ -481,11 +528,11 @@ void rx_sync::rx_sym(const uint8_t sym)
 		}
 		if (d_rx_count != MODE_DATA[d_current_type].sync_offset + (MODE_DATA[d_current_type].sync_len >> 1)) {
 			if (d_debug)
-				fprintf(stderr, "resync at count %d for protocol %s\n", d_rx_count, MODE_DATA[d_current_type].type);
+				fprintf(stderr, "resync at count %d symbol %d for protocol %s\n", d_rx_count, d_symbol_count, MODE_DATA[d_current_type].type);
 			sync_reset();
 			d_rx_count = MODE_DATA[d_current_type].sync_offset + (MODE_DATA[d_current_type].sync_len >> 1);
 		} else {
-			d_threshold = std::min(d_threshold + 1, 2);
+			d_threshold = std::min(d_threshold + 1, (d_current_type == RX_TYPE_NXDN) ? 0 : 2);
 		}
 		d_expires = d_symbol_count + MODE_DATA[d_current_type].expiration;
 	}
@@ -541,21 +588,234 @@ void rx_sync::rx_sym(const uint8_t sym)
 			}
 		}
 		break;
-	case RX_TYPE_NXDN_CAC:
-		answer_len = sizeof(answer);
-		nxdn_frame(symbol_ptr+22, 170, answer, &answer_len);
-		break;
-	case RX_TYPE_NXDN_EHR:
-		memcpy(dbuf, symbol_ptr+10, sizeof(dbuf));
-		nxdn_descramble(dbuf, sizeof(dbuf));
-		// todo: process SACCH
-		for (int vcw = 0; vcw < 4; vcw++)
-			codeword(dbuf+38+36*vcw, CODEWORD_NXDN_EHR, 0);
+	case RX_TYPE_NXDN:
+		nxdn_frame(symbol_ptr);
 		break;
 	case RX_N_TYPES:
 		assert(0==1);     /* should not occur */
 		break;
 	}
 }
+
+static inline void qmsg(const gr::msg_queue::sptr msg_queue, const uint8_t s[], int len) {
+	if (!msg_queue->full_p()) {
+		gr::message::sptr msg = gr::message::make_from_string(std::string((char*)s, len), -5, 0, 0);
+		msg_queue->insert_tail(msg);
+	}
+}
+
+void rx_sync::nxdn_frame(const uint8_t symbol_ptr[])
+{	// length is implicitly 192, with frame sync in first 10 dibits
+	uint8_t dbuf[182];
+	uint8_t lich;
+	int answer_len=0;
+	uint8_t answer[32];
+	uint8_t sacch_answer[32];
+	uint8_t lich_buf[8];
+	int lich_parity_received;
+	int lich_parity_computed;
+	int voice=0;
+	int facch=0;
+	int facch2=0;
+	int sacch=0;
+	int cac=0;
+	int sr_structure;
+	int sr_ran;
+
+	memcpy(lich_buf, symbol_ptr+10, sizeof(lich_buf));
+	nxdn_descramble(lich_buf, sizeof(lich_buf));
+	lich = 0;
+	for (int i=0; i<8; i++)
+		lich |= (lich_buf[i] >> 1) << (7-i);
+	lich_parity_received = lich & 1;
+	lich_parity_computed = ((lich >> 7) + (lich >> 6) + (lich >> 5) + (lich >> 4)) & 1;
+	lich = lich >> 1;
+	if (lich_parity_received != lich_parity_computed) {
+		if (d_debug)
+			fprintf(stderr, "NXDN lich parity error, ignoring frame at symbol %d\n", d_symbol_count);
+		return;
+	}
+	voice = 0;
+	facch = 0;
+	facch2 = 0;
+	sacch = 0;
+	cac = 0;
+	switch(lich) {
+	case 0x01:	// CAC type
+	case 0x05:
+		cac = 1;
+		break;
+	case 0x28:
+	case 0x29:
+	case 0x2e:
+	case 0x2f:
+	case 0x48:
+	case 0x49:
+	case 0x4e:
+	case 0x4f:
+	case 0x69:
+	case 0x6f:
+		facch2 = 1;
+		break;
+	case 0x32:
+	case 0x33:
+	case 0x52:
+	case 0x53:
+	case 0x73:
+		voice = 2;	// second half is voice
+		facch = 1;
+		sacch = 1;
+		break;
+	case 0x34:
+	case 0x35:
+	case 0x54:
+	case 0x55:
+	case 0x75:
+		voice = 1;	// first half is voice
+		facch = 2;
+		sacch = 1;
+		break;
+	case 0x36:
+	case 0x37:
+	case 0x56:
+	case 0x57:
+	case 0x77:
+		voice = 3;	// voice in both first and last
+		facch = 0;
+		sacch = 1;
+		break;
+	case 0x20:
+	case 0x21:
+	case 0x30:
+	case 0x31:
+	case 0x40:
+	case 0x41:
+	case 0x50:
+	case 0x51:
+	case 0x61:
+	case 0x71:
+		voice = 0;
+		facch = 3;	// facch in both 
+		sacch = 1;
+		break;
+	case 0x38:
+	case 0x39:
+		sacch = 1;
+		break;
+	default:
+		if (d_debug)
+			fprintf(stderr, "unsupported NXDN lich type 0x%x, symbol %d\n", lich, d_symbol_count);
+		voice = 0;
+		break;
+	} // end of switch(lich)
+	if (d_debug > 3)
+		fprintf(stderr, "nxdn lich %x voice %d facch %d sacch %d cac %d symbol %d\n", lich, voice, facch, sacch, cac, d_symbol_count);
+	if (voice || facch || facch2 || sacch || cac) {
+		memcpy(dbuf, symbol_ptr+10, sizeof(dbuf));
+		nxdn_descramble(dbuf, sizeof(dbuf));
+	}
+	if (voice & 1)
+		for (int vcw = 0; vcw < 2; vcw++)
+			codeword(dbuf+38+36*vcw, CODEWORD_NXDN_EHR, 0);
+	if (voice & 2)
+		for (int vcw = 2; vcw < 4; vcw++)
+			codeword(dbuf+38+36*vcw, CODEWORD_NXDN_EHR, 0);
+	if (sacch) {
+		bool non_superframe = (lich == 0x20 || lich == 0x21 || lich == 0x61 || lich == 0x40 || lich == 0x41) ? true : false;
+		answer_len = sizeof(sacch_answer);
+		nxdn_decode_sacch(dbuf+8, 30, sacch_answer, answer_len);  // sacch size = 30 dibits, 26 bits returned if successful
+		sr_structure = load_i(sacch_answer, 2) & 3;
+		if (answer_len > 0 && non_superframe == true && sr_structure == 0) {
+			answer[0] = 's';
+			answer[1] = lich;
+			int nbytes = (answer_len + 7) / 8;
+			cfill(answer+2, sacch_answer, nbytes);
+			qmsg(d_msg_queue, answer, nbytes+2);
+			if (d_debug > 2)
+				debug_dump("nxdn: sacch", answer, nbytes+2);
+		} else if (answer_len > 0 && non_superframe == false) {
+			sr_ran = load_i(sacch_answer+2, 6) & 0x3f;
+			bool ok = true;
+			if (d_previous_nxdn_sr_structure == -1 && sr_structure != 3)
+				ok = false;
+			else if (sr_structure < 3 && sr_structure+1 != d_previous_nxdn_sr_structure)
+				ok = false;
+			else if (sr_structure < 3 && d_previous_nxdn_sr_ran != sr_ran)
+				ok = false;
+			if (ok) {
+				int seg = 3 - sr_structure;
+				memcpy(d_sacch_buf + 18*seg, sacch_answer + 8, 18);
+				if (sr_structure > 0) {
+					d_previous_nxdn_sr_ran = sr_ran;
+					d_previous_nxdn_sr_structure = sr_structure;
+				} else {
+					answer[0] = 'S';
+					answer[1] = lich;
+					answer[2] = sr_ran;
+					int nbytes = 9;
+					cfill(answer+3, d_sacch_buf, nbytes);
+					qmsg(d_msg_queue, answer, nbytes+3);
+					if (d_debug > 2)
+						debug_dump("nxdn: sacch", answer, nbytes+3);
+					d_previous_nxdn_sr_ran = -1;
+					d_previous_nxdn_sr_structure = -1;
+				}
+			} else {
+				d_previous_nxdn_sr_ran = -1;
+				d_previous_nxdn_sr_structure = -1;
+			}
+		}
+	}
+	if (facch & 1) {
+		answer_len = sizeof(answer)-2;
+		nxdn_decode_facch(dbuf+38,    72, answer+2, answer_len);	// facch size = 72 dibits
+		if (answer_len > 0) {
+			answer[0] = 'f';
+			answer[1] = lich;
+			qmsg(d_msg_queue, answer, answer_len+2);
+			if (d_debug > 2)
+				debug_dump("nxdn: facch", answer, answer_len+2);
+		}
+	}
+	if (facch & 2) {
+		if ((facch & 1) && !memcmp(dbuf+38, dbuf+38+72, 72)) {
+			if (d_debug > 5)
+				fprintf(stderr, "nxdn: skipping duplicate facch\n");
+		} else {
+			answer_len = sizeof(answer)-2;
+			nxdn_decode_facch(dbuf+38+72, 72, answer+2, answer_len);
+			if (answer_len > 0) {
+				answer[0] = 'f';
+				answer[1] = lich;
+				qmsg(d_msg_queue, answer, answer_len+2);
+				if (d_debug > 2)
+					debug_dump("nxdn: facch", answer, answer_len+2);
+			}
+		}
+	}
+	if (facch2) {
+		answer_len = sizeof(answer)-2;
+		nxdn_decode_facch2_udch(dbuf+8, 174, answer+2, answer_len);
+		if (answer_len > 0) {
+			answer[0] = 'u';
+			answer[1] = lich;
+			qmsg(d_msg_queue, answer, answer_len+2);
+			if (d_debug > 2)
+				debug_dump("nxdn: facch2", answer, answer_len+2);
+		}
+	}
+	if (cac) {
+		answer_len = sizeof(answer)-2;
+		nxdn_decode_cac(dbuf+8, 150, answer+2, answer_len);
+		if (answer_len > 0) {
+			answer[0] = 'c';
+			answer[1] = lich;
+			qmsg(d_msg_queue, answer, answer_len+2);
+			if (d_debug > 2)
+				debug_dump("nxdn: cac", answer, answer_len+2);
+		}
+	}
+}
+
     } // end namespace op25_repeater
 } // end namespace gr

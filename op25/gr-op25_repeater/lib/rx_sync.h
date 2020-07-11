@@ -28,6 +28,7 @@
 #include <iostream>
 #include <deque>
 #include <assert.h>
+#include <gnuradio/msg_queue.h>
 
 #include "bit_utils.h"
 #include "check_frame_sync.h"
@@ -56,8 +57,7 @@ enum rx_types {
 	RX_TYPE_DMR,
 	RX_TYPE_DSTAR,
 	RX_TYPE_YSF,
-	RX_TYPE_NXDN_EHR,
-	RX_TYPE_NXDN_CAC,
+	RX_TYPE_NXDN,
 	RX_N_TYPES
 };   // also used as array index
 
@@ -74,8 +74,7 @@ static const struct _mode_data {
 	{"DMR",    48,66,144,1728,  DMR_VOICE_SYNC_MAGIC},
 	{"DSTAR",  48,72,96,2016*2, DSTAR_FRAME_SYNC_MAGIC},
 	{"YSF",    40,0,480,480*2,  YSF_FRAME_SYNC_MAGIC},
-	{"NXDN_EHR", 36,0,192,192*2, NXDN_FS6E_SYNC_MAGIC},
-	{"NXDN_CAC", 44,0,192,192*2, NXDN_POSTFS_SYNC_MAGIC}
+	{"NXDN",   20,0,192,192*2, NXDN_SYNC_MAGIC}
 };   // index order must match rx_types enum
 
 enum codeword_types {
@@ -94,7 +93,7 @@ class rx_sync {
 public:
 	void rx_sym(const uint8_t sym);
 	void sync_reset(void);
-	rx_sync(const char * options, int debug);
+	rx_sync(const char * options, int debug, gr::msg_queue::sptr queue);
 	~rx_sync();
         void insert_whitelist(int grpaddr);
         void insert_blacklist(int grpaddr);
@@ -104,6 +103,8 @@ private:
 	void ysf_sync(const uint8_t dibitbuf[], bool& ysf_fullrate, bool& unmute);
 	void codeword(const uint8_t* cw, const enum codeword_types codeword_type, int slot_id);
 	void output(int16_t * samp_buf, const ssize_t slot_id);
+	bool nxdn_gate(enum rx_types sync_detected);
+	void nxdn_frame(const uint8_t symbol_ptr[]);
 	static const int CBUF_SIZE=864;
 	static const int NSAMP_OUTPUT = 160;
 
@@ -132,6 +133,11 @@ private:
 	unsigned int d_groupid_valid[2];
 	int d_whitelist[XLIST_SIZE];
 	int d_blacklist[XLIST_SIZE];
+	gr::msg_queue::sptr d_msg_queue;
+	int d_previous_nxdn_sync;
+	int d_previous_nxdn_sr_structure;
+	int d_previous_nxdn_sr_ran;
+	uint8_t d_sacch_buf[72];
 };
 
     } // end namespace op25_repeater

@@ -22,7 +22,10 @@
 #ifndef INCLUDED_NXDN_H
 #define INCLUDED_NXDN_H
 
-void nxdn_frame(const uint8_t dibits[], int ndibits, uint8_t*answer, int*answer_len);
 void nxdn_descramble(uint8_t dibits[], int len);
+void nxdn_decode_cac(const uint8_t dibits[], int len, uint8_t answer[], int& answer_len);
+void nxdn_decode_facch(const uint8_t dibits[], int len, uint8_t answer[], int& answer_len);
+void nxdn_decode_facch2_udch(const uint8_t dibits[], int len, uint8_t answer[], int& answer_len);
+void nxdn_decode_sacch(const uint8_t dibits[], int len, uint8_t answer[], int& answer_len);
 
 #endif /* INCLUDED_NXDN_H */

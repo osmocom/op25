@@ -43,6 +43,8 @@ from gr_gnuplot import mixer_sink_c
 from gr_gnuplot import symbol_sink_f
 from gr_gnuplot import eye_sink_f
 
+from nxdn_trunking import cac_message
+
 os.environ['IMBE'] = 'soft'
 
 _def_symbol_rate = 4800
@@ -120,7 +122,7 @@ class device(object):
         self.offset = config['offset']
 
 class channel(object):
-    def __init__(self, config, dev, verbosity):
+    def __init__(self, config, dev, verbosity, msgq = None):
         sys.stderr.write('channel (dev %s): %s\n' % (dev.name, config))
         self.device = dev
         self.name = config['name']
@@ -143,7 +145,10 @@ class channel(object):
                          offset = dev.offset,
                          if_rate = config['if_rate'],
                          symbol_rate = self.symbol_rate)
-        q = gr.msg_queue(1)
+        if msgq is None:
+            q = gr.msg_queue(1)
+        else:
+            q = msgq
         self.decoder = op25_repeater.frame_assembler(config['destination'], verbosity, q)
 
         self.kill_sink = []
@@ -192,6 +197,22 @@ class channel(object):
                 sys.stderr.write('unrecognized plot type %s\n' % plot)
                 return
 
+class du_queue_watcher(threading.Thread):
+    def __init__(self, msgq,  callback, **kwds):
+        threading.Thread.__init__ (self, **kwds)
+        self.setDaemon(1)
+        self.msgq = msgq
+        self.callback = callback
+        self.keep_running = True
+        self.start()
+
+    def run(self):
+        while(self.keep_running):
+            msg = self.msgq.delete_head()
+            if not self.keep_running:
+                break
+            self.callback(msg)
+
 class rx_block (gr.top_block):
 
     # Initialize the receiver
@@ -200,8 +221,29 @@ class rx_block (gr.top_block):
         self.verbosity = verbosity
         gr.top_block.__init__(self)
         self.device_id_by_name = {}
+        self.msgq = gr.msg_queue(10)
         self.configure_devices(config['devices'])
         self.configure_channels(config['channels'])
+        self.du_q = du_queue_watcher(self.msgq, self.process_qmsg)
+
+    def process_qmsg(self, msg):
+        t = msg.type()
+        s = msg.to_string()
+        if t != -5:	# verify nxdn type
+            return
+        if isinstance(s[0], str):	# for python 2/3
+            s = [ord(x) for x in s]
+        msgtype = chr(s[0])
+        lich = s[1]
+        if self.verbosity > 2:
+            sys.stderr.write ('process_qmsg: nxdn msg %s lich %x\n' % (msgtype, lich))
+        if msgtype == 'c':	 # CAC type
+            ran = s[2] & 0x3f
+            msg = cac_message(s[2:])
+            if msg['msg_type'] == 'CCH_INFO' and self.verbosity:
+                sys.stderr.write ('%-10s %-10s system %d site %d ran %d\n' % (msg['cc1']/1e6, msg['cc2']/1e6, msg['location_id']['system'], msg['location_id']['site'], ran))
+            if self.verbosity > 1:
+                sys.stderr.write('%s\n' % json.dumps(msg))
 
     def configure_devices(self, config):
         self.devices = []
@@ -214,7 +256,7 @@ class rx_block (gr.top_block):
             if dev.args.startswith('audio:') and chan['demod_type'] == 'fsk4':
                 return dev
             d = abs(chan['frequency'] - dev.frequency)
-            nf = dev.sample_rate / 2
+            nf = dev.sample_rate // 2
             if d + 6250 <= nf:
                 return dev
         return None
@@ -226,7 +268,7 @@ class rx_block (gr.top_block):
             if dev is None:
                 sys.stderr.write('* * * Frequency %d not within spectrum band of any device - ignoring!\n' % cfg['frequency'])
                 continue
-            chan = channel(cfg, dev, self.verbosity)
+            chan = channel(cfg, dev, self.verbosity, msgq=self.msgq)
             self.channels.append(chan)
             self.connect(dev.src, chan.demod, chan.decoder)
             if 'log_symbols' in cfg.keys():

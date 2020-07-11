@@ -27,20 +27,7 @@
 #include "bit_utils.h"
 
 #include "nxdn.h"
-
-static const uint16_t perm_25_12[300] = {	// perumtation schedule for 25x12
-	0,12,24,36,48,60,72,84,96,108,120,132,144,156,168,180,192,204,216,228,240,252,264,276,288,
-	1,13,25,37,49,61,73,85,97,109,121,133,145,157,169,181,193,205,217,229,241,253,265,277,289,
-	2,14,26,38,50,62,74,86,98,110,122,134,146,158,170,182,194,206,218,230,242,254,266,278,290,
-	3,15,27,39,51,63,75,87,99,111,123,135,147,159,171,183,195,207,219,231,243,255,267,279,291,
-	4,16,28,40,52,64,76,88,100,112,124,136,148,160,172,184,196,208,220,232,244,256,268,280,292,
-	5,17,29,41,53,65,77,89,101,113,125,137,149,161,173,185,197,209,221,233,245,257,269,281,293,
-	6,18,30,42,54,66,78,90,102,114,126,138,150,162,174,186,198,210,222,234,246,258,270,282,294,
-	7,19,31,43,55,67,79,91,103,115,127,139,151,163,175,187,199,211,223,235,247,259,271,283,295,
-	8,20,32,44,56,68,80,92,104,116,128,140,152,164,176,188,200,212,224,236,248,260,272,284,296,
-	9,21,33,45,57,69,81,93,105,117,129,141,153,165,177,189,201,213,225,237,249,261,273,285,297,
-	10,22,34,46,58,70,82,94,106,118,130,142,154,166,178,190,202,214,226,238,250,262,274,286,298,
-	11,23,35,47,59,71,83,95,107,119,131,143,155,167,179,191,203,215,227,239,251,263,275,287,299};
+#include "nxdn_const.h"
 
 static const uint8_t scramble_t[] = {
 	2, 5, 6, 7, 10, 12, 14, 16, 17, 22, 23, 25, 26, 27, 28, 30, 33, 34, 36, 37, 38, 41, 45, 47,
@@ -61,6 +48,84 @@ static inline uint16_t crc16(const uint8_t buf[], int len, uint32_t crc) {
 	}
         crc = crc ^ 0xffff;
         return crc & 0xffff;
+}
+
+static uint16_t crc15(const uint8_t buf[], int len) {
+	uint8_t s[15];
+	uint8_t a;
+	for (int i=0;i<15;i++)
+		s[i] = 1;
+	for (int i=0;i<len;i++) {
+		a = buf[i] ^ s[0];
+		s[0] = a ^ s[1];
+		s[1] = s[2];
+		s[2] = s[3];
+		s[3] = a ^ s[4];
+		s[4] = a ^ s[5];
+		s[5] = s[6];
+		s[6] = s[7];
+		s[7] = a ^ s[8];
+		s[8] = a ^ s[9];
+		s[9] = s[10];
+		s[10] = s[11];
+		s[11] = s[12];
+		s[12] = a ^ s[13];
+		s[13] = s[14];
+		s[14] = a;
+	}
+	return load_i(s, 15);
+}
+
+static uint16_t crc16(const uint8_t buf[], int len) {
+	int crc = 0xc3ee;
+        int poly = (1<<12) + (1<<5) + 1;
+	for (int i=0;i<len;i++) {
+                crc = ((crc << 1) | buf[i]) & 0x1ffff;
+                if(crc & 0x10000)
+                        crc = (crc & 0xffff) ^ poly;
+	}
+        crc = crc ^ 0xffff;
+        return crc & 0xffff;
+}
+
+static uint8_t crc6(const uint8_t buf[], int len) {
+	uint8_t s[6];
+	uint8_t a;
+	for (int i=0;i<6;i++)
+		s[i] = 1;
+	for (int i=0;i<len;i++) {
+		a = buf[i] ^ s[0];
+		s[0] = a ^ s[1];
+		s[1] = s[2];
+		s[2] = s[3];
+		s[3] = a ^ s[4];
+		s[4] = a ^ s[5];
+		s[5] = a;
+	}
+	return load_i(s, 6);
+}
+
+static uint16_t crc12(const uint8_t buf[], int len) {
+	uint8_t s[12];
+	uint8_t a;
+	for (int i=0;i<12;i++)
+		s[i] = 1;
+	for (int i=0;i<len;i++) {
+		a = buf[i] ^ s[0];
+		s[0] = a ^ s[1];
+		s[1] = s[2];
+		s[2] = s[3];
+		s[3] = s[4];
+		s[4] = s[5];
+		s[5] = s[6];
+		s[6] = s[7];
+		s[7] = s[8];
+		s[8] = a ^ s[9];
+		s[9] = a ^ s[10];
+		s[10] = a ^ s[11];
+		s[11] = a;
+	}
+	return load_i(s, 12);
 }
 
 // trellis_1_2 encode: source is in bits, result in bits
@@ -121,7 +186,12 @@ void nxdn_descramble(uint8_t dibits[], int len) {
 	}
 }
 
-static inline void decode_cac(const uint8_t dibits[], int len, uint8_t*answer, int*answer_len) {
+static inline void cfill(uint8_t result[], const uint8_t src[], int len) {
+	for (int i=0; i<len; i++)
+		result[i] = load_i(src+i*8, 8);
+}
+
+void nxdn_decode_cac(const uint8_t dibits[], int len, uint8_t answer[], int& answer_len) {
 	uint8_t cacbits[300];
 	uint8_t deperm[300];
 	uint8_t depunc[350];
@@ -129,9 +199,14 @@ static inline void decode_cac(const uint8_t dibits[], int len, uint8_t*answer, i
 	int id=0;
 	uint16_t crc;
 
+	assert (len == 150);
+	if (answer_len < 19) {
+		answer_len = -1;
+		return;
+	}
 	dibits_to_bits(cacbits, dibits, 150);
 	for (int i=0; i<300; i++) {
-		deperm[perm_25_12[i]] = cacbits[i];
+		deperm[PERM_12_25[i]] = cacbits[i];
 	}
 	for (int i=0; i<25; i++) {
 		depunc[id++] = deperm[i*12];
@@ -152,39 +227,128 @@ static inline void decode_cac(const uint8_t dibits[], int len, uint8_t*answer, i
 	trellis_decode(decode, depunc, 171);
 	crc = crc16(decode, 171, 0xc3ee);
 	if (crc != 0) {
-		*answer_len = 0;
+		answer_len = -1;
 		return;		// ignore msg if crc failed
 	}
-	uint8_t msg_type = load_i(decode+8, 8) & 0x3f;
 	// result length after crc and 3 zero bits removed = 152 = 19 bytes
-	for (int i=0; i<19; i++) {
-		uint8_t c = 0;
-		for (int j=0; j<8; j++) {
-			c = (c << 1) | (decode[(i*8)+j] & 1);
-		}
-		answer[i] = c;
-	}
-	assert (*answer_len >= 19);
-	*answer_len = 19;	/* return 19 bytes */
-	// todo: forward CAC message
+	cfill(answer, decode, 19);
+	answer_len = 19;	/* return 19 bytes */
 }
 
-void nxdn_frame(const uint8_t dibits[], int ndibits, uint8_t*answer, int*answer_len) {
-	uint8_t descrambled[182];
-	uint8_t lich;
-	uint8_t lich_test;
-	uint8_t bit72[72];
+void nxdn_decode_facch(const uint8_t dibits[], int len, uint8_t answer[], int& answer_len) {
+	uint8_t bits[144];
+	uint8_t deperm[144];
+	uint8_t depunc[192];
+	uint8_t trellis_buf[92];
+	uint16_t crc;
+	uint16_t crc2;
+	int out;
+	char buf[128];
+	assert (len == 72);
+	if (answer_len < 10) {
+		answer_len = -1;
+		return;
+	}
+	dibits_to_bits(bits, dibits, 72);
+	for (int i=0; i<144; i++) 
+		deperm[PERM_16_9[i]] = bits[i];
+	out = 0;
+	for (int i=0; i<144; i+=3) {
+		depunc[out++] = deperm[i+0];
+		depunc[out++] = 0;
+		depunc[out++] = deperm[i+1];
+		depunc[out++] = deperm[i+2];
+	}
+	trellis_decode(trellis_buf, depunc, 92);
+	crc = crc12(trellis_buf, 92);
+	if (crc) {
+		answer_len = -1;
+		return;
+	}
+	cfill(answer, trellis_buf, 10);
+	answer_len = 10;
+}
 
-	assert (ndibits >= 170);
-	memcpy(descrambled, dibits, ndibits);
-	nxdn_descramble(descrambled, ndibits);
-	lich = 0;
-	for (int i=0; i<8; i++)
-		lich |= (descrambled[i] >> 1) << (7-i);
-	/* todo: parity check & process LICH */
-	if (lich >> 1 == 0x01)
-		decode_cac(descrambled+8, 150, answer, answer_len);
-	else
-		*answer_len = 0;
-	/* todo: process E: 12 dibits at descrambed+158; */
+void nxdn_decode_facch2_udch(const uint8_t dibits[], int len, uint8_t answer[], int& answer_len) {
+	uint8_t bits[348];
+	uint8_t deperm[348];
+	uint8_t depunc[406];
+	uint8_t trellis_buf[199];
+	int id=0;
+	uint16_t crc;
+	assert (len == 174);
+	if (answer_len < 23) {
+		answer_len = -1;
+		return;
+	}
+	dibits_to_bits(bits, dibits, 174);
+	for (int i=0; i<348; i++) {
+		deperm[PERM_12_29[i]] = bits[i];
+	}
+	for (int i=0; i<29; i++) {
+		depunc[id++] = deperm[i*12];
+		depunc[id++] = deperm[i*12+1];
+		depunc[id++] = deperm[i*12+2];
+		depunc[id++] = 0;
+		depunc[id++] = deperm[i*12+3];
+		depunc[id++] = deperm[i*12+4];
+		depunc[id++] = deperm[i*12+5];
+		depunc[id++] = deperm[i*12+6];
+		depunc[id++] = deperm[i*12+7];
+		depunc[id++] = deperm[i*12+8];
+		depunc[id++] = deperm[i*12+9];
+		depunc[id++] = 0;
+		depunc[id++] = deperm[i*12+10];
+		depunc[id++] = deperm[i*12+11];
+	}
+	trellis_decode(trellis_buf, depunc, 199);
+	crc = crc15(trellis_buf, 199);
+	if (crc != 0) {
+		answer_len = -1;
+		return;		// ignore msg if crc failed
+	}
+	// pack 184 bits in 23 bytes
+	cfill(answer, trellis_buf, 23);
+	answer_len = 23;
+}
+
+void nxdn_decode_sacch(const uint8_t dibits[], int len, uint8_t answer[], int& answer_len) {
+	// global NEXT_S, SACCH
+	uint8_t bits[60];
+	uint8_t deperm[60];
+	uint8_t depunc[72];
+	uint8_t trellis_buf[32];
+	int o=0;
+	uint8_t crc;
+
+	assert (len == 30);
+	if (answer_len < 26) {
+		answer_len = -1;
+		return;
+	}
+	dibits_to_bits(bits, dibits, 30);
+	for (int i=0; i<60; i++) 
+		deperm[PERM_12_5[i]] = bits[i];
+	for (int p=0; p<60; p+= 10) {
+		depunc[o++] = deperm[p+0];
+		depunc[o++] = deperm[p+1];
+		depunc[o++] = deperm[p+2];
+		depunc[o++] = deperm[p+3];
+		depunc[o++] = deperm[p+4];
+		depunc[o++] = 0;
+		depunc[o++] = deperm[p+5];
+		depunc[o++] = deperm[p+6];
+		depunc[o++] = deperm[p+7];
+		depunc[o++] = deperm[p+8];
+		depunc[o++] = deperm[p+9];
+		depunc[o++] = 0;
+	}
+	trellis_decode(trellis_buf, depunc, 32);
+	crc = crc6(trellis_buf, 32);
+	if (crc) {
+		answer_len = -1;
+		return;
+	}
+	memcpy(answer, trellis_buf, 26);
+	answer_len = 26;		// answer is 26 bits, not packed
 }
