@@ -32,7 +32,11 @@
 ran=0
 # LICH value for conventional voice frames
 lich=0x56
-# LICH value for FACCH frames
+# LICH value for FACCH frames (nxdn96 only - used as filler, every other frame)
 lich2=0x50
+# note, trunking downlinks appear to use:
+#    lich  = 0x37 for voice frames
+#    lich2 = 0x31 for FACCH filler frames, nxdn96 only
+# other common lich values:  0x21, 0x29, 0x2f
 # data field sent in SACCH / FACCH
 acch=01 00 22 00 01 00 00 00 00 00
