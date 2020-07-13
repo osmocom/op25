@@ -80,7 +80,7 @@ function edit_d(d, to_ui) {
 	var hexints = {"nac":1};
 	var ints = {"if_rate":1, "ppm":1, "rate":1, "offset":1, "nac":1, "logfile-workers":1, "decim-amt":1, "seek":1, "hamlib-model":1 };
 	var bools = {"active":1, "trunked":1, "rate":1, "offset":1, "phase2_tdma": 1, "phase2-tdma":1, "wireshark":1, "udp-player":1, "audio-if":1, "tone-detect":1, "vocoder":1, "audio":1, "pause":1 };
-	var floats = {"costas-alpha":1, "gain-mu":1, "calibration":1, "fine-tune":1, "gain":1, "excess-bw":1, "offset":1}
+	var floats = {"costas-alpha":1, "gain-mu":1, "calibration":1, "fine-tune":1, "gain":1, "excess-bw":1, "offset":1, "excess_bw":1}
 	var lists = {"blacklist":1, "whitelist":1, "cclist":1};
 	var freqs = {"frequency":1, "cclist":1};
 
@@ -114,7 +114,10 @@ function edit_d(d, to_ui) {
 			}
 		} else {
 			if (k in hexints) {
-				new_d[k] = "0x" + d[k].toString(16);
+				if (d[k] == null)
+					new_d[k] = "0x0";
+				else
+					new_d[k] = "0x" + d[k].toString(16);
 			} else if (k in ints) {
 				if (d[k] == null)
 					new_d[k] = "";
@@ -213,8 +216,8 @@ function amend_d(myrow, mytbl, command) {
 }
 
 function nav_update(command) {
-	var names = ["b1", "b2", "b3", "b4"];
-	var bmap = { "status": "b1", "settings": "b2", "rx": "b3", "about": "b4" };
+	var names = ["b1", "b2", "b3", "b4", "b5"];
+	var bmap = { "status": "b1", "settings": "b2", "rx": "b3", "help": "b4", "about": "b5" };
 	var id = bmap[command];
 	for (var id1 in names) {
 		b = document.getElementById(names[id1]);
@@ -227,7 +230,7 @@ function nav_update(command) {
 }
 
 function f_select(command) {
-    var div_list = ["status", "settings", "rx", "about"];
+    var div_list = ["status", "settings", "rx", "help", "about"];
     var orig_command = command;
     if (command == "rx") {
         command = "status";     //hack
@@ -307,8 +310,9 @@ function change_freq(d) {
 	}
 
 	var html = "<table style=\"width: 512px; height: 168px;\">";
+	var d_sys = ("system" in d) ? d['system'].substring(0,doTruncate) : "Undefined";
 	html += "<tr>";
-	html += "<td style=\"width: 422px;\" colspan=2><span class=\"systgid\" id=\"dSys\">" + d['system'].substring(0,doTruncate) + "</span></td>";
+	html += "<td style=\"width: 422px;\" colspan=2><span class=\"systgid\" id=\"dSys\">" + d_sys + "</span></td>";
 	html += "<td align=\"center\" style=\"width: 88px;\">";
         html += "<span class=\"label-sm\">Frequency</span><br><span class=\"value\">" + d['freq'] / 1000000.0 + "</span></td>";
 	html += "</tr>";

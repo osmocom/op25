@@ -439,3 +439,8 @@ div#cfg_list_area select {
 	border-left: none;
 	text-align:  right;
 }
+
+.help {
+	max-width: 640px;
+	font-family: Arial, Helvetica, sans-serif;
+}

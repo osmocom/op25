@@ -20,13 +20,47 @@
 	<li id="li1" class="nav-li"><input id="b1" class="nav-button" type="button" name="B1" value="Home" onclick="javascript:f_select(&quot;status&quot;);"></li>
 	<li id="li2" class="nav-li"><input id="b2" class="nav-button" type="button" name="B2" value="Configuration"  onclick="javascript:f_select(&quot;settings&quot;);"></li>
 	<li id="li3" class="nav-li"><input id="b3" class="nav-button" type="button" name="B3" value="RX" onclick="javascript:f_select(&quot;rx&quot;);"></li>
-	<li id="li4" class="nav-li"><input id="b4" class="nav-button" type="button" name="B4" value="About" onclick="javascript:f_select(&quot;about&quot;);"></li>
-	<li id="li5"><div class="copyr">&copy; 2017-2019 Max H. Parke KA1RBI</div></li>
+	<li id="li4" class="nav-li"><input id="b4" class="nav-button" type="button" name="B4" value="Help" onclick="javascript:f_select(&quot;help&quot;);"></li>
+	<li id="li5" class="nav-li"><input id="b5" class="nav-button" type="button" name="B5" value="About" onclick="javascript:f_select(&quot;about&quot;);"></li>
+	<li id="li5"><div class="copyr">&copy; 2017&dash;2020 Max H. Parke KA1RBI</div></li>
 	</ul> 
 </div>
 <br>
 
 <div id="div_debug" style="display: none;">
+</div>
+
+<div id="div_help" class="help" style="display:none;">
+<P>
+<h2>Setup and Monitor a Trunked System</h2>
+Before proceeding you will need to know the control channel frequency or frequencies for your system and the system NAC code.  Also needed is the frequency correction (PPM) value for your SDR.
+<ul>
+<li>Select "Configuration" from the top nav bar</li>
+<li>Select "sample_trunked" from the list of available configurations; then click "Edit"</li>
+<li>The various Frequency parameters are used as follows:
+	<ul>
+	<li>The Channel frequency is the same as the "center frequency".  If the entire P25 system being monitored fits within the sampling band (as defined by the device sampling rate), choose a frequency that is halfway between the lowest and highest system frequencies and enter it here. OP25 will use a "software LO" to achieve tuning within this band.  If the value is zero or if the desired frequency when retuning is outside the sampling band, OP25 will change the SDR hardware receive frequency each time a frequency change is needed.</li>
+	<li>The Device frequency is ignored in trunked operation, but must be set to a non-zero number.  TODO: fix this.</li>
+	<li>Under "Trunking Info" the "CC Freq's" should be set to a list of control channel frequencies.  If your system has more than one control channel you should enter them as a comma separated list.  Some systems with multiple control channels seem to favor a certain frequency; if so you can speed up acquisition by entering such channel(s) first in the list.</li>
+	</ul>
+<li>Enter the frequency correction value of the SDR device in the "PPM" field.  If your SDR is GPSDO stabilized, you can enter zero here; all others must contend with setting a proper correction value.</li>
+<li>Enter the name of your system in the channel "Name" input.</li>
+<li>Enter the system NAC.</li>
+<li>Be sure to check the "P2 TDMA" box if your system utilizes P25 Phase 2/TDMA.</li>
+<li>Choose and enter a name for the new configuration file and click "Save".</li>
+<li>The displayed list of configurations should update, showing the new configuration.</li>
+<li>After selecting the configuration from the list, click "Start" to launch the receiver app (rx.py) in the background*</li>
+</ul>
+*The "Start" and "Stop" options are only usable when OP25 has been started in the backend as "http.py", not as "rx.py" or "multi_rx.py".
+<h3>NOTES</h3>
+<ul>
+<li>Configuration files are saved in the <tt>op25/gr-op25_repeater/www/config</tt> directory, as JSON.</li>
+<li>If you aleady have installed OP25 with a TSV configuration file, to import the TSV config files check the box to include TSV files and click "Refresh". TSV files are searched for in the <tt>op25/gr-op25_repeater/apps</tt> directory.</li>
+<li>The current version does not allow configurations with more than one channel unless all the channels share the same value for the "Trunked" parameter.  That is, the configuration must define either none of the channels as trunked or all of the channels as trunked.  The selected backend used in these two cases is multi_rx.py or rx.py, respectively.</li>
+<li>You can define more than one trunked (P25) system by adding an additional channel for each one.  The list of currently-active channels can be managed from the HTTP console "Home" page.</li>
+<li>Please refer to <a href="https://osmocom.org/projects/gr-osmosdr/wiki" target="_blank">this page</a> for details about specifying the Device Args parameter values for your SDR device.</li>
+<li>After creating and verifying a configuration you can arrange for that configuration to be automatically started whenever <tt>http.py</tt> is (re)started.  When starting <tt>http.py</tt>, use the <tt>-c <em>Name</em></tt> parameter to give the name of the configuration to be started.  <tt><em>Name</em></tt> should not contain any prefixes or suffixes,</li>
+</ul>
 </div>
 
 <!-- copyright / about div-->
@@ -171,10 +205,10 @@
 <div id="cfg_list_area" class="cfg_list">
 </div>
 <p>
+<input type="button" name="load" value="Edit" onclick="javascript:f_load();"></input> - Open configuration editor (any previous unsaved work will be lost)<br>
 <input type="button" name="list" value="Refresh" onclick="javascript:f_list();"></input> - Reload selection list
 <input type=checkbox id="include_tsv" name="include_tsv">Include old-style trunking TSV files
 <br>
-<input type="button" name="load" value="Edit" onclick="javascript:f_load();"></input> - Open configuration editor (any previous unsaved work will be lost)<br>
 <input type="button" name="start" value="Start" onclick="javascript:f_start();"></input> - Run flowgraph using selected configuration<br>
 <input type="button" name="stop" value="Stop" onclick="javascript:f_stop();"></input> - End running flowgraph<br>
 <br>
@@ -227,7 +261,6 @@
 <tr><th>pcm inp device</th><td><input type=text name="audio-input"  value=""></input></td></tr>
 <tr><th>soundcard IF</th><td><input type=checkbox name="audio-if" ></input></td></tr>
 <tr><th>tone detect algo</th><td><input type=checkbox name="tone-detect" ></input></td></tr>
-<tr><th>voice codec</th><td><input type=checkbox name="vocoder" ></input></td></tr>
 <tr><th>hamlib model</th><td><input type=text name="hamlib-model"  value="None"></input></td></tr>
 <tr><th>direct audio inp</th><td><input type=checkbox name="audio" ></input></td></tr>
 <tr><th>startup pause</th><td><input type=checkbox name="pause" ></input></td></tr>
@@ -286,6 +319,7 @@
 <th>Plot Type(s)</th>
 <th>Destination</th>
 <th>IF Rate</th>
+<th>&alpha;</th>
 <th>&nbsp;</th>
 </tr>
 <tr id="chrow" class="dynrow" style="display: none">
@@ -311,6 +345,7 @@
 </select></td>
 <td><input type="text" name="destination" value="udp://127.0.0.1:23456"></td>
 <td><input type="text" name="if_rate" value="24000"></td>
+<td><input type="text" name="excess_bw" value="0"></td>
 <td>
 <input type="button" name="clone" value="CLONE" onclick="javascript:f_command(this, &quot;clone&quot;);"></input>
 <br>
