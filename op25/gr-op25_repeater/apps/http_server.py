@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Copyright 2017, 2018 Max H. Parke KA1RBI
+# Copyright 2017, 2018, 2019, 2020 Max H. Parke KA1RBI
 # 
 # This file is part of OP25
 # 
@@ -49,6 +49,13 @@ TSV_DIR = './'
 fake http and ajax server module
 TODO: make less fake
 """
+def ensure_str(s):	# for python 2/3
+    if isinstance(s[0], str):
+        return s
+    ns = ''
+    for i in range(len(s)):
+        ns += chr(s[i])
+    return ns
 
 def static_file(environ, start_response):
     content_types = { 'png': 'image/png', 'jpeg': 'image/jpeg', 'jpg': 'image/jpeg', 'gif': 'image/gif', 'css': 'text/css', 'js': 'application/javascript', 'html': 'text/html'}
@@ -265,7 +272,7 @@ class Backend(threading.Thread):
 
         self.zmq_sub = self.zmq_context.socket(zmq.SUB)
         self.zmq_sub.connect('tcp://localhost:%d' % self.zmq_port)
-        self.zmq_sub.setsockopt(zmq.SUBSCRIBE, '')
+        self.zmq_sub.setsockopt_string(zmq.SUBSCRIBE, '')
 
         self.zmq_pub = self.zmq_context.socket(zmq.PUB)
         self.zmq_pub.sndhwm = 5
@@ -286,7 +293,8 @@ class Backend(threading.Thread):
         t = msg.type()
         s = msg.to_string()
         a = msg.arg1()
-        self.zmq_pub.send(json.dumps({'command': s, 'data': a, 'msgtype': t}))
+        s = ensure_str(s)
+        self.zmq_pub.send_string(json.dumps({'command': s, 'data': a, 'msgtype': t}))
 
     def check_subproc(self):	# return True if subprocess is active
         if not self.subproc:
@@ -301,6 +309,9 @@ class Backend(threading.Thread):
 
     def process_msg(self, msg):
         def make_command(options, config_file):
+            py_exe = 'python'
+            if sys.version[0] == '3':
+                py_exe = 'python3'
             trunked_ct = [True for x in options._js_config['channels'] if x['trunked']]
             total_ct = [True for x in options._js_config['channels']]
             if trunked_ct and len(trunked_ct) != len(total_ct):
@@ -308,15 +319,57 @@ class Backend(threading.Thread):
                 return None
             if not trunked_ct:
                 self.backend = '%s/%s' % (os.getcwd(), 'multi_rx.py')
-                opts = [self.backend]
+                opts = [py_exe, self.backend]
                 filename = '%s%s.json' % (CFG_DIR, config_file)
                 opts.append('--config-file')
                 opts.append(filename)
                 return opts
 
-            types = {'costas-alpha': 'float', 'trunk-conf-file': 'str', 'demod-type': 'str', 'logfile-workers': 'int', 'decim-amt': 'int', 'wireshark-host': 'str', 'gain-mu': 'float', 'phase2-tdma': 'bool', 'seek': 'int', 'ifile': 'str', 'pause': 'bool', 'antenna': 'str', 'calibration': 'float', 'fine-tune': 'float', 'raw-symbols': 'str', 'audio-output': 'str', 'vocoder': 'bool', 'input': 'str', 'wireshark': 'bool', 'gains': 'str', 'args': 'str', 'sample-rate': 'int', 'terminal-type': 'str', 'gain': 'float', 'excess-bw': 'float', 'offset': 'float', 'audio-input': 'str', 'audio': 'bool', 'plot-mode': 'str', 'audio-if': 'bool', 'tone-detect': 'bool', 'frequency': 'int', 'freq-corr': 'float', 'hamlib-model': 'int', 'udp-player': 'bool', 'verbosity': 'int'}
+            # TODO: this probably should be external and/or configurable
+            # these options must match up one for one with the rx.py cli opts
+            types = {'costas-alpha': 'float',
+                'trunk-conf-file': 'str',
+                'demod-type': 'str',
+                'logfile-workers': 'int',
+                'decim-amt': 'int',
+                'wireshark-host': 'str',
+                'gain-mu': 'float',
+                'phase2-tdma': 'bool',
+                'seek': 'int',
+                'ifile': 'str',
+                'pause': 'bool',
+                'antenna': 'str',
+                'calibration': 'float',
+                'fine-tune': 'float',
+                'raw-symbols': 'str',
+                'audio-output': 'str',
+                'vocoder': 'bool',
+                'input': 'str',
+                'wireshark': 'bool',
+                'gains': 'str',
+                'args': 'str',
+                'sample-rate': 'int',
+                'terminal-type': 'str',
+                'gain': 'float',
+                'excess-bw': 'float',
+                'offset': 'float',
+                'audio-input': 'str',
+                'audio': 'bool',
+                'plot-mode': 'str',
+                'audio-if': 'bool',
+                'tone-detect': 'bool',
+                'frequency': 'int',
+                'freq-corr': 'float',
+                'hamlib-model': 'int',
+                'udp-player': 'bool',
+                'verbosity': 'int',
+                'audio-gain': 'float',
+                'freq-error-tracking': 'bool',
+                'nocrypt': 'bool',
+                'wireshark-port': 'int'
+            }
             self.backend = '%s/%s' % (os.getcwd(), 'rx.py')
-            opts = [self.backend]
+            opts = [py_exe, self.backend]
             for k in [ x for x in dir(options) if not x.startswith('_') ]:
                 kw = k.replace('_', '-')
                 val = getattr(options, k)
@@ -359,6 +412,7 @@ class Backend(threading.Thread):
             options.verbosity = self.verbosity
             options.terminal_type = 'zmq:tcp:%d' % (self.zmq_port)
             cmd = make_command(options, msg['data'])
+            sys.stderr.write('executing %s\n' % (' '.join(cmd)))
             if cmd:
                 self.subproc = subprocess.Popen(cmd)
         elif msg['command'] == 'rx-stop':
@@ -384,6 +438,7 @@ class Backend(threading.Thread):
             js = self.zmq_sub.recv()
             if not self.keep_running:
                 break
+            js = ensure_str(js)
             msg = gr.message().make_from_string(js, -4, 0, 0)
             if not self.output_q.full_p():
                 self.output_q.insert_tail(msg)
