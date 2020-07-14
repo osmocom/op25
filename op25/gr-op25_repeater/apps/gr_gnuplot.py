@@ -23,6 +23,7 @@ import sys
 import os
 import time
 import subprocess
+import json
 
 from gnuradio import gr, gru, eng_notation
 from gnuradio import blocks, audio
@@ -54,8 +55,11 @@ def limit(a,lim):
 		return lim
 	return a
 
+PSEQ = 0
+
 class wrap_gp(object):
-	def __init__(self, sps=_def_sps, logfile=None):
+	def __init__(self, sps=_def_sps, logfile=None, title=None):
+		global PSEQ
 		self.sps = sps
 		self.center_freq = 0.0
 		self.relative_freq = 0.0
@@ -65,7 +69,7 @@ class wrap_gp(object):
 		self.freqs = ()
 		self.avg_pwr = np.zeros(FFT_BINS)
 		self.avg_sum_pwr = 0.0
-		self.buf = []
+		self.buf = np.array([])
 		self.plot_count = 0
 		self.last_plot = 0
 		self.plot_interval = None
@@ -73,6 +77,12 @@ class wrap_gp(object):
 		self.output_dir = None
 		self.filename = None
 		self.logfile = logfile
+		self.title = title
+		self.sequence_id = PSEQ
+		PSEQ += 1
+		x = self.sequence_id % 3
+		y = self.sequence_id // 3
+		self.position = (x, y)
 
 		self.attach_gp()
 
@@ -110,77 +120,70 @@ class wrap_gp(object):
 		BUFSZ = bufsz
 		consumed = min(len(buf), BUFSZ-len(self.buf))
 		if len(self.buf) < BUFSZ:
-			self.buf.extend(buf[:consumed])
+			self.buf = np.concatenate((self.buf, buf[:int(consumed)]))
 		if len(self.buf) < BUFSZ:
 			return consumed
 
 		self.plot_count += 1
 		if mode == 'eye' and self.plot_count % 20 != 0:
-			self.buf = []
+			self.buf = np.array([])
 			return consumed
 
 		plots = []
 		s = ''
 		plot_size = (320,240)
-		while(len(self.buf)):
-			if mode == 'eye':
-				if len(self.buf) < self.sps:
-					break
-				for i in range(self.sps):
-					s += '%f\n' % self.buf[i]
-				s += 'e\n'
-				self.buf=self.buf[self.sps:]
+		if mode == 'eye':
+			nplots = len(self.buf) // self.sps - 2
+			for i in range(nplots):
+				s += '\n'.join(['%f' % self.buf[i*self.sps+j] for j in range(self.sps+1)])
+				s += '\ne\n'
 				plots.append('"-" with lines')
-			elif mode == 'constellation':
-				plot_size = (240,240)
-				self.buf = self.buf[:100]
-				for b in self.buf:
-					s += '%f\t%f\n' % (degrees(np.angle(b)), limit(np.abs(b),1.0))
-				s += 'e\n'
-				plots.append('"-" with points')
-				for b in self.buf:
-					#s += '%f\t%f\n' % (b.real, b.imag)
-					s += '%f\t%f\n' % (degrees(np.angle(b)), limit(np.abs(b),1.0))
-				s += 'e\n'
-				self.buf = []
-				plots.append('"-" with lines')
-			elif mode == 'symbol':
-				for b in self.buf:
-					s += '%f\n' % (b)
-				s += 'e\n'
-				self.buf = []
-				plots.append('"-" with points')
-			elif mode == 'fft' or mode == 'mixer':
-				sum_pwr = 0.0
-				self.ffts = np.fft.fft(self.buf * np.blackman(BUFSZ)) / (0.42 * BUFSZ)
-				self.ffts = np.fft.fftshift(self.ffts)
-				self.freqs = np.fft.fftfreq(len(self.ffts))
-				self.freqs = np.fft.fftshift(self.freqs)
-				tune_freq = (self.center_freq - self.relative_freq) / 1e6
-				if self.center_freq and self.width:
-                                	self.freqs = ((self.freqs * self.width) + self.center_freq + self.offset_freq) / 1e6
-				for i in range(len(self.ffts)):
-					if mode == 'fft':
-						self.avg_pwr[i] = ((1.0 - FFT_AVG) * self.avg_pwr[i]) + (FFT_AVG * np.abs(self.ffts[i]))
-					else:
-						self.avg_pwr[i] = ((1.0 - MIX_AVG) * self.avg_pwr[i]) + (MIX_AVG * np.abs(self.ffts[i]))
-					s += '%f\t%f\n' % (self.freqs[i], 20 * np.log10(self.avg_pwr[i]))
-					if (mode == 'mixer') and (self.avg_pwr[i] > 1e-5):
-						if (self.freqs[i] - self.center_freq) < 0:
-							sum_pwr -= self.avg_pwr[i]
-						elif (self.freqs[i] - self.center_freq) > 0:
-							sum_pwr += self.avg_pwr[i]
-						self.avg_sum_pwr = ((1.0 - BAL_AVG) * self.avg_sum_pwr) + (BAL_AVG * sum_pwr)
-				s += 'e\n'
-				self.buf = []
-				plots.append('"-" with lines')
-			elif mode == 'float':
-				for b in self.buf:
-					s += '%f\n' % (b)
-				s += 'e\n'
-				self.buf = []
-				plots.append('"-" with lines')
-		self.buf = []
+		elif mode == 'constellation':
+			plot_size = (240,240)
+			self.buf = self.buf[:100]
+			for b in self.buf:
+				s += '%f\t%f\n' % (degrees(np.angle(b)), limit(np.abs(b),1.0))
+			s += 'e\n'
+			plots.append('"-" with points')
+			for b in self.buf:
+				#s += '%f\t%f\n' % (b.real, b.imag)
+				s += '%f\t%f\n' % (degrees(np.angle(b)), limit(np.abs(b),1.0))
+			s += 'e\n'
+			plots.append('"-" with lines')
+		elif mode == 'symbol':
+			for b in self.buf:
+				s += '%f\n' % (b)
+			s += 'e\n'
+			plots.append('"-" with points')
+		elif mode == 'fft' or mode == 'mixer':
+			sum_pwr = 0.0
+			self.ffts = np.fft.fft(self.buf * np.blackman(BUFSZ)) / (0.42 * BUFSZ)
+			self.ffts = np.fft.fftshift(self.ffts)
+			self.freqs = np.fft.fftfreq(len(self.ffts))
+			self.freqs = np.fft.fftshift(self.freqs)
+			tune_freq = (self.center_freq - self.relative_freq) / 1e6
+			if self.center_freq and self.width:
+                               	self.freqs = ((self.freqs * self.width) + self.center_freq + self.offset_freq) / 1e6
+			for i in range(len(self.ffts)):
+				if mode == 'fft':
+					self.avg_pwr[i] = ((1.0 - FFT_AVG) * self.avg_pwr[i]) + (FFT_AVG * np.abs(self.ffts[i]))
+				else:
+					self.avg_pwr[i] = ((1.0 - MIX_AVG) * self.avg_pwr[i]) + (MIX_AVG * np.abs(self.ffts[i]))
+				s += '%f\t%f\n' % (self.freqs[i], 20 * np.log10(self.avg_pwr[i]))
+				if (mode == 'mixer') and (self.avg_pwr[i] > 1e-5):
+					if (self.freqs[i] - self.center_freq) < 0:
+						sum_pwr -= self.avg_pwr[i]
+					elif (self.freqs[i] - self.center_freq) > 0:
+						sum_pwr += self.avg_pwr[i]
+					self.avg_sum_pwr = ((1.0 - BAL_AVG) * self.avg_sum_pwr) + (BAL_AVG * sum_pwr)
+			s += 'e\n'
+			plots.append('"-" with lines')
+		elif mode == 'float' or mode == 'correlation':
+			for b in self.buf:
+				s += '%f\n' % (b)
+			s += 'e\n'
+			plots.append('"-" with lines')
+		self.buf = np.array([])
 
 		# FFT processing needs to be completed to maintain the weighted average buckets
 		# regardless of whether we actually produce a new plot or not.
@@ -191,15 +194,22 @@ class wrap_gp(object):
 		filename = None
 		if self.output_dir:
 			if self.sequence >= 2:
-				delete_pathname = '%s/plot-%s-%d.png' % (self.output_dir, mode, self.sequence-2)
+				delete_pathname = '%s/plot-%s%d-%d.png' % (self.output_dir, mode, self.sequence_id, self.sequence-2)
 				if os.access(delete_pathname, os.W_OK):
 					os.remove(delete_pathname)
 			h0= 'set terminal png size %d, %d\n' % (plot_size)
-			filename = 'plot-%s-%d.png' % (mode, self.sequence)
+			filename = 'plot-%s%d-%d.png' % (mode, self.sequence_id, self.sequence)
 			h0 += 'set output "%s/%s"\n' % (self.output_dir, filename)
 			self.sequence += 1
 		else:
-			h0= 'set terminal x11 noraise\n'
+			pos = ''
+			if self.position is not None:
+				x = self.position[0] * plot_size[0]
+				y = self.position[1] * plot_size[1]
+				x += 50
+				y += 75
+				pos = ' position %d, %d' % (x, y)
+			h0= 'set terminal x11 noraise size %d, %d%s title "%s"\n' % (plot_size[0], plot_size[1], pos, self.title)
 		background = ''
 		h = 'set key off\n'
 		if mode == 'constellation':
@@ -250,12 +260,18 @@ class wrap_gp(object):
 		elif mode == 'float':
 			h+= 'set yrange [-2:2]\n'
 			h+= 'set title "Oscilloscope"\n'
+		elif mode == 'correlation':
+			title = 'Correlation'
+			if self.title:
+				title = self.title
+			h+= 'set yrange [-1.1:1.1]\n'
+			h+= 'set title "%s"\n' % (title)
 		dat = '%s%splot %s\n%s' % (h0, h, ','.join(plots), s)
-		if sys.version[0] != '2':
-			dat = bytes(dat, 'utf8')
 		if self.logfile is not None:
 			with open(self.logfile, 'a') as fd:
 				fd.write(dat)
+		if sys.version[0] != '2':
+			dat = bytes(dat, 'utf8')
 		self.gp.poll()
 		if self.gp.returncode is None:	# make sure gnuplot is still running 
 			try:
@@ -281,6 +297,9 @@ class wrap_gp(object):
 	def set_logfile(self, logfile=None):
 		self.logfile = logfile
 
+	def set_title(self, title):
+		self.title = title
+
 class eye_sink_f(gr.sync_block):
     """
     """
@@ -295,7 +314,7 @@ class eye_sink_f(gr.sync_block):
 
     def work(self, input_items, output_items):
         in0 = input_items[0]
-        consumed = self.gnuplot.plot(in0, 100 * self.sps, mode='eye')
+        consumed = self.gnuplot.plot(in0, 100*self.sps, mode='eye')
         return consumed ### len(input_items[0])
 
     def kill(self):
@@ -416,3 +435,77 @@ class float_sink_f(gr.sync_block):
 
     def kill(self):
         self.gnuplot.kill()
+
+class correlation_sink_f(gr.sync_block):
+    """
+    """
+    def __init__(self, sps=_def_sps, debug = _def_debug):
+        gr.sync_block.__init__(self,
+            name="plot_sink_f",
+            in_sig=[np.float32],
+            out_sig=None)
+        self.debug = debug
+        self.sps = sps
+        self.gnuplot = wrap_gp()
+        self.fs = []
+        self.cbuf = np.array([])
+        self.ignore = 0
+        self.pktlen = 1024
+
+    def set_length(self, l):
+        self.pktlen = l
+
+    def set_title(self, title):
+        self.gnuplot.set_title(title)
+
+    def set_signature(self, fs):
+        self.fs = []
+        for s in fs:
+            for i in range(self.sps):
+                self.fs.append(s)
+        self.fs.reverse()	# reverse order for np.convolve
+        self.fs = np.array(self.fs)
+
+    def work(self, input_items, output_items):
+        if len(self.cbuf) == 0 and self.ignore > 0:
+            self.ignore -= len(input_items[0])
+            if self.ignore < 0:
+                self.ignore = 0
+            return len(input_items[0])
+        if len(self.fs) == 0:
+            return len(input_items[0])
+        in0 = input_items[0]
+        self.cbuf = np.append(self.cbuf, in0)
+        if len(self.cbuf) < self.pktlen:
+            return len(input_items[0])
+        result = np.convolve(self.cbuf[:self.pktlen], self.fs)
+        hi = np.max(np.abs(result))
+        if hi != 0:
+            result = result / hi
+        self.cbuf = []
+        self.ignore = 3000 * self.sps
+        self.gnuplot.plot(result, len(result), mode='correlation')
+        return len(input_items[0])
+
+    def kill(self):
+        self.gnuplot.kill()
+
+def setup_correlation(sps, title, connect_bb):
+    CFG_FILE = 'correlation.json'
+    if not os.access(CFG_FILE, os.R_OK):
+        sys.stderr.write('correlation plot ignored, missing config file %s\n' % CFG_FILE)
+        return []
+    ccfg = json.loads(open(CFG_FILE).read())
+    sinks = []
+    for cfg in ccfg:
+        sink = correlation_sink_f(sps=sps)
+        sink.set_title('%s %s' % (title, cfg['name']))
+        l = cfg['length'] * sps * 4
+        LENGTH_LIMIT = 10000
+        if l > LENGTH_LIMIT:
+            l = LENGTH_LIMIT
+        sink.set_length(l)
+        sink.set_signature(cfg['fs'])
+        connect_bb('baseband_amp', sink)
+        sinks.append(sink)
+    return sinks

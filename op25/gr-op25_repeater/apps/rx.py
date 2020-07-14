@@ -65,6 +65,7 @@ from gr_gnuplot import fft_sink_c
 from gr_gnuplot import symbol_sink_f
 from gr_gnuplot import eye_sink_f
 from gr_gnuplot import mixer_sink_c
+from gr_gnuplot import setup_correlation
 
 from terminal import op25_terminal
 from sockaudio  import socket_audio
@@ -267,26 +268,34 @@ class p25_rx_block (gr.top_block):
             if plot_mode == 'constellation':
                 assert self.options.demod_type == 'cqpsk'  ## constellation requires cqpsk demod-type
                 sink = constellation_sink_c()
+                self.plot_sinks.append(sink)
                 self.demod.connect_complex('diffdec', sink)
             elif plot_mode == 'symbol':
                 sink = symbol_sink_f()
+                self.plot_sinks.append(sink)
                 self.demod.connect_float(sink)
             elif plot_mode == 'fft':
                 sink = fft_sink_c()
+                self.plot_sinks.append(sink)
                 self.spectrum_decim = filter.rational_resampler_ccf(1, self.options.decim_amt)
                 self.connect(self.spectrum_decim, sink)
                 self.demod.connect_complex('src', self.spectrum_decim)
             elif plot_mode == 'mixer':
                 sink = mixer_sink_c()
+                self.plot_sinks.append(sink)
                 self.demod.connect_complex('mixer', sink)
             elif plot_mode == 'datascope':
                 assert self.options.demod_type == 'fsk4'  ## datascope requires fsk4 demod-type
                 sink = eye_sink_f(sps=sps)
+                self.plot_sinks.append(sink)
                 self.demod.connect_bb('symbol_filter', sink)
+            elif plot_mode == 'correlation':
+                assert self.options.demod_type == 'fsk4'   ## correlation plot requires fsk4 demod type
+                self.plot_sinks += setup_correlation(sps, "", self.demod.connect_bb)
             else:
                 raise ValueError('unsupported plot type: %s' % plot_mode)
-            self.plot_sinks.append(sink)
-            if self.is_http_term():
+        if self.is_http_term():
+            for sink in self.plot_sinks:
                 sink.gnuplot.set_interval(_def_interval)
                 sink.gnuplot.set_output_dir(_def_file_dir)
 

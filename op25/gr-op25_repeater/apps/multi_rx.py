@@ -42,6 +42,7 @@ from gr_gnuplot import fft_sink_c
 from gr_gnuplot import mixer_sink_c
 from gr_gnuplot import symbol_sink_f
 from gr_gnuplot import eye_sink_f
+from gr_gnuplot import setup_correlation
 
 from nxdn_trunking import cac_message
 
@@ -193,6 +194,13 @@ class channel(object):
                 self.sinks.append(constellation_sink_c())
                 self.demod.connect_complex('diffdec', self.sinks[i])
                 self.kill_sink.append(self.sinks[i])
+            elif plot == 'correlation':
+                assert config['demod_type'] == 'fsk4'   ## correlation plot requires fsk4 demod type
+                assert config['symbol_rate'] == 4800	## 4800 required for correlation plot
+                sps=config['if_rate'] // self.symbol_rate
+                sinks = setup_correlation(sps, self.name, self.demod.connect_bb)
+                self.kill_sink += sinks
+                self.sinks += sinks
             else:
                 sys.stderr.write('unrecognized plot type %s\n' % plot)
                 return

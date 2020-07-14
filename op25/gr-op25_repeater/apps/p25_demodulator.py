@@ -88,7 +88,7 @@ class p25_demod_base(gr.hier_block2):
 	"""
         self.if_rate = if_rate
         self.symbol_rate = symbol_rate
-        self.bb_sink = None
+        self.bb_sinks = []
 
         self.baseband_amp = blocks.multiply_const_ff(_def_bb_gain)
         coeffs = op25_c4fm_mod.c4fm_taps(sample_rate=self.if_rate, span=9, generator=op25_c4fm_mod.transfer_function_rx).generate()
@@ -145,20 +145,20 @@ class p25_demod_base(gr.hier_block2):
 
     def disconnect_bb(self):
         # assumes lock held or init
-        if not self.bb_sink:
+        if not len(self.bb_sinks):
             return
-        self.disconnect(self.bb_sink[0], self.bb_sink[1])
-        self.bb_sink = None
+        for t in self.bb_sinks:
+            self.disconnect(t[0], t[1])
+        self.bb_sinks = []
 
     def connect_bb(self, src, sink):
         # assumes lock held or init
-        self.disconnect_bb()
         if src == 'symbol_filter':
-            self.connect(self.symbol_filter, sink)
-            self.bb_sink = [self.symbol_filter, sink]
+            b = self.symbol_filter
         elif src == 'baseband_amp':
-            self.connect(self.baseband_amp, sink)
-            self.bb_sink = [self.baseband_amp, sink]
+            b = self.baseband_amp
+        self.connect(b, sink)
+        self.bb_sinks.append([b, sink])
 
 class p25_demod_fb(p25_demod_base):
 
