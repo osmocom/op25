@@ -166,6 +166,7 @@ class p25_demod_fb(p25_demod_base):
                  input_rate	= None,
                  filter_type	= None,
                  excess_bw      = _def_excess_bw,
+                 if_rate        = _def_if_rate,
                  symbol_rate	= _def_symbol_rate):
         """
 	Hierarchical block for P25 demodulation.
@@ -179,12 +180,21 @@ class p25_demod_fb(p25_demod_base):
 				gr.io_signature(1, 1, gr.sizeof_float),       # Input signature
 				gr.io_signature(1, 1, gr.sizeof_char)) # Output signature
 
-        p25_demod_base.__init__(self, if_rate=input_rate, symbol_rate=symbol_rate, filter_type=filter_type)
+        p25_demod_base.__init__(self, if_rate=if_rate, symbol_rate=symbol_rate, filter_type=filter_type)
 
         self.input_rate = input_rate
+        self.if_rate = if_rate
         self.float_sink = None
-
-        self.connect(self, self.baseband_amp, self.symbol_filter, self.fsk4_demod, self.slicer, self)
+        if input_rate != if_rate:
+            assert if_rate < input_rate
+            assert input_rate % if_rate == 0	### input rate must be multiple of if rate
+            decim = input_rate // if_rate
+            maxf = min(if_rate // 2, 6000)	### lpf cutoff at most 6 KHz
+            lpf_coeffs = filter.firdes.low_pass(1.0, input_rate, maxf, maxf//8, filter.firdes.WIN_HAMMING)
+            self.bb_decim = filter.fir_filter_fff(decim,  lpf_coeffs)
+            self.connect(self, self.bb_decim, self.baseband_amp, self.symbol_filter, self.fsk4_demod, self.slicer, self)
+        else:
+            self.connect(self, self.baseband_amp, self.symbol_filter, self.fsk4_demod, self.slicer, self)
 
     def disconnect_float(self):
         # assumes lock held or init

@@ -135,6 +135,7 @@ class channel(object):
             self.demod = p25_demodulator.p25_demod_fb(
                          input_rate = dev.sample_rate,
                          filter_type = config['filter_type'],
+                         if_rate = config['if_rate'],
                          symbol_rate = self.symbol_rate)
         else:
             self.demod = p25_demodulator.p25_demod_cb(

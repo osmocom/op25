@@ -215,6 +215,7 @@ class p25_rx_block (gr.top_block):
         global WIRESHARK_PORT
 
         sps = 5		# samples / symbol
+        if_rate = sps * 4800
 
         self.rx_q = gr.msg_queue(100)
         udp_port = 0
@@ -234,7 +235,7 @@ class p25_rx_block (gr.top_block):
         self.xor_cache = {}
 
         if self.baseband_input:
-            self.demod = p25_demodulator.p25_demod_fb(input_rate=capture_rate, excess_bw=self.options.excess_bw)
+            self.demod = p25_demodulator.p25_demod_fb(input_rate=capture_rate, excess_bw=self.options.excess_bw,if_rate=if_rate)
         else:	# complex input
             # local osc
             self.lo_freq = self.options.offset
@@ -244,7 +245,7 @@ class p25_rx_block (gr.top_block):
                                                        demod_type = self.options.demod_type,
                                                        relative_freq = self.lo_freq,
                                                        offset = self.options.offset,
-                                                       if_rate = sps * 4800,
+                                                       if_rate = if_rate,
                                                        gain_mu = self.options.gain_mu,
                                                        costas_alpha = self.options.costas_alpha,
                                                        excess_bw = self.options.excess_bw,
@@ -260,7 +261,7 @@ class p25_rx_block (gr.top_block):
         self.connect(source, self.demod, self.decoder)
 
         if self.baseband_input:
-            sps = int(capture_rate / 4800)
+            sps = if_rate // 4800
         plot_modes = []
         if self.options.plot_mode is not None:
             plot_modes = self.options.plot_mode.split(',')
