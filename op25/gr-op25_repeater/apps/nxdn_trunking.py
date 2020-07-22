@@ -128,13 +128,69 @@ def cac_message(s):
 		#d['option_3'] = mk_int(bits[:6])
 		#bits = bits[6:]
 		#d['cc_3'] = mk_int(bits[:10])
+	elif msg_type == 0x01:	# VCALL_RESP
+		assert len(bits) >= 64
+		d['msg_type'] = 'VCALL_RESP'
+		bits = bits[8:]
+		d['option'] = mk_int(bits[:8])
+		bits = bits[8:]
+		d['call_type'] = mk_int(bits[:3])
+		d['call_option'] = mk_int(bits[3:8])
+		bits = bits[8:]
+		d['source_id'] = mk_int(bits[:16])
+		bits = bits[16:]
+		d['destination_id'] = mk_int(bits[:16])
+		bits = bits[16:]
+		d['cause'] = mk_int(bits[:8])
+		bits = bits[8:]
+	elif msg_type == 0x09:	# DCALL_RESP
+		assert len(bits) >= 64
+		d['msg_type'] = 'DCALL_RESP'
+		bits = bits[8:]
+		d['option'] = mk_int(bits[:8])
+		bits = bits[8:]
+		d['call_type'] = mk_int(bits[:3])
+		d['call_option'] = mk_int(bits[3:8])
+		bits = bits[8:]
+		d['source_id'] = mk_int(bits[:16])
+		bits = bits[16:]
+		d['destination_id'] = mk_int(bits[:16])
+		bits = bits[16:]
+		d['cause'] = mk_int(bits[:8])
+		bits = bits[8:]
 	elif msg_type == 0x04:	# VCALL_ASSGN
 		assert len(bits) >= 72
+		bits2 = bits
+		s = ''
+		while len(bits2):
+			s += '%02x' % mk_int(bits2[:8])
+			bits2 = bits2[8:]
+		d['hexdata'] = s
 		d['msg_type'] = 'VCALL_ASSGN'
 		bits = bits[8:]
 		d['option'] = mk_int(bits[:8])
 		bits = bits[8:]
-		d['call_option'] = mk_int(bits[:8])
+		d['call_type'] = mk_int(bits[:3])
+		d['call_option'] = mk_int(bits[3:8])
+		bits = bits[8:]
+		d['source_id'] = mk_int(bits[:16])
+		bits = bits[16:]
+		d['group_id'] = mk_int(bits[:16])
+		bits = bits[16:]
+		d['timer'] = mk_int(bits[:8])
+		d['channel'] = mk_int(bits[6:16])
+		bits = bits[8:]
+		d['f1'] = mk_freq(mk_int(bits[:16]))
+		bits = bits[16:]
+		d['f2'] = mk_freq(mk_int(bits[:16]))
+	elif msg_type == 0x0e:	# DCALL_ASSGN
+		assert len(bits) >= 104
+		d['msg_type'] = 'DCALL_ASSGN'
+		bits = bits[8:]
+		d['option'] = mk_int(bits[:8])
+		bits = bits[8:]
+		d['call_type'] = mk_int(bits[:3])
+		d['call_option'] = mk_int(bits[3:8])
 		bits = bits[8:]
 		d['source_id'] = mk_int(bits[:16])
 		bits = bits[16:]
@@ -162,6 +218,99 @@ def cac_message(s):
 		d['visitor_unit'] = mk_int(bits[:16])
 		bits = bits[16:]
 		d['visitor_group'] = mk_int(bits[:16])
+	elif msg_type == 0x22:	# REG_C_RESP
+		assert len(bits) >= 56
+		d['msg_type'] = 'REG_C_RESP'
+		bits = bits[8:]
+		d['option'] = mk_int(bits[:8])
+		bits = bits[8:]
+		d['location id'] = mk_int(bits[:16])
+		bits = bits[16:]
+		d['unit_id'] = mk_int(bits[:16])
+	elif msg_type == 0x24:	# GRP_REG_RESP
+		assert len(bits) >= 72
+		d['msg_type'] = 'GRP_REG_RESP'
+		bits = bits[8:]
+		d['option'] = mk_int(bits[:8])
+		bits = bits[8:]
+		d['destination id'] = mk_int(bits[:16])
+		bits = bits[16:]
+		d['group_id'] = mk_int(bits[:16])
+		bits = bits[16:]
+		d['cause'] = mk_int(bits[:8])
+		bits = bits[8:]
+		d['visitor_group_id'] = mk_int(bits[:16])
+	elif msg_type == 0x32:	# STAT_REQ
+		assert len(bits) >= 72
+		d['msg_type'] = 'STAT_REQ'
+		bits = bits[8:]
+		d['option'] = mk_int(bits[:8])
+		bits = bits[8:]
+		d['call_type'] = mk_int(bits[:3])
+		d['call_option'] = mk_int(bits[3:8])
+		bits = bits[8:]
+		d['source id'] = mk_int(bits[:16])
+		bits = bits[16:]
+		d['destination_id'] = mk_int(bits[:16])
+		bits = bits[8:]
+		d['spare'] = mk_int(bits[:8])
+		status = bits[8:]
+	elif msg_type == 0x33:	# STAT_RESP
+		assert len(bits) >= 64
+		d['msg_type'] = 'STAT_RESP'
+		bits = bits[8:]
+		d['option'] = mk_int(bits[:8])
+		bits = bits[8:]
+		d['call_type'] = mk_int(bits[:3])
+		d['call_option'] = mk_int(bits[3:8])
+		bits = bits[8:]
+		d['source id'] = mk_int(bits[:16])
+		bits = bits[16:]
+		d['destination_id'] = mk_int(bits[:16])
+		bits = bits[16:]
+		d['cause'] = mk_int(bits[:8])
+	elif msg_type == 0x38:	# SDCALL_REQ_HEADER
+		assert len(bits) >= 64
+		d['msg_type'] = 'SDCALL_REQ_HEADER'
+		bits = bits[8:]
+		d['option'] = mk_int(bits[:8])
+		bits = bits[8:]
+		d['call_type'] = mk_int(bits[:3])
+		d['call_option'] = mk_int(bits[3:8])
+		bits = bits[8:]
+		d['source id'] = mk_int(bits[:16])
+		bits = bits[16:]
+		d['destination_id'] = mk_int(bits[:16])
+		bits = bits[16:]
+		d['cipher_type'] = mk_int(bits[:2])
+		d['key_id'] = mk_int(bits[2:8])
+	elif msg_type == 0x39:	# SDCALL_REQ_USERDATA
+		assert len(bits) >= 64
+		d['msg_type'] = 'SDCALL_REQ_USERDATA'
+		bits = bits[8:]
+		d['packet_frame'] = mk_int(bits[:4])
+		d['block_number'] = mk_int(bits[4:8])
+		bits = bits[8:]
+		s = ''
+		while len(bits):
+			s += '%02x' % mk_int(bits[:8])
+			bits = bits[8:]
+		d['hexdata'] = s
+	elif msg_type == 0x3b:	# SDCALL_RESP
+		assert len(bits) >= 64
+		d['msg_type'] = 'SDCALL_RESP'
+		bits = bits[8:]
+		d['option'] = mk_int(bits[:8])
+		bits = bits[8:]
+		d['call_type'] = mk_int(bits[:3])
+		d['call_option'] = mk_int(bits[3:8])
+		bits = bits[8:]
+		d['source id'] = mk_int(bits[:16])
+		bits = bits[16:]
+		d['destination_id'] = mk_int(bits[:16])
+		bits = bits[16:]
+		d['cause'] = mk_int(bits[:8])
+		bits = bits[8:]
 	else:	# msg type unhandled
 		d['msg_type'] = 'UNSUPPORTED 0x%x' % (msg_type)
 	return d
