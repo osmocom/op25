@@ -1694,17 +1694,17 @@ def make_fakecc_tsdu(params):
 	opcodes = []
 	args = []
 	op, arg = format_iden_up(0,
-		int(12.5 / 0.125),
-		(25 * 4),
-		int(12.5 / 0.125),
-		902012500/5)
+		params['iden_up_bw'] // 125,
+		params['iden_up_tx_offset'] * 4,
+		params['iden_up_spacing'] // 125,
+		params['iden_up_frequency'] // 5)
 	opcodes.append(op)
 	args.append(arg)
 	op, arg = format_network_status_broadcast(
 		0,
 		params['wacn'],
 		params['system_id'],
-		(params['cc_freq'] - 902012500) / 12500,
+		(params['cc_freq'] - params['iden_up_frequency']) // params['iden_up_spacing'],
 		0x70)
 	opcodes.append(op)
 	args.append(arg)
@@ -1713,7 +1713,7 @@ def make_fakecc_tsdu(params):
 		params['system_id'],
 		params['subsystem_id'],
 		params['site_id'],
-		(params['cc_freq'] - 902012500) / 12500,
+		(params['cc_freq'] - params['iden_up_frequency']) // params['iden_up_spacing'],
 		0x70)
 	opcodes.append(op)
 	args.append(arg)
