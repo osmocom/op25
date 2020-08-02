@@ -1,0 +1,76 @@
+{
+    "channels": [
+        {
+            "demod_type": "fsk4", 
+            "destination": "udp://127.0.0.1:56124", 
+            "excess_bw": 0.2, 
+            "filter_type": "nxdn", 
+            "frequency": 442112500, 
+            "if_rate": 24000, 
+            "name": "nxdn48", 
+            "plot": "datascope", 
+            "source": "/home/mhp/rand0.raw",
+            "symbol_rate": 2400
+        },
+        {
+            "demod_type": "fsk4", 
+            "destination": "udp://127.0.0.1:56128", 
+            "excess_bw": 0.2, 
+            "filter_type": "rrc", 
+            "frequency": 442187500, 
+            "if_rate": 24000, 
+            "name": "dmr", 
+            "plot": "datascope", 
+            "source": "/home/mhp/rand1.raw",
+            "symbol_rate": 4800
+        },
+        {
+            "demod_type": "fsk4", 
+            "destination": "udp://127.0.0.1:56132", 
+            "excess_bw": 0.2, 
+            "filter_type": "gmsk", 
+            "frequency": 442262500, 
+            "if_rate": 24000, 
+            "name": "dstar", 
+            "plot": "datascope", 
+            "source": "/home/mhp/rand2.raw",
+            "symbol_rate": 4800
+        },
+        {
+            "demod_type": "fsk4", 
+            "destination": "udp://127.0.0.1:56136", 
+            "excess_bw": 0.2, 
+            "filter_type": "rrc", 
+            "frequency": 442337500, 
+            "if_rate": 24000, 
+            "name": "ysf", 
+            "plot": "datascope", 
+            "source": "/home/mhp/rand3.raw",
+            "symbol_rate": 4800
+        },
+        {
+            "demod_type": "fsk4", 
+            "destination": "udp://127.0.0.1:56120", 
+            "excess_bw": 0.2, 
+            "filter_type": "rc", 
+            "frequency": 442412500, 
+            "if_rate": 24000, 
+            "name": "p25", 
+            "plot": "datascope", 
+            "source": "/home/mhp/rand4.raw",
+            "symbol_rate": 4800
+        }
+    ], 
+    "devices": [
+        {
+            "args": "udp:127.0.0.1:25252", 
+            "frequency": 442262500, 
+            "gains": "", 
+            "name": "udp", 
+            "offset": 0, 
+            "ppm": 0, 
+            "rate": 480000, 
+            "tunable": false
+        }
+    ]
+}

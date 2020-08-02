@@ -80,6 +80,29 @@ WIRESHARK_PORT = 23456
 _def_interval = 3.0	# sec
 _def_file_dir = '../www/images'
 
+class udp_source_c(gr.hier_block2):
+	def __init__(self, hostname, udp_port):
+		gr.hier_block2.__init__(self, "udp_source_c",
+			gr.io_signature(0, 0, 0),                   # Input signature
+			gr.io_signature(1, 1, gr.sizeof_gr_complex))  # Output signature
+		bufsize = 32000
+		self.src = blocks.udp_source(gr.sizeof_gr_complex, hostname, udp_port, payload_size = bufsize)
+		self.sample_rate = 0
+		self.connect(self.src, self)
+
+	def set_center_freq(self, f):
+		sys.stderr.write('udp source: set_center_freq(%s) ignored\n' % f)
+
+	def set_bandwidth(self, f):
+		sys.stderr.write('udp source: set_bandwidth(%s) ignored\n' % f)
+
+	def set_sample_rate(self, f):
+		self.sample_rate = f
+		return f
+
+	def set_antenna(self, a):
+		sys.stderr.write('udp source: set_antenna(%s) ignored\n' % a)
+
 # The P25 receiver
 #
 class p25_rx_block (gr.top_block):
@@ -109,7 +132,7 @@ class p25_rx_block (gr.top_block):
         self.last_freq_params = {'freq' : 0.0, 'tgid' : None, 'tag' : "", 'tdma' : None}
 
         self.src = None
-        if (not options.input) and (not options.audio) and (not options.audio_if):
+        if (not options.input) and (not options.audio) and (not options.audio_if) and (not options.args.startswith('udp:')):
             # check if osmocom is accessible
             try:
                 import osmosdr
@@ -141,6 +164,12 @@ class p25_rx_block (gr.top_block):
 
             if options.freq_corr:
                 self.src.set_freq_corr(options.freq_corr)
+        elif (not options.input) and (not options.audio) and (not options.audio_if) and options.args.startswith('udp:'):
+            hostinfo = options.args.split(':')
+            hostname = hostinfo[1]
+            udp_port = int(hostinfo[2])
+            self.src = udp_source_c(hostname, udp_port)
+            sys.stderr.write('started udp listener: %s %s\n' % (hostname, udp_port))
 
         if options.audio:
             self.channel_rate = 48000

@@ -24,12 +24,13 @@
 
 
 """
-Transmit four simultaneous RF channels (dmr, p25, dstar, and ysf)
+Transmit M simultaneous RF channels via N devices
 """
 
 import sys
 import os
 import math
+import json
 from gnuradio import gr, gru, audio, eng_notation
 from gnuradio import filter, blocks, analog, digital
 from gnuradio.eng_option import eng_option
@@ -43,13 +44,28 @@ from math import pi
 
 from op25_c4fm_mod import p25_mod_bf
 
-class pipeline(gr.hier_block2):
-    def __init__(self, protocol=None, config_file=None, mod_adjust=None, gain_adjust=None, output_gain=None, if_freq=0, if_rate=0, verbose=0, fullrate_mode=False, sample_rate=0, bt=0, alt_input=None):
-        gr.hier_block2.__init__(self, "dv_modulator",
-            gr.io_signature(1, 1, gr.sizeof_short),       # Input signature
-            gr.io_signature(1, 1, gr.sizeof_gr_complex))  # Output signature
+_def_symbol_rate = 4800
+_def_bt = 0.5
 
-        from dv_tx import RC_FILTER
+def byteify(input):	# thx so
+    if sys.version[0] != '2':	# hack, must be a better way
+        return input
+    if isinstance(input, dict):
+        return {byteify(key): byteify(value)
+                for key, value in input.iteritems()}
+    elif isinstance(input, list):
+        return [byteify(element) for element in input]
+    elif isinstance(input, unicode):
+        return input.encode('utf-8')
+    else:
+        return input
+
+class pipeline_sb(gr.hier_block2):
+    def __init__(self, protocol=None, config_file=None, gain_adjust=None, verbose=0, fullrate_mode=False, alt_input=None):
+        gr.hier_block2.__init__(self, "dv_encoder",
+            gr.io_signature(1, 1, gr.sizeof_short),       # Input signature
+            gr.io_signature(1, 1, gr.sizeof_char))  # Output signature
+
         if protocol == 'dmr':
             assert config_file
             ENCODER  = op25_repeater.ambe_encoder_sb(verbose)
@@ -77,7 +93,17 @@ class pipeline(gr.hier_block2):
             assert config_file
             ENCODER = op25_repeater.nxdn_tx_sb(verbose, config_file, protocol == 'nxdn96')
         ENCODER.set_gain_adjust(gain_adjust)
+        if protocol == 'dmr':
+            self.connect(DMR, self)
+        else:
+            self.connect(self, ENCODER, self)
 
+class mod_pipeline_bc(gr.hier_block2):
+    def __init__(self, protocol=None, mod_adjust=None, output_gain=None, if_freq=0, if_rate=0, verbose=0, sample_rate=0, bt=0):
+        from dv_tx import RC_FILTER
+        gr.hier_block2.__init__(self, "dv_modulator",
+            gr.io_signature(1, 1, gr.sizeof_char),       # Input signature
+            gr.io_signature(1, 1, gr.sizeof_gr_complex))  # Output signature
         MOD = p25_mod_bf(output_sample_rate = sample_rate, dstar = (protocol == 'dstar'), bt = bt, rc = RC_FILTER[protocol])
 
         AMP = blocks.multiply_const_ff(output_gain)
@@ -87,70 +113,85 @@ class pipeline(gr.hier_block2):
 
         FM_MOD = analog.frequency_modulator_fc (k * mod_adjust)
 
-        if protocol == 'dmr':
-            self.connect(DMR, MOD)
-        else:
-            self.connect(self, ENCODER, MOD)
-
         INTERP = filter.rational_resampler_fff(if_rate // sample_rate, 1)
 
         MIXER = blocks.multiply_cc()
         LO = analog.sig_source_c(if_rate, analog.GR_SIN_WAVE, if_freq, 1.0, 0)
 
-        self.connect(MOD, AMP, INTERP, FM_MOD, (MIXER, 0))
+        self.connect(self, MOD, AMP, INTERP, FM_MOD, (MIXER, 0))
         self.connect(LO, (MIXER, 1))
         self.connect(MIXER, self)
 
-class my_top_block(gr.top_block):
-    def __init__(self):
+class device(object):
+    def __init__(self, config, tb):
+        self.name = config['name']
+        self.sample_rate = config['rate']
+        self.args = config['args']
+        self.frequency = config['frequency']
+        self.tb = tb
+        self.sum = blocks.add_cc()
+        self.sum_count = 0
+        self.output_throttle = None
+
+    def get_sum_p(self):
+        seq = self.sum_count
+        self.sum_count += 1
+        return (self.sum, seq)
+
+class channel(object):
+    def __init__(self, config, dev, verbosity, msgq = None):
+        sys.stderr.write('channel (dev %s): %s\n' % (dev.name, config))
+        self.device = dev
+        self.name = config['name']
+        self.symbol_rate = _def_symbol_rate
+        if 'symbol_rate' in config.keys():
+            self.symbol_rate = config['symbol_rate']
+        self.config = config
+
+def get_protocol(chan):
+    # try to autodetect protocol, return None if failed
+    if chan.config['filter_type'].startswith('nxdn'):
+        if chan.symbol_rate == 2400:
+            return 'nxdn48'
+        else:
+            return 'nxdn96'
+    elif chan.config['filter_type'] == 'rc':
+        return 'p25'
+    elif chan.config['filter_type'] == 'gmsk':
+        return 'dstar'
+    elif chan.config['filter_type'] != 'rrc':
+        return None
+    if 'dmr' in chan.config['name'].lower():
+        return 'dmr'
+    if 'ysf' in chan.config['name'].lower():
+        return 'ysf'
+    return None
+
+def get_source(config, k, audio_source):
+    if k not in config.keys():
+        return None
+    s = config[k]
+    if s.startswith('audio:'):
+        return audio_source
+    elif s.startswith('udp:'):	# S16_LE at 8000 rate 
+        hostinfo = s.split(':')
+        hostname = hostinfo[1]
+        udp_port = int(hostinfo[2])
+        bufsize = 32000
+        return blocks.udp_source(gr.sizeof_short, hostname, udp_port, payload_size = bufsize)
+    else:
+        return blocks.file_source(gr.sizeof_short, s, repeat =  True)
+
+class tx_block(gr.top_block):
+    def __init__(self, verbosity, config):
+        self.verbosity = verbosity
         gr.top_block.__init__(self)
-        parser = OptionParser(option_class=eng_option)
 
-        parser.add_option("-a", "--args", type="string", default="", help="device args")
-        parser.add_option("-A", "--do-audio", action="store_true", default=False, help="live input audio")
-        parser.add_option("-b", "--bt", type="float", default=0.5, help="specify bt value")
-        parser.add_option("-f", "--file", type="string", default=None, help="specify the input file (mono 8000 sps S16_LE)")
-        parser.add_option("-g", "--gain", type="float", default=1.0, help="input gain")
-        parser.add_option("-i", "--if-rate", type="int", default=480000, help="output rate to sdr")
-        parser.add_option("-I", "--audio-input", type="string", default="", help="pcm input device name.  E.g., hw:0,0 or /dev/dsp")
-        parser.add_option("-N", "--gains", type="string", default=None, help="gain settings")
-        parser.add_option("-o", "--if-offset", type="float", default=100000, help="channel spacing (Hz)")
-        parser.add_option("-q", "--frequency-correction", type="float", default=0.0, help="ppm")
-        parser.add_option("-Q", "--frequency", type="float", default=0.0, help="Hz")
-        parser.add_option("-r", "--repeat", action="store_true", default=False, help="input file repeat")
-        parser.add_option("-R", "--fullrate-mode", action="store_true", default=False, help="ysf fullrate")
-        parser.add_option("-s", "--modulator-rate", type="int", default=48000, help="must be submultiple of IF rate")
-        parser.add_option("-S", "--alsa-rate", type="int", default=48000, help="sound source/sink sample rate")
-        parser.add_option("-v", "--verbose", type="int", default=0, help="additional output")
-        (options, args) = parser.parse_args()
+        self.configure_devices(config['devices'])
+        self.configure_channels(config['channels'])
 
-        assert options.file # input file name (-f filename) required
-
-        f1 = float(options.if_rate) / options.modulator_rate
-        i1 = int(options.if_rate / options.modulator_rate)
-        if f1 - i1 > 1e-3:
-            print ('*** Error, sdr rate %d not an integer multiple of modulator rate %d - ratio=%f' % (options.if_rate, options.modulator_rate, f1))
-            sys.exit(1)
-
-        protocols = 'nxdn48 dmr dstar ysf p25'.split()
-
-        start_freq = options.frequency
-        end_freq = options.frequency + options.if_offset * (len(protocols)-1)
-        tune_freq = (start_freq + end_freq) // 2
-        print ('start %d end %d center tune %d' % (start_freq, end_freq, tune_freq))
-
-        bw = options.if_offset * len(protocols) + 50000
-        if bw > options.if_rate:
-            print ('*** Error, a %d Hz band is required for %d channels and guardband.' % (bw, len(protocols)))
-            print ('*** Either reduce channel spacing using -o (current value is %d Hz),' % (options.if_offset) )
-            print ('*** or increase SDR output sample rate using -i (current rate is %d Hz)' % (options.if_rate) )
-            sys.exit(1)
-
-        max_inputs = 1
-
-        from dv_tx import output_gains, gain_adjust, gain_adjust_fullrate, mod_adjust
-
-        if options.do_audio:
+        audio_chans = [chan for chan in self.channels if chan.config['source'].startswith('audio:')]
+        if len(audio_chans):
             AUDIO = audio.source(options.alsa_rate, options.audio_input)
             lpf_taps = filter.firdes.low_pass(1.0, options.alsa_rate, 3400.0, 3400 * 0.1, filter.firdes.WIN_HANN)
             audio_rate = 8000
@@ -158,73 +199,145 @@ class my_top_block(gr.top_block):
             AUDIO_SCALE = blocks.multiply_const_ff(32767.0 * options.gain)
             AUDIO_F2S = blocks.float_to_short()
             self.connect(AUDIO, AUDIO_DECIM, AUDIO_SCALE, AUDIO_F2S)
-            alt_input = AUDIO_F2S
+            audio_source = AUDIO_F2S
         else:
-            alt_input = None
+            audio_source = None
 
-        SUM = blocks.add_cc()
-        input_repeat = True
-        for i in range(len(protocols)):
-            SOURCE = blocks.file_source(gr.sizeof_short, options.file, input_repeat)
-            protocol = protocols[i]
-            if (options.fullrate_mode and protocol == 'ysf') or protocol == 'p25':
-                gain_adj = gain_adjust_fullrate[protocols[i]]
+        from dv_tx import output_gains, gain_adjust, gain_adjust_fullrate, mod_adjust
+
+        for chan in self.channels:
+            protocol = get_protocol(chan)
+            if protocol is None:
+                sys.stderr.write('failed to detect protocol, ignoring: %s\n' % (cfg))
+                continue
+            cfg = chan.config
+            dev = chan.device
+            modulator_rate = 48000	## FIXME
+            bt = _def_bt
+            if 'bt' in cfg.keys():
+                bt = cfg['bt']
+            MOD = mod_pipeline_bc(
+                protocol = protocol,
+                output_gain = output_gains[protocol],
+                mod_adjust = mod_adjust[protocol],
+                if_freq = cfg['frequency'] - dev.frequency,
+                if_rate = dev.sample_rate,
+                sample_rate = modulator_rate,
+                bt = bt)
+            if cfg['source'].startswith('symbols:'):
+                filename = cfg['source'].split(':')[1]
+                source = blocks.file_source(gr.sizeof_char, filename, repeat=True)
+                self.connect(source, MOD, dev.get_sum_p())
             else:
-                gain_adj = gain_adjust[protocols[i]]
-            if protocols[i] == 'dmr':
-                cfg = 'dmr-cfg.dat'
-            elif protocols[i] == 'ysf':
-                cfg = 'ysf-cfg.dat'
-            elif protocols[i] == 'dstar':
-                cfg = 'dstar-cfg.dat'
-            elif protocols[i].startswith('nxdn'):
-                cfg = 'nxdn-cfg.dat'
+                source = get_source(cfg, 'source', audio_source)
+                source2 = get_source(cfg, 'source2', audio_source)
+                fullrate_mode = False	### TODO
+                if (fullrate_mode and protocol == 'ysf') or protocol == 'p25':
+                    gain_adj = gain_adjust_fullrate[protocol]
+                else:
+                    gain_adj = gain_adjust[protocol]
+                cfgfile = None
+                if protocol in 'dmr ysf dstar'.split():
+                    cfgfile = '%s-cfg.dat' % (protocol)
+                elif protocol.startswith('nxdn'):
+                    cfgfile = 'nxdn-cfg.dat'
+                CHANNEL = pipeline_sb(
+                    protocol = protocol,
+                    gain_adjust = gain_adj,
+                    fullrate_mode = fullrate_mode,
+                    alt_input = source2,
+                    verbose = self.verbosity,
+                    config_file = cfgfile)
+                self.connect(source, CHANNEL, MOD, dev.get_sum_p())
+        for dev in self.devices:
+            assert dev.sum_count > 0	# device must have at least one valid channel
+            dev.amp = blocks.multiply_const_cc(1.0 / float(dev.sum_count))
+            if dev.output_throttle is not None:
+                self.connect(dev.sum, dev.amp, dev.output_throttle, dev.u)
             else:
-                cfg = None
-            this_freq = start_freq + i * options.if_offset
-            if_freq = this_freq - tune_freq
-            print ('%s\t%d\t%d\t%d' % (protocols[i], this_freq, tune_freq, if_freq))
-            CHANNEL = pipeline(
-                protocol = protocols[i],
-                output_gain = output_gains[protocols[i]],
-                gain_adjust = gain_adj,
-                mod_adjust = mod_adjust[protocols[i]],
-                if_freq = if_freq,
-                if_rate = options.if_rate,
-                sample_rate = options.modulator_rate,
-                bt = options.bt,
-                fullrate_mode = options.fullrate_mode,
-                alt_input = alt_input,
-                config_file = cfg)
-            self.connect(SOURCE, CHANNEL, (SUM, i))
+                self.connect(dev.sum, dev.amp, dev.u)
 
-        self.u = osmosdr.sink (options.args)
-        AMP = blocks.multiply_const_cc(1.0 / float(len(protocols)))
-        self.setup_sdr_output(options, tune_freq)
+    def configure_devices(self, config):
+        self.devices = []
+        for cfg in config:
+            dev = device(cfg, self)
+            if cfg['args'].startswith('udp:'):
+                self.setup_udp_output(dev, cfg)
+            else:
+                self.setup_sdr_output(dev, cfg)
+            self.devices.append(dev)
 
-        self.connect(SUM, AMP, self.u)
+    def find_device(self, chan):
+        for dev in self.devices:
+            d = abs(chan['frequency'] - dev.frequency)
+            nf = dev.sample_rate // 2
+            if d + 6250 <= nf:
+                return dev
+        return None
 
-    def setup_sdr_output(self, options, tune_freq):
-        gain_names = self.u.get_gain_names()
+    def configure_channels(self, config):
+        self.channels = []
+        for cfg in config:
+            dev = self.find_device(cfg)
+            if dev is None:
+                sys.stderr.write('* * * Frequency %d not within spectrum band of any device - ignoring!\n' % cfg['frequency'])
+                continue
+            chan = channel(cfg, dev, self.verbosity, msgq=None)
+            self.channels.append(chan)
+
+    def setup_udp_output(self, dev, config):
+        dev.output_throttle = blocks.throttle(gr.sizeof_gr_complex, config['rate'])
+        hostinfo = config['args'].split(':')
+        hostname = hostinfo[1]
+        udp_port = int(hostinfo[2])
+        dev.u = blocks.udp_sink(gr.sizeof_gr_complex, hostname, udp_port)
+
+    def setup_sdr_output(self, dev, config):
+        dev.u = osmosdr.sink (config['args'])
+        gain_names = dev.u.get_gain_names()
         for name in gain_names:
-            range = self.u.get_gain_range(name)
+            range = dev.u.get_gain_range(name)
             print ("gain: name: %s range: start %d stop %d step %d" % (name, range[0].start(), range[0].stop(), range[0].step()))
-        if options.gains:
-            for tuple in options.gains.split(","):
-                name, gain = tuple.split(":")
+        if config['gains']:
+            for t in config['gains'].split(","):
+                name, gain = t.split(":")
                 gain = int(gain)
                 print ("setting gain %s to %d" % (name, gain))
-                self.u.set_gain(gain, name)
+                dev.u.set_gain(gain, name)
 
-        print ('setting sample rate %d' % options.if_rate)
-        self.u.set_sample_rate(options.if_rate)
-        print ('setting SDR tuning frequency %d' % tune_freq)
-        self.u.set_center_freq(tune_freq)
-        self.u.set_freq_corr(options.frequency_correction)
+        print ('setting sample rate %d' % config['rate'])
+        dev.u.set_sample_rate(config['rate'])
+        print ('setting SDR tuning frequency %d' % config['frequency'])
+        dev.u.set_center_freq(config['frequency'])
+        dev.u.set_freq_corr(config['ppm'])
+
+class tx_main(object):
+    def __init__(self):
+        parser = OptionParser(option_class=eng_option)
+
+        parser.add_option("-c", "--config-file", type="string", default=None, help="specify config file name")
+        parser.add_option("-v", "--verbosity", type="int", default=0, help="additional output")
+        parser.add_option("-p", "--pause", action="store_true", default=False, help="block on startup")
+        (options, args) = parser.parse_args()
+
+        # wait for gdb
+        if options.pause:
+            print ('Ready for GDB to attach (pid = %d)' % (os.getpid(),))
+            raw_input("Press 'Enter' to continue...")
+
+        if options.config_file == '-':
+            config = json.loads(sys.stdin.read())
+        else:
+            config = json.loads(open(options.config_file).read())
+        self.tb = tx_block(options.verbosity, config = byteify(config))
+
+    def run(self):
+        try:
+            self.tb.run()
+        except KeyboardInterrupt:
+            self.tb.stop()
 
 if __name__ == "__main__":
     print ('Multiprotocol Digital Voice TX (C) Copyright 2017-2020 Max H. Parke KA1RBI')
-    try:
-        my_top_block().run()
-    except KeyboardInterrupt:
-        tb.stop()
+    tx = tx_main()
+    tx.run()

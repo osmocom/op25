@@ -77,6 +77,8 @@ class device(object):
             self.init_audio(config)
         elif config['args'].startswith('file:'):
             self.init_file(config)
+        elif config['args'].startswith('udp:'):
+            self.init_udp(config)
         else:
             self.init_osmosdr(config)
 
@@ -97,6 +99,16 @@ class device(object):
            gain = float(config['gains'].replace('audio:', ''))
         self.src = blocks.multiply_const_ff(gain)
         self.tb.connect(src, self.src)
+
+    def init_udp(self, config):
+        hostinfo = config['args'].split(':')
+        hostname = hostinfo[1]
+        udp_port = int(hostinfo[2])
+        bufsize = 32000		# might try enlarging this if packet loss
+        self.src = blocks.udp_source(gr.sizeof_gr_complex, hostname, udp_port, payload_size = bufsize)
+        self.ppm = 0
+        self.frequency = config['frequency']
+        self.offset = 0
 
     def init_osmosdr(self, config):
         speeds = [250000, 1000000, 1024000, 1800000, 1920000, 2000000, 2048000, 2400000, 2560000]

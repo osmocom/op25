@@ -1,0 +1,40 @@
+{
+    "channels": [
+        {
+            "demod_type": "fsk4", 
+            "destination": "udp://127.0.0.1:56120", 
+            "excess_bw": 0.2, 
+            "filter_type": "rc", 
+            "frequency": 925000000, 
+            "if_rate": 24000, 
+            "name": "p25 cc", 
+            "plot": "datascope", 
+            "source": "symbols:sym-cc925.dat",
+            "symbol_rate": 4800
+        },
+        {
+            "demod_type": "fsk4", 
+            "destination": "udp://127.0.0.1:56124", 
+            "excess_bw": 0.2, 
+            "filter_type": "rc", 
+            "frequency": 924900000, 
+            "if_rate": 24000, 
+            "name": "p25 vc", 
+            "plot": "datascope", 
+            "source": "/home/mhp/rand4.raw",
+            "symbol_rate": 4800
+        }
+    ], 
+    "devices": [
+        {
+            "args": "udp:127.0.0.1:25252", 
+            "frequency": 924950000, 
+            "gains": "", 
+            "name": "udp", 
+            "offset": 0, 
+            "ppm": 0, 
+            "rate": 480000, 
+            "tunable": false
+        }
+    ]
+}
