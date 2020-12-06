@@ -791,7 +791,7 @@ class rx_ctl (object):
             cmd = msg.to_string()
             if self.debug > 10:
                 sys.stderr.write('process_qmsg: command: %s\n' % cmd)
-            self.update_state(cmd, curr_time)
+            self.update_state(cmd, curr_time, int(msg.arg1()))   # self.update_state(cmd, curr_time)
             return
         elif mtype == -1:	# timeout
             if self.debug > 10:
@@ -966,7 +966,7 @@ class rx_ctl (object):
         for frequency in gc_frequencies:	# expire working frequencies
             self.free_frequency(frequency, curr_time)
 
-    def update_state(self, command, curr_time):
+    def update_state(self, command, curr_time, cmd_data = 0): #   def update_state(self, command, curr_time):
         if not self.configs:
             return	# run in "manual mode" if no conf
 
@@ -1058,12 +1058,28 @@ class rx_ctl (object):
             pass
         elif command == 'hold':
             self.last_command = {'command': command, 'time': curr_time}
-            if self.hold_mode is False and self.current_tgid:
-                self.tgid_hold = self.current_tgid
+            if cmd_data != 0:
+                self.tgid_hold = cmd_data
                 self.tgid_hold_until = curr_time + 86400 * 10000
                 self.hold_mode = True
-                if self.debug > 0:
-                    sys.stderr.write ('%f set hold tg(%s) until %f\n' % (time.time(), self.current_tgid, self.tgid_hold_until))
+            if self.debug > 0:
+                sys.stderr.write ('%f set hold tg(%s) until %f\n' % (time.time(), self.tgid_hold, self.tgid_hold_until))
+            if self.current_tgid != self.tgid_hold:
+                self.current_tgid = self.tgid_hold
+                self.current_srcaddr = 0
+                self.current_grpaddr = 0
+                self.current_alg = ""
+                self.current_algid = 128
+                self.current_keyid = 0
+                new_state = self.states.CC
+                new_frequency = tsys.trunk_cc
+            elif self.hold_mode is False:
+                if self.current_tgid:
+                    self.tgid_hold = self.current_tgid
+                    self.tgid_hold_until = curr_time + 86400 * 10000
+                    self.hold_mode = True
+                    if self.debug > 0:
+                        sys.stderr.write ('%f set hold tg(%s) until %f\n' % (time.time(), self.tgid_hold, self.tgid_hold_until))
             elif self.hold_mode is True:
                 self.current_tgid = None
                 self.tgid_hold = None

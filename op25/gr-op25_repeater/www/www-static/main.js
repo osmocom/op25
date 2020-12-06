@@ -700,6 +700,21 @@ function f_scan_button(command) {
         send_command(command, current_tgid);
 }
 
+function f_goto_button(command) {
+	var _tgid = 0;
+
+	if (command == "goto") {
+		command = "hold"
+		if (current_tgid != null)
+		   _tgid = current_tgid;
+		_tgid = parseInt(prompt("Enter tgid to hold!!!", _tgid));
+
+		if (isNaN(_tgid) || (_tgid < 0) || (_tgid > 65535)) 
+			_tgid = 0;
+		send_command(command, _tgid);									
+	}
+}
+
 function f_debug() {
 	if (!d_debug) return;
 	var html = "busy " + send_busy;
