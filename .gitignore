@@ -1,3 +1,4 @@
-# ignore build artifacts and .pyc compiled python bytecode files
+# Ignore build artifacts
 build/
+# Ignore .pyc compiled python bytecode files
 *.pyc
