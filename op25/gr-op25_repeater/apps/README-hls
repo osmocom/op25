@@ -1,0 +1,243 @@
+
+OP25 HTTP live streaming                                December 2020
+=====================================================================
+
+These hacks ("OP25-hls hacks") add a new option for audio reception
+and playback in OP25; namely, via an HTTP live stream to any remote
+client using a standard Web browser*.  The web server software used
+(nginx) is industrial-strength and immediately scalable to dozens or
+hundreds of simultaneous remote users with zero added effort.  More
+than one upstream source (in parallel) can be served simultaneously.
+
+OP25's liquidsoap script is hacked to pipe output PCM audio data
+to ffmpeg, which also reads the www/images/status.png image file
+that makes up the video portion of the encoded live stream.  The 
+image png file is kept updated by rx.py.
+
+The selection of ffmpeg codecs ("libx264" for video and "aac" for
+audio) allows us directly to send the encoded data stream from
+ffmpeg to the web server (nginx) utilizing RTMP.  Individual
+MPEG-TS segments are stored as files in nginx web server URL-space,
+and served to web clients via standard HTTP GET requests.  The
+hls.js package is used at the client.
+
+The entire effort mostly involved assembling existing off-the-shelf
+building blocks.  The ffmpeg package was built manually from source
+to enable the "libx264" codec, and a modified nginx config was
+used.
+
+*the web browser must support the "MediaSource Extensions" API.
+All recent broswer versions should qualify.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+1. nginx installation
+
+The libnginx-mod-rtmp package must be installed (in addition to
+nginx itself).  You can copy the sample nginx configuration at the
+end of this README file to /etc/nginx/nginx.conf, followed by
+restarting the web server
+    sudo systemctl stop nginx
+    sudo systemctl start nginx
+With this configuration the web server should listen on HTTP port
+8081 and RTMP port 1935.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+2. ffmpeg installation
+    git clone https://code.videolan.org/videolan/x264.git
+    git clone https://git.ffmpeg.org/ffmpeg.git
+    cd x264
+    ./configure
+    make 
+    sudo make install
+    cd ../ffmpeg
+    ./configure --enable-shared --enable-libx264 --enable-gpl
+    make 
+    sudo make install
+
+    To confirm the installation run the "ffmpeg" command and
+    verify the presence of "--enable-shared" and "--enable-libx264"
+    in the "configuration:" section of the output.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+3. liquidsoap installation
+    Both packages "liquidsoap" and "liquidsoap-plugin-all" were
+    installed, but not tested whether the plugins are required for
+    this application.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+4.  nginx setup
+    with the custom config installed as per step 1, copy the files
+    from op25/gr_op25_repeater/www to /var/www/html as follows:
+    
+    live.html
+    live.m3u8
+    hls.js
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+5.  liquidsoap setup
+    in the op25/gr_op25_repeater/apps directory, note the ffmpeg.liq
+    script.  Overall the filtering and buffering options should be
+    similar to those in op25.liq.  The default version of ffmpeg.liq
+    should be OK for most uses.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+6. operation
+   With OP25 rx.py started using the options -V -w (and -2 if using
+   TDMA) and with op25.liq started (both from the apps directory),
+   you should be able to connect to http://hostip:8081/live.html
+   and click the Play button to begin.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+7. troubleshooting
+   A. with the op25.liq script running ffmpeg should start sending
+      rtmp data over port 1935 to nginx.  You should see files
+      start being populated in /var/www/html/hls/ .
+   B. If /var/www/html/hls is empty, check ffmpeg message output
+      for possible errors, and also check the nginx access and
+      error logs.  Note that the /var/www/html/hls directory should
+      start receiving files a few seconds after op25.liq is started
+      (regardless of whether OP25 is actively receiving a station,
+      or is not receiving).
+   C. js debug can be enabled for hls.js by editing that file as
+      follows; locate the lines of code and change the "debug"
+      setting to "true"
+
+var hlsDefaultConfig = _objectSpread(_objectSpread({
+  autoStartLoad: true,
+  // used by stream-controller
+  startPosition: -1,
+  // used by stream-controller
+  defaultAudioCodec: void 0,
+  // used by stream-controller
+  debug: true,          /////  <<<===  change this line from
+                        /////          "false" to "true"
+
+   D. after reloading the page and with the web browser js console
+      opened (and with all message types enabled), debug messages
+      should now start appearing in the console.  As before another
+      place to look for messages is in the nginx access and error
+      logs.
+   E. if you are doing heavy client-side debugging it may be helpful
+      to obtain a copy of the hls.js distribution and to populate
+      the hls.js.map file (with updated hls.js) in /var/www/html.
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+8. notes
+   A. due to the propagation delay inherent in the streaming
+      process, there is a latency of several seconds from when
+      the transmissions are receieved before they are played in 
+      the remote web browser.  OP25 attempts to keep the video
+      and audio synchronized but the usual user controls (hold,
+      lockout, etc). are not available (in this release) because
+      the several-second delay could cause the commands to operate
+      on stale talkgroup data (without additional work).
+   B. in keeping with the current OP25 liquidsoap setup, the audio
+      stream is converted to mono prior to streaming.  It might be
+      possible to retain the stereo data (in cases where the L and
+      R channels contain separate information), but this has not
+      been tested.  The op25.liq script would need to be changed to
+      use "output" instead of "mean(output)" and the ffmpeg script
+      would need to change "-ac 1" to "-ac 2".  In addition the
+      options stereo=true and channels=2 would need to be set in the
+      %wav specification parameters.
+   C. multiple independent streams can be served simultaneously by
+      invoking a separate ffmpeg.sh script for each stream and by
+      changing the last component of the rtmp URL to a unique
+      value; for example:
+	rtmp://localhost/live/stream2
+      A unified (parameterized) version of ffmpeg.sh could also be
+      used.  
+      Also, new versions of live.html and live.m3u8 in /var/www/html
+      (reflecting the above modification) would need to be added.
+   D. note that pausing and seeking etc. in the media feed isn't
+      possible when doing live streaming.
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+########################################################################
+####### tested on ubuntu 18.04                                   #######
+####### sample nginx conf file - copy everything below this line #######
+
+user www-data;
+worker_processes auto;
+pid /run/nginx.pid;
+include /etc/nginx/modules-enabled/*.conf;
+
+events {
+	worker_connections 768;
+	# multi_accept on;
+}
+
+# RTMP configuration
+rtmp {
+    server {
+        listen 1935; # Listen on standard RTMP port
+        chunk_size 4000;
+
+        application live {
+            live on;
+            # Turn on HLS
+            hls on;
+            hls_path /var/www/html/hls/;
+            hls_fragment 3;
+            hls_playlist_length 60;
+            # disable consuming the stream from nginx as rtmp
+            deny play all;
+        }
+    }
+}
+
+http {
+    sendfile off;
+    tcp_nopush on;
+    #aio on;
+    directio 512;
+    default_type application/octet-stream;
+
+    server {
+        listen 8081;
+
+        location / {
+            # Disable cache
+            add_header 'Cache-Control' 'no-cache';
+
+            # CORS setup
+            add_header 'Access-Control-Allow-Origin' '*' always;
+            add_header 'Access-Control-Expose-Headers' 'Content-Length';
+
+            # allow CORS preflight requests
+            if ($request_method = 'OPTIONS') {
+                add_header 'Access-Control-Allow-Origin' '*';
+                add_header 'Access-Control-Max-Age' 1728000;
+                add_header 'Content-Type' 'text/plain charset=UTF-8';
+                add_header 'Content-Length' 0;
+                return 204;
+            }
+
+#            include /etc/nginx/mime.types;
+            types {
+                text/html html;
+                text/css css;
+                application/javascript js;
+                application/dash+xml mpd;
+                application/vnd.apple.mpegurl m3u8;
+                video/mp2t ts;
+            }
+
+            access_log /var/log/nginx/access.log;
+            error_log /var/log/nginx/error.log;
+
+            root /var/www/html;
+
+        }
+    }
+}
+

@@ -40,13 +40,14 @@ parser.add_option("-u", "--wireshark-port", type="int", default=23456, help="Wir
 parser.add_option("-2", "--two-channel", action="store_true", default=False, help="single or two channel audio")
 parser.add_option("-x", "--audio-gain", type="float", default="1.0", help="audio gain (default = 1.0)")
 parser.add_option("-s", "--stdout", action="store_true", default=False, help="write to stdout instead of audio device")
+parser.add_option("-S", "--silence", action="store_true", default=False, help="suppress output of zeros after timeout")
  
 (options, args) = parser.parse_args()
 if len(args) != 0:
    parser.print_help()
    sys.exit(1)
 
-audio_handler = socket_audio(options.host_ip, options.wireshark_port, options.audio_output, options.two_channel, options.audio_gain, options.stdout)
+audio_handler = socket_audio(options.host_ip, options.wireshark_port, options.audio_output, options.two_channel, options.audio_gain, options.stdout, silent_flag=options.silence)
 
 if __name__ == "__main__":
    signal.signal(signal.SIGINT, signal_handler)

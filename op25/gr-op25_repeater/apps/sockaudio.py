@@ -369,7 +369,7 @@ class stdout_wrapper(object):
 
 # Main class that receives UDP audio samples and sends them to a PCM subsystem (currently ALSA or STDOUT)
 class socket_audio(object):
-    def __init__(self, udp_host, udp_port, pcm_device, two_channels = False, audio_gain = 1.0, dest_stdout = False, **kwds):
+    def __init__(self, udp_host, udp_port, pcm_device, two_channels = False, audio_gain = 1.0, dest_stdout = False, silent_flag=False, **kwds):
         self.keep_running = True
         self.two_channels = two_channels
         self.audio_gain = audio_gain
@@ -377,6 +377,7 @@ class socket_audio(object):
         self.sock_a = None
         self.sock_b = None
         self.pcm = None
+        self.silent_flag = silent_flag
         if dest_stdout:
             pcm_device = "stdout"
             sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0) # reopen stdout with buffering disabled
@@ -417,7 +418,10 @@ class socket_audio(object):
 
             # Check for select() polling timeout and pcm self-check
             if (not readable) and (not writable) and (not exceptional):
-                rc = self.pcm.check()
+                if self.silent_flag:
+                    rc = 0 # suppress additional zeros to preserve timing 
+                else:
+                    rc = self.pcm.check()
                 if isinstance(rc, ctypes.c_int):
                     rc = rc.value
                 continue
