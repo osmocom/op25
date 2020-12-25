@@ -1,0 +1,38 @@
+
+Linking OP25 TX and RX                                December 2020
+===================================================================
+
+The OP25 TX application can be configured to transmit one or more
+channels directly to one of the RX apps (rx.py or multi_rx.py) in
+each case by specifying a device args string of the form
+     udp:host:port
+where host and port are the IP address and UDP port number,
+respectively.  Typically, the TX is started first followed by
+the RX, but they can be started in any order.  UDP port 25252 is
+used in the examples.
+
+The sample RX script is in runudp.sh, and the sample TX json config
+is in cfg-900.json .
+
+To start the TX
+      cd .../op25/op25-gr_repeater/apps/tx
+      ./multi_tx.py -c ../cfg-900.json
+
+The RX is started with
+      cd .../op25/op25-gr_repeater/apps
+      ./runudp.sh
+
+There is a 120KHz sized block of spectrum transmitted (SR=120000)
+which is treated as complex baseband with each side pretending that
+the spectrum is converted to/from the 900 MHz band.  On the RX side
+any frequency-change requests are ignored; instead, a "center 
+frequency" is defined.  There are two channels (P25 trunk control
+channel and P25 voice channel) spaced at 50 KHz separation.
+
+The TX reads two data files that must be created beforehand.  To 
+create the trunk control channel data symbol file, refer to
+    tx/README-fakecc.txt
+An audio file (PCM/ rate 8000 / mono / signed int16) must also be
+created - this file will be real-time encoded with the voice codec
+and sent on the P25 voice channel.  These two files must be defined 
+in the cfg-900.json file (channel "source" keyword).

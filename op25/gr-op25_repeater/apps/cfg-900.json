@@ -5,9 +5,9 @@
             "destination": "udp://127.0.0.1:56120", 
             "excess_bw": 0.2, 
             "filter_type": "rc", 
-            "frequency": 925000000, 
+            "frequency": 924975000, 
             "if_rate": 24000, 
-            "name": "p25 cc", 
+            "name": "p25 control channel", 
             "plot": "datascope", 
             "source": "symbols:sym-cc925.dat",
             "symbol_rate": 4800
@@ -17,9 +17,9 @@
             "destination": "udp://127.0.0.1:56124", 
             "excess_bw": 0.2, 
             "filter_type": "rc", 
-            "frequency": 924900000, 
+            "frequency": 924925000, 
             "if_rate": 24000, 
-            "name": "p25 vc", 
+            "name": "p25 voice channel", 
             "plot": "datascope", 
             "source": "/home/mhp/rand4.raw",
             "symbol_rate": 4800
@@ -33,7 +33,7 @@
             "name": "udp", 
             "offset": 0, 
             "ppm": 0, 
-            "rate": 480000, 
+            "rate": 120000, 
             "tunable": false
         }
     ]

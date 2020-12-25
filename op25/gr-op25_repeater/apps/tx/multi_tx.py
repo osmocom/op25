@@ -212,7 +212,7 @@ class tx_block(gr.top_block):
                 continue
             cfg = chan.config
             dev = chan.device
-            modulator_rate = 48000	## FIXME
+            modulator_rate = 24000	## FIXME
             bt = _def_bt
             if 'bt' in cfg.keys():
                 bt = cfg['bt']
