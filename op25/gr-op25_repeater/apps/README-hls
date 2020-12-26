@@ -88,7 +88,7 @@ With this configuration the web server should listen on HTTP port
 
 6. operation
    With OP25 rx.py started using the options -V -w (and -2 if using
-   TDMA) and with op25.liq started (both from the apps directory),
+   TDMA) and with ffmpeg.liq started (both from the apps directory),
    you should be able to connect to http://hostip:8081/live.html
    and click the Play button to begin.
 
