@@ -95,13 +95,13 @@ With this configuration the web server should listen on HTTP port
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 7. troubleshooting
-   A. with the op25.liq script running ffmpeg should start sending
+   A. with the ffmpeg.liq script running ffmpeg should start sending
       rtmp data over port 1935 to nginx.  You should see files
       start being populated in /var/www/html/hls/ .
    B. If /var/www/html/hls is empty, check ffmpeg message output
       for possible errors, and also check the nginx access and
       error logs.  Note that the /var/www/html/hls directory should
-      start receiving files a few seconds after op25.liq is started
+      start receiving files a few seconds after ffmpeg.liq is started
       (regardless of whether OP25 is actively receiving a station,
       or is not receiving).
    C. js debug can be enabled for hls.js by editing that file as
@@ -143,7 +143,7 @@ var hlsDefaultConfig = _objectSpread(_objectSpread({
       stream is converted to mono prior to streaming.  It might be
       possible to retain the stereo data (in cases where the L and
       R channels contain separate information), but this has not
-      been tested.  The op25.liq script would need to be changed to
+      been tested.  The ffmpeg.liq script would need to be changed to
       use "output" instead of "mean(output)" and the ffmpeg script
       would need to change "-ac 1" to "-ac 2".  In addition the
       options stereo=true and channels=2 would need to be set in the
