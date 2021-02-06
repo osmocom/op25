@@ -58,7 +58,7 @@ def limit(a,lim):
 PSEQ = 0
 
 class wrap_gp(object):
-	def __init__(self, sps=_def_sps, logfile=None, title=None):
+	def __init__(self, sps=_def_sps, logfile=None, title=None, color_cfg='plot-colors.json'):
 		global PSEQ
 		self.sps = sps
 		self.center_freq = 0.0
@@ -83,6 +83,17 @@ class wrap_gp(object):
 		x = self.sequence_id % 3
 		y = self.sequence_id // 3
 		self.position = (x, y)
+
+		self.colors = {}
+		self.colors['label_color'] = ''
+		self.colors['tic_color'] = ''
+		self.colors['border_color'] = ''
+		self.colors['plot_color'] = ''
+		self.colors['background_color'] = ''
+		if color_cfg and os.access(color_cfg, os.R_OK):
+			ccfg = json.loads(open(color_cfg).read())
+			for color in ccfg:
+				self.colors[color] = ccfg[color]
 
 		self.attach_gp()
 
@@ -211,9 +222,33 @@ class wrap_gp(object):
 				pos = ' position %d, %d' % (x, y)
 			h0= 'set terminal x11 noraise size %d, %d%s title "%s"\n' % (plot_size[0], plot_size[1], pos, self.title)
 		background = ''
+
+		label_color = ''
+		tic_color = ''
+		border_color = ''
+		plot_color = ''
+		background_color = ''
+
+		if self.colors['label_color']:
+			label_color = 'textcolor rgb"%s"' % self.colors['label_color']
+		if self.colors['tic_color']:
+			tic_color = 'textcolor rgb"%s"' % self.colors['tic_color']
+		if self.colors['border_color']:
+			border_color = 'linecolor rgb"%s"' % self.colors['border_color']
+		if self.colors['plot_color']:
+			plot_color = 'linecolor rgb"%s"' % self.colors['plot_color']
+		if self.colors['background_color']:
+			background_color = 'fillcolor rgb"%s"' % self.colors['background_color']
+
+		background += 'set object 1 rectangle from screen 0,0 to screen 1,1 %s behind\n' % (background_color)
+		background += 'set xtics %s\n' % (tic_color)
+		background += 'set ytics %s\n' % (tic_color)
+		background += 'set border %s\n' % (border_color)
+
 		h = 'set key off\n'
 		if mode == 'constellation':
-			h+= background
+			#h+= background
+			plot_color = ''
 			h+= 'set size square\n'
 			h+= 'set xrange [-1:1]\n'
 			h+= 'set yrange [-1:1]\n'
@@ -221,7 +256,9 @@ class wrap_gp(object):
 			h += 'set polar\n'
 			h += 'set angles degrees\n'
 			h += 'unset raxis\n'
-			h += 'set object circle at 0,0 size 1 fillcolor rgb 0x0f01 fillstyle solid behind\n'
+			h += 'set object 1 rectangle from screen 0,0 to screen 1,1 %s behind\n' % (background_color)
+			h += 'set object 2 circle at 0,0 size 1 fillcolor rgb 0x0f01 fillstyle solid behind\n'
+			h += 'set object 3 circle at 0,0 size 1 %s\n' % 'linecolor rgb"#0000f0"'
 			h += 'set style line 10 lt 1 lc rgb 0x404040 lw 0.1\n'
 			h += 'set grid polar 45\n'
 			h += 'set grid ls 10\n'
@@ -233,16 +270,18 @@ class wrap_gp(object):
 			h += 'set format ""\n'
 			h += 'set style line 11 lt 1 lw 2 pt 2 ps 2\n'
 
-			h+= 'set title "Constellation"\n'
+			h+= 'set title "Constellation" %s\n' % (label_color)
 		elif mode == 'eye':
 			h+= background
 			h+= 'set yrange [-4:4]\n'
-			h+= 'set title "Datascope"\n'
+			h+= 'set title "Datascope" %s\n' % (label_color)
+			plot_color = ''
 		elif mode == 'symbol':
 			h+= background
 			h+= 'set yrange [-4:4]\n'
-			h+= 'set title "Symbol"\n'
+			h+= 'set title "Symbol" %s\n' % (label_color)
 		elif mode == 'fft' or mode == 'mixer':
+			h+= background
 			h+= 'unset arrow; unset title\n'
 			h+= 'set xrange [%f:%f]\n' % (self.freqs[0], self.freqs[len(self.freqs)-1])
 			h+= 'set xlabel "Frequency"\n'
@@ -250,23 +289,25 @@ class wrap_gp(object):
 			h+= 'set grid\n'
 			h+= 'set yrange [-100:0]\n'
 			if mode == 'mixer':	# mixer
-				h+= 'set title "Mixer: balance %3.0f (smaller is better)"\n' % (np.abs(self.avg_sum_pwr * 1000))
+				h+= 'set title "Mixer: balance %3.0f (smaller is better)" %s\n' % (np.abs(self.avg_sum_pwr * 1000), label_color)
 			else:			# fft
-				h+= 'set title "Spectrum"\n'
+				h+= 'set title "Spectrum" %s\n' % (label_color)
 				if self.center_freq:
 					arrow_pos = (self.center_freq - self.relative_freq) / 1e6
 					h+= 'set arrow from %f, graph 0 to %f, graph 1 nohead\n' % (arrow_pos, arrow_pos)
-					h+= 'set title "Spectrum: tuned to %f Mhz"\n' % arrow_pos
+					h+= 'set title "Spectrum: tuned to %f Mhz" %s\n' % (arrow_pos, label_color)
 		elif mode == 'float':
+			h+= background
 			h+= 'set yrange [-2:2]\n'
-			h+= 'set title "Oscilloscope"\n'
+			h+= 'set title "Oscilloscope" %s\n' % (label_color)
 		elif mode == 'correlation':
+			h+= background
 			title = 'Correlation'
 			if self.title:
 				title = self.title
 			h+= 'set yrange [-1.1:1.1]\n'
-			h+= 'set title "%s"\n' % (title)
-		dat = '%s%splot %s\n%s' % (h0, h, ','.join(plots), s)
+			h+= 'set title "%s" %s\n' % (title, label_color)
+		dat = '%s%splot %s %s\n%s' % (h0, h, ','.join(plots), plot_color, s)
 		if self.logfile is not None:
 			with open(self.logfile, 'a') as fd:
 				fd.write(dat)
