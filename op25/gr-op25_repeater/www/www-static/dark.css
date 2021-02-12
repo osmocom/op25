@@ -21,14 +21,32 @@
 
 */
 
+body {
+
+	/* color: white; */
+	background-color: black;
+	
+}
+
+#div_help {
+
+	color: #eee;
+	
+}
+
+a {
+
+	color: #f00;
+
+}
+
 #div_status body {
 
-	background-color: LightGray;
+	background-color: black;
 	font-family: Arial, Helvetica, sans-serif;
 }
 
 #div_status table { 
-
 	border-collapse: collapse;
 	font-family: "Courier New", Courier, Monospace;
 }
@@ -38,10 +56,10 @@
 	border-style: solid;
 	padding: 3px;
 	font-family: Arial, Helvetica, sans-serif;
-	color: #000;
+	color: #fff;
 	font-weight: bold;
 	background: #669999; /* For browsers that do not support gradients */
-	background: linear-gradient(#31687e, #56a0bd);
+	background: linear-gradient(#444, black);
 }
 
 #div_status td {
@@ -64,14 +82,15 @@
 hr {
 	width: 730px;
 	float: left;
-        padding: 0px;
+    padding: 0px;
 }
+
 
 .control-button { /* skip/hold/lockout buttons */
 
 	border-color: gray;
 	height: 42px;
-	color: white;
+	color: yellow;
 	padding: 10px 10px;
 	text-decoration: none;
 	margin: 1px 1px;
@@ -81,13 +100,12 @@ hr {
 	font-weight: bold;
 	box-shadow: 0 1px 1px 0 rgba(0,0,0,0.2), 0 2px 5px 0 rgba(0,0,0,0.19);
 	background: #31687e; /* For browsers that do not support gradients */
-	background: linear-gradient(#31687e, #56a0bd); 
+	background: linear-gradient(#666, black); 
 }
-
 
 .control-button:hover {
 
-	background: linear-gradient(#56a0bd, #31687e);
+	background: linear-gradient(black, silver);
 }
 	
 .controlsDisplay { /* holds buttons, and display */
@@ -97,7 +115,8 @@ hr {
 	vertical-align: top;
 	height: 178px;
 	padding: 2px;
-	box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 3px 10px 0 rgba(0,0,0,0.19);
+	box-shadow: 0 4px 8px 0 rgba(150,50,0,0.75), 0 3px 10px 0 rgba(0,0,150,0.4);	
+/* 	box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 3px 10px 0 rgba(0,0,0,0.19); */
 	background: LightGray; /* For browsers that do not support gradients */
 	background: linear-gradient(White, Silver);
 }
@@ -137,7 +156,7 @@ hr {
 	border: 1px solid #aaa;
 	height: 100%;
 	background: LightGray; /* For browsers that do not support gradients */
-	background: linear-gradient(LightGray, White, LightGray);	 
+	background: linear-gradient(#222, Black, #222);	 
 } 
 
 .sysMsg {  /* OP25 logo and message box on right   (3) */
@@ -147,8 +166,8 @@ hr {
 	float: right; /* works left or right, right gives margin in between this & 2 */
   	width: 95px;
 	height: 100%;
-  	background-color:#f9f9f9;
-	background-image: url("op25.png");
+  	background-color:#060606;
+	background-image: url("op25-dark.png");
 	background-repeat: no-repeat;
 	background-position: right;
 	border: 1px solid #aaa;
@@ -197,7 +216,7 @@ div.adjacent {  /* adjacent sites container that holds the table */
 .label {
 
 	font-family: Arial, Helvetica, sans-serif;
-	color: #484848;
+	color: gray;
 }
 
 .label-hold {
@@ -214,7 +233,7 @@ div.adjacent {  /* adjacent sites container that holds the table */
 .label-sm {
 
 	font-family: Arial, Helvetica, sans-serif;
-	color: #444;
+	color: #ccc;
 	font-size: 8pt;
 	padding: 2px;
 }
@@ -222,7 +241,7 @@ div.adjacent {  /* adjacent sites container that holds the table */
 .label-lc {  /* Last Command text */
 
 	font-family: Arial, Helvetica, sans-serif;
-	color: #444;
+	color: #aaa;
 	font-size: 8pt;
 	padding: 2px;
 	text-align: center;
@@ -238,14 +257,14 @@ div.adjacent {  /* adjacent sites container that holds the table */
 .value {
 
 	font-family: Arial, Helvetica, sans-serif;
-	color: #000000;
+	color: #8f8;
 	font-weight: bold;
 }
 
 .systgid {    /* System and Talkgroup Text */
 
 	font-family: Arial, Helvetica, sans-serif;
-	color: #000060;
+	color: #8f8;
 	font-weight: bold;
 	font-size: 24px;
 }
@@ -266,7 +285,7 @@ div.adjacent {  /* adjacent sites container that holds the table */
 .nac {  /* the whole NAC string... NAC, freq tsbks, etc. */
 
 	font-family: Arial, Helvetica, sans-serif;
-	color: #000060;
+	color: #8f8;
 	font-weight: bold;
 	font-size: 20px;
 
@@ -289,8 +308,8 @@ div.adjacent {  /* adjacent sites container that holds the table */
 .copyright-text {
 
 	font-family: Arial, Helvetica, sans-serif;
-	color: #000060;
-/* 	font-size: 10px; */
+	color: #eee;
+/* 	font-size: 10pt; */
 }
 
 .nav-ul {
@@ -299,20 +318,20 @@ div.adjacent {  /* adjacent sites container that holds the table */
 	padding: 0;
 	overflow: hidden;
 	background-color: #bbb;
-	background: linear-gradient(#bbbbbb, #cccccc);
+	background: linear-gradient(#111, #222);
 }
 
 .nav-li {
 	float: left;
 	border-right: 1px solid #000;
-	background: linear-gradient(#bbbbbb, #cccccc);
+	background: linear-gradient(#333, #444);
 }
 
 .nav-li-active {
 	float: left;
-	background-color:   #c0c0c0;
+	background-color: #000;
 	color:     #0080c0;
-	border-right: 1px solid #000;
+	border-right: 0px solid #f00;
 }
 
 .nav-bar {
@@ -323,9 +342,9 @@ div.adjacent {  /* adjacent sites container that holds the table */
 
 .nav-button {
 	background-color:  #bbb;
-	background: linear-gradient(#bbbbbb, #cccccc);
-	color:     #000;
+	background: linear-gradient(#333, #444);
 	width: 85px;
+	color:     #ddd;
 	border:   0px;
 	padding:   20px;
 	display:   block;
@@ -333,10 +352,9 @@ div.adjacent {  /* adjacent sites container that holds the table */
 	font-weight: bold;
 }
 
-
 .nav-button-active {
-	background-color:  #9cc;
-	background: linear-gradient(#31687e, #56a0bd);
+	background-color:  #666;
+	background: linear-gradient(#777, #888);
 	color:     #fff;
 	border:   0px;
 	padding:   20px;
@@ -347,13 +365,13 @@ div.adjacent {  /* adjacent sites container that holds the table */
 
 .nav-button:hover {
 	background-color: #699;
-	background: linear-gradient(#56a0bd, #31687e);
+	background: linear-gradient(#999, #aaa);
 	color: #fff;
 }
 
 .nav-button-active:hover {
 	background-color: #699;
-	background: linear-gradient(#56a0bd, #31687e);
+	background: linear-gradient(#999, #aaa);
 }
 
 #div_settings table {
@@ -447,18 +465,20 @@ div#cfg_list_area select {
 	font-family: Arial, Helvetica, sans-serif;
 }
 
-
 .aboutTable {
  	width: 730px;
 	border: 1px solid #aaa;
 	vertical-align: top;
 	height: 178px;
 	padding: 2px;
-	box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 3px 10px 0 rgba(0,0,0,0.19);
+	box-shadow: 0 4px 8px 0 rgba(150,50,0,0.75), 0 3px 10px 0 rgba(0,0,150,0.4);	
+/* 	box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 3px 10px 0 rgba(0,0,0,0.19); */
 	background: LightGray; /* For browsers that do not support gradients */
-	background: linear-gradient(White, Silver);
+	background: linear-gradient(Black, #333);
+}
 }
 
 .aboutLogo {
-	background-image: url("op25.png");
+	background-image: url("op25-dark.png");
 }
+

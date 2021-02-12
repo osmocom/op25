@@ -2,23 +2,24 @@
 // Copyright 2017, 2018 Max H. Parke KA1RBI
 // 
 // This file is part of OP25
-// 
+//
 // OP25 is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by
 // the Free Software Foundation; either version 3, or (at your option)
 // any later version.
-// 
+//
 // OP25 is distributed in the hope that it will be useful, but WITHOUT
 // ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
 // or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
 // License for more details.
-// 
+//
 // You should have received a copy of the GNU General Public License
 // along with OP25; see the file COPYING. If not, write to the Free
 // Software Foundation, Inc., 51 Franklin Street, Boston, MA
 // 02110-1301, USA.
 
-var d_debug = 1;
+var d_debug = 0;
+var update_interval = 500;              // UI update interval, ms (default=1000)
 
 var http_req = new XMLHttpRequest();
 var counter1 = 0;
@@ -80,7 +81,7 @@ function edit_d(d, to_ui) {
 	var hexints = {"nac":1};
 	var ints = {"if_rate":1, "ppm":1, "rate":1, "offset":1, "nac":1, "logfile-workers":1, "decim-amt":1, "seek":1, "hamlib-model":1 };
 	var bools = {"active":1, "trunked":1, "rate":1, "offset":1, "phase2_tdma": 1, "phase2-tdma":1, "wireshark":1, "udp-player":1, "audio-if":1, "tone-detect":1, "vocoder":1, "audio":1, "pause":1 };
-	var floats = {"costas-alpha":1, "gain-mu":1, "calibration":1, "fine-tune":1, "gain":1, "excess-bw":1, "offset":1, "excess_bw":1}
+	var floats = {"costas-alpha":1, "gain-mu":1, "calibration":1, "fine-tune":1, "gain":1, "excess-bw":1, "offset":1, "excess_bw":1};
 	var lists = {"blacklist":1, "whitelist":1, "cclist":1};
 	var freqs = {"frequency":1, "cclist":1};
 
@@ -216,8 +217,8 @@ function amend_d(myrow, mytbl, command) {
 }
 
 function nav_update(command) {
-	var names = ["b1", "b2", "b3", "b4", "b5"];
-	var bmap = { "status": "b1", "settings": "b2", "rx": "b3", "help": "b4", "about": "b5" };
+	var names = ["b1", "b2", "b3", "b4", "b5", "b7"];
+	var bmap = { "status": "b1", "settings": "b2", "rx": "b3", "help": "b4", "view": "b5", "about": "b7" };
 	var id = bmap[command];
 	for (var id1 in names) {
 		b = document.getElementById(names[id1]);
@@ -277,12 +278,20 @@ function rx_update(d) {
         }
     }
     error_val = d["error"];
+    fine_tune = d["fine_tune"]; // displays Fine Tune value as supplied in the command line arguments
 }
 
 // frequency, system, and talkgroup display
 
 function change_freq(d) {
 
+	var xj = document.getElementById("stx");	    // display FDMA or TDMA (untested, no P2 system here)
+	xj.innerHTML = " $nbsp; ";						// trip 01/2021
+	t = "TDMA";										// 
+	if (!d['tdma'])									// 
+	t = "FDMA";										// 
+	xj.innerHTML = t;								// 
+	
 	var displayTgid = "&mdash;";
 	var displayTag = "&nbsp;";
 	var display_src = "&mdash;";
@@ -390,7 +399,7 @@ function trunk_summary(d) {
     var html = "";
     html += "<br><div class=\"summary\">";
     html += "<form>";
-    html += "<table border=1 borderwidth=0 cellpadding=0 cellspacing=0>"; 
+    html += "<table border=1 width=732 borderwidth=0 cellpadding=0 cellspacing=0>"; 
     html += "<tr><th>Enabled</th><th>NAC</th><th>System</th><th>Last Active</th><th>TSBK Count</th></tr>";
     for (nac in d) {
         if (!is_digit(nac.charAt(0)))
@@ -418,12 +427,12 @@ function trunk_summary(d) {
         var ns = parseInt(nac).toString(16);
         html += "<tr>";
 	var checked = enable_status[nac] ? "checked" : "";
-        html += "<td><span class=\"value\"><input type=\"checkbox\" id=\"enabled-" + nac + "\" " + checked + " onchange=\"javascript: f_enable_changed(this, " + nac + ");\"></input></span></td>";
+        html += "<td align=center><span class=\"value\"><input type=\"checkbox\" id=\"enabled-" + nac + "\" " + checked + " onchange=\"javascript: f_enable_changed(this, " + nac + ");\"></input></span></td>";
 
-        html += "<td><span class=\"value\">" + ns + "</span></td>";
-        html += "<td><span class=\"value\">" + d[nac]['sysname'] + "</span></td>";
-        html += "<td><span class=\"value\">" + times + "</span></td>";
-        html += "<td><span class=\"value\">" + d[nac]['tsbks'] + "</span></td>";
+        html += "<td align=center><span class=\"value\">" + ns + "</span></td>";
+        html += "<td align=center><span class=\"value\">" + d[nac]['sysname'] + "</span></td>";
+        html += "<td align=center><span class=\"value\">" + times + "</span></td>";
+        html += "<td align=center><span class=\"value\">" + comma(d[nac]['tsbks']) + "</span></td>";
         html += "</tr>";
     }
     var display = "";
@@ -464,14 +473,14 @@ function trunk_detail(d) {
         last_alg[nac] = d[nac]['alg'];
         last_algid[nac] = d[nac]['algid'];
         last_keyid[nac] = d[nac]['keyid'];
-	html += "<div class=\"content\">";     // open div-content
+	    html += "<div class=\"content\">";     // open div-content
         html += "<span class=\"nac\">";
-        html += d[nac]["sysname"] + " . . . . . . . . ";
-        html += "NAC " + "0x" + parseInt(nac).toString(16) + " ";
+        html += "<br>" + d[nac]["sysname"] + " <br> ";
+        html += "NAC " + "0x" + parseInt(nac).toString(16) + " &nbsp; &nbsp; &nbsp; ";
         html += d[nac]['rxchan'] / 1000000.0;
         html += " / ";
         html += d[nac]['txchan'] / 1000000.0;
-        html += " tsbks " + d[nac]['tsbks'];
+        html += " &nbsp; &nbsp; &nbsp; tsbks " + comma(d[nac]['tsbks']);
         html += "</span><br>";
 
         html += "<span class=\"label\">WACN: </span>" + "<span class=\"value\">0x" + parseInt(d[nac]['wacn']).toString(16) + " </span>";
@@ -482,12 +491,13 @@ function trunk_detail(d) {
             html += "<span class=\"label\">Secondary control channel(s): </span><span class=\"value\"> ";
             for (i=0; i<d[nac]["secondary"].length; i++) {
                 html += d[nac]["secondary"][i] / 1000000.0;
-                html += " ";
+                html += "&nbsp;&nbsp;&nbsp;";
             }
             html += "</span><br>";
         }
         if (error_val != null) {
-            html += "<span class=\"label\">Frequency error: </span><span class=\"value\">" + error_val + " Hz. (approx) </span><br>";
+            html += "<span class=\"label\">Frequency error: </span><span class=\"value\">" + error_val + " Hz. </span> &nbsp; ";
+            html += "<span class=\"label\">Fine tune: </span><span class=\"value\">" + fine_tune + "</span><br>";
         }
 
 // system frequencies table
@@ -654,7 +664,7 @@ function http_req_cb() {
 function do_onload() {
     var ele = document.getElementById("div_status");
     ele.style["display"] = "";
-    setInterval(do_update, 1000);
+    var intv = setInterval(do_update, update_interval);              // UI update interval
     b = document.getElementById("b1");
     b.className = "nav-button-active";
 }
@@ -707,7 +717,7 @@ function f_goto_button(command) {
 		command = "hold"
 		if (current_tgid != null)
 		   _tgid = current_tgid;
-		_tgid = parseInt(prompt("Enter tgid to hold!!!", _tgid));
+		_tgid = parseInt(prompt("Enter tgid to hold.", _tgid));
 
 		if (isNaN(_tgid) || (_tgid < 0) || (_tgid > 65535)) 
 			_tgid = 0;
@@ -717,16 +727,18 @@ function f_goto_button(command) {
 
 function f_debug() {
 	if (!d_debug) return;
-	var html = "busy " + send_busy;
+	var html = "<div class='label'><br>";
+	html += "busy " + send_busy;
 	html += " qfull " + send_qfull;
 	html += " sendq size " + send_queue.length;
 	html += " requests " + request_count;
-	html += "<br>callbacks:";
+	html += " update int=" + update_interval;
+	html += " <br>callbacks: ";
 	html += " total=" + req_cb_count;
 	html += " incomplete=" + nfinal_count;
 	html += " error=" + n200_count;
 	html += " OK=" + r200_count;
-	html += "<br>";
+	html += "</div>";
 	var div_debug = document.getElementById("div_debug");
 	div_debug.innerHTML = html;
 }
@@ -950,4 +962,79 @@ function f_tags(o) {
     var mydiv = find_parent(o, "DIV");
     var tbl = mydiv.querySelector(".tgtable");
     toggle_show_hide(o, tbl);
+}
+
+// added UI functions - triptolemus
+
+// popout the UI to a minimal browser window 
+function popOut() {
+  var myWindow = window.open(window.location.href, "", "width=760,height=400");
+}
+
+// toggle dark/light mode
+function toggleCSS() {
+  var a = document.getElementById("style");
+  a.x = 'dark' == a.x ? 'main' : 'dark'; // short if
+  a.href = a.x + '.css';
+}
+
+// add comma formatting to number (tsbk)
+function comma(x) {
+    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+// keyboard shortcuts
+
+document.onkeydown = function(evt) {
+    evt = evt || window.event;
+    if (evt.keyCode == 71) {	// 'g' key - GOTO
+        f_goto_button("goto");
+    }
+    
+    if (evt.keyCode == 76) {	// 'l' key - LOCKOUT
+        f_scan_button("lockout");
+    }    
+
+    if (evt.keyCode == 72) {	// 'h' key - HOLD
+        f_scan_button("hold");
+    } 
+
+    if (evt.keyCode == 83) {	// 's' key - SKIP
+        f_scan_button("skip");
+    } 
+
+    if (evt.keyCode == 86) {	// 'v' key - VIEW (light/dark)
+        toggleCSS();
+    }  
+    
+    if (evt.keyCode == 82) {	// 'r' key - RX screen
+       f_select("rx");
+    }
+    
+    if (evt.keyCode == 74) {	// 'j' key - HOME screen
+       f_select("status");
+    }
+
+    if (evt.keyCode == 77) {	// 'm' key - MINIFY
+        minify("nav-bar");
+        minify("div_images");
+        minify("div_s1");
+    } 
+    
+    if (evt.keyCode == 66) {	// 'b' key - bold
+        document.getElementById("valFontStyle").value="bold"
+    } 
+
+    if (evt.keyCode == 78) {	// 'n' key - normal
+        document.getElementById("valFontStyle").value="normal"
+    } 
+}
+
+function minify(div) {
+  var x = document.getElementById(div);
+  if (x.style.display === "none") {
+    x.style.display = "block";
+  } else {
+    x.style.display = "none";
+  }
 }
