@@ -90,7 +90,9 @@ With this configuration the web server should listen on HTTP port
    With OP25 rx.py started using the options -V -w (and -2 if using
    TDMA) and with ffmpeg.liq started (both from the apps directory),
    you should be able to connect to http://hostip:8081/live.html
-   and click the Play button to begin.
+   and click the Play button to begin.  NOTE: See note E for more
+   details about how to specify the value for 'hostip' in the above
+   link.
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -159,6 +161,29 @@ var hlsDefaultConfig = _objectSpread(_objectSpread({
       (reflecting the above modification) would need to be added.
    D. note that pausing and seeking etc. in the media feed isn't
       possible when doing live streaming.
+   E. when connecting from the remote client to the nginx server as
+      detailed in step 6 (above) you should specify the value for
+      'hostip' as follows (omitting the quotes):
+
+      'localhost' (default) - use this when the client is on the same
+          machine as the server
+      'host.ip.address' - specify the IP address of the server when
+          the client and server machines are different, and the server
+          does not have a DNS hostname.
+      'hostname' - if the server has a DNS hostname, this name should
+          be used in place of 'hostip'.
+
+      Note that in the second and third cases above you must also
+      change the hostname from 'localhost' to the IP address or DNS
+      hostname, respectively, in the following files
+          live.html
+          live.m3u8
+      in /var/www/html (total three occurrences).
+
+      Similarly, if an IP port other than 8081 is to be used, the same
+      updates as above must be made, and also the nginx conf file must
+      be updated to reflect the changed port number.
+      
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
