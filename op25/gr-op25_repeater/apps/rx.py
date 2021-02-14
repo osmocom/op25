@@ -70,8 +70,6 @@ from gr_gnuplot import setup_correlation
 from terminal import op25_terminal
 from sockaudio  import audio_thread
 
-from create_image import create_image
-
 #speeds = [300, 600, 900, 1200, 1440, 1800, 1920, 2400, 2880, 3200, 3600, 3840, 4000, 4800, 6000, 6400, 7200, 8000, 9600, 14400, 19200]
 speeds = [4800, 6000]
 
@@ -679,23 +677,6 @@ class p25_rx_block (gr.top_block):
         msg = gr.message().make_from_string(json.dumps(d), -4, 0, 0)
         self.input_q.insert_tail(msg)
 
-    def make_status_png(self):
-        PNG_UPDATE_INTERVAL = 1.0
-        output_file = '../www/images/status.png'
-        tmp_output_file = '../www/images/tmp-status.png'
-        if time.time() < self.next_status_png:
-            return
-        self.next_status_png = time.time() + PNG_UPDATE_INTERVAL
-        if self.trunk_rx is None:
-            return ## possible race cond - just ignore
-        status_str = 'OP25-hls hacks (c) Copyright 2020, KA1RBI\n'
-        status_str += 'F %f TG %s %s at %s\n' % ( self.last_freq_params['freq'] / 1000000.0, self.last_freq_params['tgid'], self.last_freq_params['tag'], time.asctime())
-        status_str += self.trunk_rx.to_string()
-        status = status_str.split('\n')
-        status = [s for s in status if not s.startswith('tbl-id')]
-        create_image(status, imgfile=tmp_output_file, bgcolor="#c0c0c0", windowsize=(640,480))
-        os.rename(tmp_output_file, output_file)
-
     def process_qmsg(self, msg):
         # return true = end top block
         RX_COMMANDS = 'skip lockout hold'.split()
@@ -716,7 +697,6 @@ class p25_rx_block (gr.top_block):
             msg = gr.message().make_from_string(js, -4, 0, 0)
             self.input_q.insert_tail(msg)
             self.process_ajax()
-            self.make_status_png()
         elif s == 'set_freq':
             freq = msg.arg1()
             self.last_freq_params['freq'] = freq

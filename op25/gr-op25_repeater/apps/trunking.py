@@ -21,12 +21,14 @@
 #
 
 import sys
+import os
 import time
 import collections
 import json
 sys.path.append('tdma')
 import lfsr
 from tsvfile import make_config, load_tsv
+from create_image import create_image
 
 def crc16(dat,len):	# slow version
     poly = (1<<12) + (1<<5) + (1<<0)
@@ -610,6 +612,8 @@ class rx_ctl (object):
         if self.logfile_workers:
             self.input_rate = self.logfile_workers[0]['demod'].input_rate
         self.enabled_nacs = None
+        self.next_status_png = time.time()
+        self.last_freq_params = {'freq' : 0.0, 'tgid' : None, 'tag' : "", 'tdma' : None}
 
         if conf_file:
             if conf_file.endswith('.tsv'):
@@ -753,6 +757,21 @@ class rx_ctl (object):
                      'hold_mode': self.hold_mode}
         return json.dumps(d)
 
+    def make_status_png(self):
+        PNG_UPDATE_INTERVAL = 1.0
+        output_file = '../www/images/status.png'
+        tmp_output_file = '../www/images/tmp-status.png'
+        if time.time() < self.next_status_png:
+            return
+        self.next_status_png = time.time() + PNG_UPDATE_INTERVAL
+        status_str = 'OP25-hls hacks (c) Copyright 2020, 2021, KA1RBI\n'
+        status_str += 'F %f TG %s %s at %s\n' % ( self.last_freq_params['freq'] / 1000000.0, self.last_freq_params['tgid'], self.last_freq_params['tag'], time.asctime())
+        status_str += self.to_string()
+        status = status_str.split('\n')
+        status = [s for s in status if not s.startswith('tbl-id')]
+        create_image(status, imgfile=tmp_output_file, bgcolor="#c0c0c0", windowsize=(640,480))
+        os.rename(tmp_output_file, output_file)
+
     def dump_tgids(self):
         for nac in self.trunked_systems.keys():
             self.trunked_systems[nac].dump_tgids()
@@ -842,6 +861,8 @@ class rx_ctl (object):
             if self.debug > 10:
                 sys.stderr.write('type %d at %f state %d len %d/%d opcode %x [%x/%x]\n' %(mtype, time.time(), self.current_state, len(s1), len(s2), opcode, header,mbt_data))
             updated += self.trunked_systems[nac].decode_mbt_data(opcode, src, header << 16, mbt_data << 32)
+
+        self.make_status_png()
 
         if nac != self.current_nac:
             if self.debug > 10: # this is occasionally expected if cycling between different tsys
@@ -1151,7 +1172,7 @@ class rx_ctl (object):
             self.current_tgid = None
 
         if new_frequency is not None:
-            self.set_frequency({
+            params = {
                 'freq':   new_frequency,
                 'tgid':   self.current_tgid,
                 'offset': tsys.offset,
@@ -1166,7 +1187,9 @@ class rx_ctl (object):
                 'grpaddr':  tsys.current_grpaddr,
                 'alg':  tsys.current_alg,
                 'algid':  tsys.current_algid,
-                'keyid':  tsys.current_keyid })
+                'keyid':  tsys.current_keyid }
+            self.last_freq_params = params
+            self.set_frequency(params)
 
         if new_state is not None:
             self.current_state = new_state
