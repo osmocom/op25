@@ -1,7 +1,7 @@
 {
-	"label_color": "#000000",
-	"tic_color": "#000000",
-	"border_color": "#000000",
-	"plot_color": "#c000ff",
-	"background_color": "#ffffff"
+	"label_color": "#ffffff",
+	"tic_color": "#cccccc",
+	"border_color": "#cccccc",
+	"plot_color": "#008000",
+	"background_color": "#000000"
 }
