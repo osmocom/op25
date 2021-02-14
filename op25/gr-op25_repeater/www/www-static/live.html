@@ -12,12 +12,17 @@ function onload1() {
 }
 function attach_hls() {
   var video = document.getElementById('video');
+  document.getElementById('div1').innerHTML = 'Initialization state 1<br>';
   if (Hls.isSupported()) {
+    document.getElementById('div1').innerHTML = 'Initialization state 1a<br>';
     hls = new Hls();
     hls.loadSource(videoSrc);
     hls.attachMedia(video);
+    document.getElementById('div1').innerHTML = 'Initialization state 1b<br>';
     hls.on(Hls.Events.MANIFEST_PARSED, function() {
+      document.getElementById('div1').innerHTML = 'Initialization state 1c<br>';
       video.play();
+      document.getElementById('div1').innerHTML = 'Initialization state 1d: load completed OK<br>';
     });
   }
   // hls.js is not supported on platforms that do not have Media Source
@@ -34,10 +39,15 @@ function attach_hls() {
   // event will be emitted; the last video event that can be reliably
   // listened-for when the URL is not on the white-list is 'loadedmetadata'.
   else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+    document.getElementById('div1').innerHTML = 'Initialization state 2<br>';
     video.src = videoSrc;
     video.addEventListener('loadedmetadata', function() {
+      document.getElementById('div1').innerHTML = 'Initialization state 2a<br>';
       video.play();
+      document.getElementById('div1').innerHTML = 'Initialization state 2b: load completed OK<br>';
     });
+  } else {
+    document.getElementById('div1').innerHTML = 'Unable to initialize HLS: failed to detect and enable media source or mp4 support<br>';
   }
 }	// end of attach_hls()
 </script>
@@ -46,5 +56,6 @@ function attach_hls() {
 <video id="video" controls height=600 width=800></video>
 <br>
 <hr>
+<div id="div1">Initialization state 0<br></div>
 </body>
 </html>
