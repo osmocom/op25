@@ -21,57 +21,191 @@
 
 */
 
-#div_status body {
-
-	background-color: LightGray;
-	font-family: Arial, Helvetica, sans-serif;
+/* ------------- LIGHT MODE -------------------- */
+:root {                            		/* default */
+	--logo: url("op25.png");
+	--sysmsg-text: #666;  		 
+	--label-hold: #c00;			
+    --syscrptro: #f00000;				/* encrypted text */
+    
+    --bg-color: White;			  		/* main page background color */
+   	--sysmsg-background: #f9f9f9;
+    --div-border-1: grey;		  		/* border color for a main div */
+    --div-border-2: #ccc;				/* a lighter div border (sysMsg) */
+    --div-background-1: #eee;
+    
+    --button-grad-1: #31687e;	  		/* button fades (skip, hold, home, config, etc) */
+    --button-grad-2: #56a0bd;
+    --button-bord-1: gray;
+    --button-text-1: white;
+    --button-text-2: black;
+    
+    --status-grad-1: white; 			/* main display border fade effect */
+    --status-grad-2: silver;
+    --status-border: #f00;				/* intended for no gradient browser, not used */
+    
+    --nav-grad-1: #bbb;
+    --nav-grad-2: #ccc;
+    --nav-background: #bbb;				/* no grad browser support */
+    
+    --display-grad-1: LightGray;  		/* the main tg/system display bg fade */
+    --display-grad-2: White;	  		/* 2 is the middle, 1 is the upper/lower */
+    
+    --red-value: #f00000;				/* red text, others */
+    --value: #000;						/* main display, tg id, source, freq, and others */
+    
+    --system-text: #000060;				/* main display, system, talkgroup */
+    --gray-text-1: #999;
+    
+    --default-text: #000;
+    
+   	--label: #484848;					/* misc lables */
+	--label-sm: #444;
 }
 
+/* ------------- DARK MODE -------------------- */
+
+[data-theme="dark"] {
+	--logo: url("op25-dark.png");
+	--sysmsg-text: #666; 
+	--label-hold: #ff0000;			
+	--syscrptro: #f00000;				/* encrypted text */
+
+	--bg-color: Black;			  		/* main page background color */
+	--sysmsg-background: #060606;
+
+	--div-border-1: grey;		  		/* border color for any old div */
+    --div-border-2: #ccc;				/*  a lighter div border (sysMsg) */
+	--div-background-1: #eee;
+
+	--button-grad-1: #444;	  			/* button fades (skip, hold, home, config, etc) */
+	--button-grad-2: black;
+	--button-bord-1: gray;
+	--button-text-1: yellow;
+	--button-text-2: white;
+
+	--status-grad-1: #cca300; 			/* main display border fade effect */
+	--status-grad-2: #0c0;	
+	--status-border: #f00;  			/* intended for no gradient browser, not used */
+
+	--nav-grad-1: #225;					/* nav menu fade effect */
+	--nav-grad-2: #444;
+	--nav-background: #222;				/* no grad browser support */
+
+	--display-grad-1: #222;  			/* the main tg/system display bg fade */
+	--display-grad-2: black;	  		/* 2 is the middle, 1 is the upper/lower */
+
+	--red-value: #ff0000;				/* red text, others */
+	--value: #66ff66;					/* main display, tg id, source, freq, and others */
+
+	--system-text: #66ff66;				/* main display, system, talkgroup */
+	--gray-text-1: #eee;
+
+	--default-text: #ddd;
+
+	--label: #eee;						/* misc lables */
+	--label-sm: #eee;
+}
+
+/* END DARK MODE */
+
+
+body {
+	background-color: var(--bg-color);
+}
+
+a {
+	color: var(--red-value);
+}
+
+
+/* 
+#div_status body {
+
+	background-color: var(--bg-color);
+	font-family: Arial, Helvetica, sans-serif;
+}
+ */
+ 
 #div_status table { 
 
 	border-collapse: collapse;
 	font-family: "Courier New", Courier, Monospace;
+	border: 1px solid var(--div-border-1);
+	width: 100%;
 }
 
-#div_status th {
 
-	border-style: solid;
+#div_status th {
+	
+	border: 1px solid var(--div-border-1);
 	padding: 3px;
 	font-family: Arial, Helvetica, sans-serif;
-	color: #000;
+	color: var(--default-text);
 	font-weight: bold;
-	background: #669999; /* For browsers that do not support gradients */
-	background: linear-gradient(#31687e, #56a0bd);
+	background: var(--button-grad-1); /* For browsers that do not support gradients */
+	background: linear-gradient(var(--button-grad-1), var(--button-grad-2));
 }
 
 #div_status td {
 
- 	border: 1px solid #666;
+ 	border: 0px solid var(--div-border-1);
 	padding: 3px;
 
 }
 
+#div_images table {
+	width: 730px; 
+	border: 1px solid var(--div-border-1);
+}
+
+#div_s2 table {
+	border: 0px solid var(--div-border-1);
+	}
+
 #div_s2 td {
 
- 	border-bottom: 1px solid #888;
-	border-top: 1px solid #888;
+ 	border-bottom: 1px solid var(--div-border-1);
+	border-top: 1px solid var(--div-border-1);
 	border-left: 0px;
 	border-right: 0px;
 	padding: 3px;
 	background: transparent;
 }
 
+.history {
+ 	width: 705px;
+ 	border-collapse: collapse;
+	border: 1px solid var(--div-border-1);
+	padding: 3px;
+	font-family: Arial, Helvetica, sans-serif;
+	color: var(--default-text);
+	font-weight: normal;
+}
+
+.history th, td {
+ 	border-collapse: collapse;
+	border: 1px solid var(--div-border-1);
+	color: var(--default-text);
+	padding: 3px;
+
+}
+
+#div_logs {
+	width: 730px;
+}
+
 hr {
 	width: 730px;
 	float: left;
-        padding: 0px;
+    padding: 0px;
 }
 
 .control-button { /* skip/hold/lockout buttons */
 
-	border-color: gray;
+	border-color: var(--button-bord-1);
 	height: 42px;
-	color: white;
+	color: var(--button-text-1);
 	padding: 10px 10px;
 	text-decoration: none;
 	margin: 1px 1px;
@@ -80,130 +214,116 @@ hr {
 	font-size: 14px;
 	font-weight: bold;
 	box-shadow: 0 1px 1px 0 rgba(0,0,0,0.2), 0 2px 5px 0 rgba(0,0,0,0.19);
-	background: #31687e; /* For browsers that do not support gradients */
-	background: linear-gradient(#31687e, #56a0bd); 
+	background: var(--button-grad-1); /* For browsers that do not support gradients */
+	background: linear-gradient(var(--button-grad-1), var(--button-grad-2)); 
 }
 
-
 .control-button:hover {
-
-	background: linear-gradient(#56a0bd, #31687e);
+	background: linear-gradient(var(--button-grad-2), var(--button-grad-1));
 }
 	
 .controlsDisplay { /* holds buttons, and display */
-
  	width: 730px;
-	border: 0px solid #aaa;
+	border: 0px solid var(--div-border-1);
 	vertical-align: top;
 	height: 178px;
 	padding: 2px;
 	box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 3px 10px 0 rgba(0,0,0,0.19);
-	background: LightGray; /* For browsers that do not support gradients */
-	background: linear-gradient(White, Silver);
+	background: var(--status-grad-1); /* For browsers that do not support gradients */
+	background: linear-gradient(var(--status-grad-1), var(--status-grad-2));
 }
 
 .controls { /* skip/hold/lockout buttons   (1) */ 
 
-	border: 1px solid #aaa;
+	border: 1px solid var(--button-bord-1);
 	width: 104px;
 	float: left;
 	height: 100%;
 	text-align: center;
 } 
 
-
 .cfg_list {
-
-	border: 1px solid #000; 
+	border: 1px solid var(--div-border-1); 
 	padding: 5px; 
 	width: 260px;
-
 }
 
 .displaySettings {
-
-	border: 1px solid #000; 
+	border: 1px solid var(--div-border-1); 
 	padding: 5px; 
 	width: 720px;
 
 }
-.statDisplay { /* main display - freq, sys, tgid (2) */
 
+.statDisplay { /* main display - freq, sys, tgid (2) */
 	padding: 0px;
 	width: 522px;
 	float: left;
 	position: relative;
 	display: inline-block;
-	border: 1px solid #aaa;
+	border: 1px solid (var(--div-border-1));
 	height: 100%;
-	background: LightGray; /* For browsers that do not support gradients */
-	background: linear-gradient(LightGray, White, LightGray);	 
+	background: var(--display-grad-1); /* For browsers that do not support gradients */
+	background: linear-gradient(var(--display-grad-1), var(--display-grad-2), var(--display-grad-1));	 
 } 
 
 .sysMsg {  /* OP25 logo and message box on right   (3) */
-
 	padding: 0px;
 	/* display: inline-block; */
 	float: right; /* works left or right, right gives margin in between this & 2 */
   	width: 95px;
-	height: 100%;
-  	background-color:#f9f9f9;
-	background-image: url("op25.png");
+	height: 99%;
+  	background-color: var(--sysmsg-background);
+	background-image: var(--logo);
 	background-repeat: no-repeat;
 	background-position: right;
-	border: 1px solid #aaa;
+	border: 1px solid var(--div-border-2);
   	font-family: Arial, Helvetica, sans-serif;
-  	color: #666;
+  	color: var(--sysmsg-text);
   	font-size: 8pt;  
 }
 
 div.info {  /* main info container for the two tables */
-
 	width: 730px;
-	border: 0px solid #a00;
+	border: 0px solid var(--div-border-1);
 	display: inline-block; 
 }
 
 
 div.system {  /* system frequencies container that holds the table */
-
 	float: left;
 	width: 48%;
 	height: auto;
-	border: 0px solid #d00;
+	border: 0px solid var(--div-border-1);
 }
 
 div.adjacent {  /* adjacent sites container that holds the table */
-
 	margin-left: 29px;
 	float: left;
 	width: 48%;
 	height: auto;
-	border: 0px solid #00f;
+	border: 0px solid var(--div-border-1);
 }
 
 /* labels, values, system and tg text */
 
 .copyr {
-
 	font-family: Arial, Helvetica, sans-serif;
 	font-size: 14px;
-	color: #484848;
+	color: var(--label);
 	float: right;
 	margin-top: 22px;
 	margin-right: 4px;
 }
 
 .label {
-
 	font-family: Arial, Helvetica, sans-serif;
-	color: #484848;
+	color: var(--label);
 }
 
 .label-hold {
-
 	font-family: Arial, Helvetica, sans-serif;
-	color: #c00;
+	color: var(--label-hold);
 	font-size: 8pt;
 	font-weight: bold;
 	text-align: center;
@@ -212,48 +332,42 @@ div.adjacent {  /* adjacent sites container that holds the table */
 }
 
 .label-sm {
-
 	font-family: Arial, Helvetica, sans-serif;
-	color: #444;
+	color: var(--label-sm);
 	font-size: 8pt;
 	padding: 2px;
 }
 
 .label-lc {  /* Last Command text */
-
 	font-family: Arial, Helvetica, sans-serif;
-	color: #444;
+	color: var(--label-sm);
 	font-size: 8pt;
 	padding: 2px;
 	text-align: center;
 }
 
 .red_value {
-
 	font-family: Arial, Helvetica, sans-serif;
-	color: #f00000;
+	color: var(--red-value);
 	font-weight: bold;
 }
 
 .value {
-
 	font-family: Arial, Helvetica, sans-serif;
-	color: #000000;
+	color: var(--value);
 	font-weight: bold;
 }
 
 .systgid {    /* System and Talkgroup Text */
-
 	font-family: Arial, Helvetica, sans-serif;
-	color: #000060;
+	color: var(--system-text);
 	font-weight: bold;
 	font-size: 24px;
 }
 
 .syscrypto {    /* alg/key text */
-
 	font-family: Arial, Helvetica, sans-serif;
-	color: #f00000;
+	color: var(--syscrypto);
 	font-size: 24px;
 }
 
@@ -264,20 +378,19 @@ div.adjacent {  /* adjacent sites container that holds the table */
 
 
 .nac {  /* the whole NAC string... NAC, freq tsbks, etc. */
-
 	font-family: Arial, Helvetica, sans-serif;
-	color: #000060;
+	color: var(--system-text);
 	font-weight: bold;
 	font-size: 20px;
-
 }
 
 .s1 {
-	/* empty */
+	border: 0px solid var(--gray-text-1);
+	width: 730px;	
 }
 
 .s2 {
-	border: 0px solid #999;
+	border: 0px solid var(--gray-text-1);
 	position: relative; 
 	display: inline-block; 
 	max-height: 112px;
@@ -287,9 +400,8 @@ div.adjacent {  /* adjacent sites container that holds the table */
 }
 
 .copyright-text {
-
 	font-family: Arial, Helvetica, sans-serif;
-	color: #000060;
+	color: var(--system-text);
 /* 	font-size: 10px; */
 }
 
@@ -298,33 +410,31 @@ div.adjacent {  /* adjacent sites container that holds the table */
 	margin: 0;
 	padding: 0;
 	overflow: hidden;
-	background-color: #bbb;
-	background: linear-gradient(#bbbbbb, #cccccc);
+	background-color: var(--nav-background);
+	background: linear-gradient(var(--nav-grad-1), var(--nav-grad-2));
 }
 
 .nav-li {
 	float: left;
-	border-right: 1px solid #000;
-	background: linear-gradient(#bbbbbb, #cccccc);
+	border-right: 1px solid var(--div-border-1);
+	background: linear-gradient(var(--nav-grad-1), var(--nav-grad-2));
 }
 
 .nav-li-active {
 	float: left;
-	background-color:   #c0c0c0;
-	color:     #0080c0;
-	border-right: 1px solid #000;
+	border-right: 1px solid var(--div-border-1);
 }
 
 .nav-bar {
 	width: 730px;
 	padding: 0;
-	border: 1px solid #000;
+	border: 1px solid var(--div-border-1);
 }
 
 .nav-button {
-	background-color:  #bbb;
-	background: linear-gradient(#bbbbbb, #cccccc);
-	color:     #000;
+	background-color: var(--nav-background);
+	background: linear-gradient(var(--nav-grad-1), var(--nav-grad-2));
+	color:    var(--button-text-2);
 	width: 85px;
 	border:   0px;
 	padding:   20px;
@@ -335,9 +445,10 @@ div.adjacent {  /* adjacent sites container that holds the table */
 
 
 .nav-button-active {
-	background-color:  #9cc;
-	background: linear-gradient(#31687e, #56a0bd);
-	color:     #fff;
+	background-color: var(--button-grad-2);
+	background: linear-gradient(var(--button-grad-2), var(--button-grad-1));
+	color: var(--button-text-1);
+	width: 85px;
 	border:   0px;
 	padding:   20px;
 	display:   block;
@@ -346,18 +457,19 @@ div.adjacent {  /* adjacent sites container that holds the table */
 }
 
 .nav-button:hover {
-	background-color: #699;
-	background: linear-gradient(#56a0bd, #31687e);
-	color: #fff;
+	background-color: var(--button-grad-2);
+	background: linear-gradient(var(--button-grad-2), var(--button-grad-1));
+	color: var(--button-text-1);
 }
 
 .nav-button-active:hover {
-	background-color: #699;
-	background: linear-gradient(#56a0bd, #31687e);
+	background-color:  var(--button-grad-1);
+	background: linear-gradient(var(--button-grad-1), var(--button-grad-2));
+	color:    var(--button-text-1);
 }
 
 #div_settings table {
-	border-color:	black;
+	border-color:	var(--div-border-1);
 }
 
 #div_settings tr {
@@ -375,8 +487,8 @@ div.adjacent {  /* adjacent sites container that holds the table */
 	padding: 3px;
 	font-family: Arial, Helvetica, sans-serif;
 	font-size: 12px;
-	color: #000;
-	background: #eee;
+	background: var (--div-background-1);
+	color: var(--default-text);
 	text-align:  right;
 	font-weight:	normal;
 }
@@ -401,7 +513,7 @@ div.adjacent {  /* adjacent sites container that holds the table */
 #div_settings input[type=button] {
 	max-width: 75px;
 	padding: 10px;
-	color: red;
+	color: var(--red-value);
 	border: 0;
 }
 
@@ -445,20 +557,22 @@ div#cfg_list_area select {
 .help {
 	max-width: 640px;
 	font-family: Arial, Helvetica, sans-serif;
+	color: var(--default-text);``
 }
 
 
 .aboutTable {
  	width: 730px;
-	border: 1px solid #aaa;
+	border: 1px solid var(--div-border-1);
 	vertical-align: top;
 	height: 178px;
 	padding: 2px;
 	box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 3px 10px 0 rgba(0,0,0,0.19);
-	background: LightGray; /* For browsers that do not support gradients */
-	background: linear-gradient(White, Silver);
+	background: var(--display-grad-1); /* For browsers that do not support gradients */
+	background: linear-gradient(var(--display-grad-1), var(--display-grad-2), var(--display-grad-1));	 
 }
 
 .aboutLogo {
-	background-image: url("op25.png");
+	height: 178px;
+	background-image: var(--logo);
 }

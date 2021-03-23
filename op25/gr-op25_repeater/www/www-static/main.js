@@ -371,22 +371,15 @@ function adjacent_data(d) {
     if (Object.keys(d).length < 1)
         return "";
     var html = "<div class=\"adjacent\">"; // open div-adjacent
-    html += "<table border=1 borderwidth=0 cellpadding=0 cellspacing=0 width=100%>";
+    html += "<table border=1 border width=0 cellpadding=0 cellspacing=0 width=100%>";
     html += "<tr><th colspan=99 style=\"align: center\">Adjacent Sites</th></tr>";
     html += "<tr><th>Frequency</th><th>Sys ID</th><th>RFSS</th><th>Site</th><th>Uplink</th></tr>";
     var ct = 0;
     for (var freq in d) {
-        var color = "#d0d0d0";
-        if ((ct & 1) == 0)
-            color = "#c0c0c0";
-        ct += 1;
-        html += "<tr style=\"background-color: " + color + ";\"><td>" + freq / 1000000.0 + "</td><td>" + d[freq]['sysid'].toString(16) + "</td><td>" + d[freq]["rfid"] + "</td><td>" + d[freq]["stid"] + "</td><td>" + (d[freq]["uplink"] / 1000000.0) + "</td></tr>";
+        html += "<tr><td>" + freq / 1000000.0 + "</td><td>" + d[freq]['sysid'].toString(16) + "</td><td>" + d[freq]["rfid"] + "</td><td>" + d[freq]["stid"] + "</td><td>" + (d[freq]["uplink"] / 1000000.0) + "</td></tr>";
     }
     html += "</table></div>"; // close div-adjacent
-
-// end adjacent sites table
-
-    return html;
+    return html;    // end adjacent sites table
 }
 
 function trunk_summary(d) {
@@ -464,7 +457,7 @@ function f_enable_changed(ele, nac) {
 
 // additional system info: wacn, sysID, rfss, site id, secondary control channels, freq error
 
-function trunk_detail(d) {
+function trunk_detail(d) { // json_type = trunk_update
     var html = "";
     for (var nac in d) {
         if (!is_digit(nac.charAt(0)))
@@ -472,8 +465,10 @@ function trunk_detail(d) {
         last_srcaddr[nac] = d[nac]['srcaddr'];
         last_alg[nac] = d[nac]['alg'];
         last_algid[nac] = d[nac]['algid'];
-        last_keyid[nac] = d[nac]['keyid'];
-	    html += "<div class=\"content\">";     // open div-content
+        last_keyid[nac] = d[nac]['keyid'];     
+
+
+        html += "<div class=\"content\">";     // open div-content
         html += "<span class=\"nac\">";
         html += "<br>" + d[nac]["sysname"] + " <br> ";
         html += "NAC " + "0x" + parseInt(nac).toString(16) + " &nbsp; &nbsp; &nbsp; ";
@@ -482,7 +477,7 @@ function trunk_detail(d) {
         html += d[nac]['txchan'] / 1000000.0;
         html += " &nbsp; &nbsp; &nbsp; tsbks " + comma(d[nac]['tsbks']);
         html += "</span><br>";
-
+        
         html += "<span class=\"label\">WACN: </span>" + "<span class=\"value\">0x" + parseInt(d[nac]['wacn']).toString(16) + " </span>";
         html += "<span class=\"label\">System ID: </span>" + "<span class=\"value\">0x" + parseInt(d[nac]['sysid']).toString(16) + " </span>";
         html += "<span class=\"label\">RFSS ID: </span><span class=\"value\">" + d[nac]['rfid'] + " </span>";
@@ -492,7 +487,7 @@ function trunk_detail(d) {
             for (i=0; i<d[nac]["secondary"].length; i++) {
                 html += d[nac]["secondary"][i] / 1000000.0;
                 html += "&nbsp;&nbsp;&nbsp;";
-            }
+        }
             html += "</span><br>";
         }
         if (error_val != null) {
@@ -500,24 +495,23 @@ function trunk_detail(d) {
             html += "<span class=\"label\">Fine tune: </span><span class=\"value\">" + fine_tune + "</span><br>";
         }
 
+
 // system frequencies table
 
+
         html += "<br><div class=\"info\"><div class=\"system\">"; //    open div-info  open div-system
-        html += "<table border=1 borderwidth=0 cellpadding=0 cellspacing=0 width=100%>"; 
+        html += "<table border=1 border width=0 cellpadding=0 cellspacing=0 width=100%>";
         html += "<tr><th colspan=99 style=\"align: center\">System Frequencies</th></tr>";
-        html += "<tr><th>Frequency</th><th>Last Seen</th><th colspan=2>Talkgoup ID</th><th>Count</th></tr>";
+        html += "<tr><th>Frequency</th><th>Last</th><th colspan=2>Talkgoup</th><th>Hits</th></tr>";
         var ct = 0;
         for (var freq in d[nac]['frequency_data']) {
             tg2 = d[nac]['frequency_data'][freq]['tgids'][1];
             if (tg2 == null)
                 tg2 = "&nbsp;";
-            var color = "#d0d0d0";
-            if ((ct & 1) == 0)
-                color = "#c0c0c0";
-            ct += 1;
-            html += "<tr style=\"background-color: " + color + ";\"><td>" + parseInt(freq) / 1000000.0 + "</td><td>" + d[nac]['frequency_data'][freq]['last_activity'] + "</td><td>" + d[nac]['frequency_data'][freq]['tgids'][0] + "</td><td>" + tg2 + "</td><td>" + d[nac]['frequency_data'][freq]['counter'] + "</td></tr>";
+            html += "<tr><td>" + parseInt(freq) / 1000000.0 + "</td><td>" + d[nac]['frequency_data'][freq]['last_activity'] + "</td><td>" + d[nac]['frequency_data'][freq]['tgids'][0] + "</td><td>" + tg2 + "</td><td>" + d[nac]['frequency_data'][freq]['counter'] + "</td></tr>";
         }
         html += "</table></div>"; // close div-system    // end system freqencies table
+
 
         html += adjacent_data(d[nac]['adjacent_data']);
         html += "</div><br></div><hr><br>";   // close div-content  close div-info  box-br  hr-separating each NAC
@@ -973,9 +967,12 @@ function popOut() {
 
 // toggle dark/light mode
 function toggleCSS() {
-  var a = document.getElementById("style");
-  a.x = 'dark' == a.x ? 'main' : 'dark'; // short if
-  a.href = a.x + '.css';
+    var x = document.documentElement.getAttribute('data-theme');
+    if (x == "dark") {
+        document.documentElement.setAttribute('data-theme', 'light');
+        } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        }
 }
 
 // add comma formatting to number (tsbk)
