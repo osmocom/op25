@@ -1,5 +1,6 @@
 
-// Copyright 2017, 2018 Max H. Parke KA1RBI
+// Copyright 2017, 2018, 2019, 2020 Max H. Parke KA1RBI
+// Copyright 2020, 2021 Michael Rose
 // 
 // This file is part of OP25
 //
