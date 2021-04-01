@@ -58,8 +58,8 @@ def ensure_str(s):	# for python 2/3
     return ns
 
 def static_file(environ, start_response):
-    content_types = { 'png': 'image/png', 'jpeg': 'image/jpeg', 'jpg': 'image/jpeg', 'gif': 'image/gif', 'css': 'text/css', 'js': 'application/javascript', 'html': 'text/html'}
-    img_types = 'png jpg jpeg gif'.split()
+    content_types = { 'png': 'image/png', 'jpeg': 'image/jpeg', 'jpg': 'image/jpeg', 'gif': 'image/gif', 'css': 'text/css', 'js': 'application/javascript', 'html': 'text/html', 'ico': 'image/vnd.microsoft.icon'}
+    img_types = 'png jpg jpeg gif ico'.split()
     if environ['PATH_INFO'] == '/':
         filename = 'index.html'
     else:
