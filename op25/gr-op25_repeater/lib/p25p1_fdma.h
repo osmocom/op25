@@ -84,11 +84,12 @@ namespace gr {
         uint16_t ess_algid;
 	uint8_t  ess_mi[9] = {0};
 	uint16_t vf_tgid;
+	int d_msgq_id;
 
      public:
 	void reset_timer();
 	void rx_sym (const uint8_t *syms, int nsyms);
-        p25p1_fdma(const op25_audio& udp, int debug, bool do_imbe, bool do_output, bool do_msgq, gr::msg_queue::sptr queue, std::deque<int16_t> &output_queue, bool do_audio_output);
+        p25p1_fdma(const op25_audio& udp, int debug, bool do_imbe, bool do_output, bool do_msgq, gr::msg_queue::sptr queue, std::deque<int16_t> &output_queue, bool do_audio_output, int msgq_id);
        ~p25p1_fdma();
 
       // Where all the action really happens

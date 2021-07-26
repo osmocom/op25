@@ -27,9 +27,10 @@ private:
 
 	uint32_t frame_size_limit;
 	int d_debug;
+	int d_msgq_id;
 
 public:
-	p25_framer(int debug = 0);
+	p25_framer(int debug = 0, int msgq_id=0);
 	~p25_framer ();	// destructor
 	bool rx_sym(uint8_t dibit) ;
 

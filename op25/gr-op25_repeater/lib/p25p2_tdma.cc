@@ -34,6 +34,7 @@
 #include "mbelib.h"
 #include "ambe.h"
 #include "value_string.h"
+#include "crc16.h"
 
 static const int BURST_SIZE = 180;
 static const int SUPERFRAME_SIZE = (12*BURST_SIZE);
@@ -87,7 +88,7 @@ static const uint8_t mac_msg_len[256] = {
 	 0,  0,  0,  0,  0,  0,  0,  0,  0,  8, 11,  0,  0,  0,  0,  0, 
 	 0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 11, 13, 11,  0,  0,  0 };
 
-p25p2_tdma::p25p2_tdma(const op25_audio& udp, int slotid, int debug, bool do_msgq, gr::msg_queue::sptr queue, std::deque<int16_t> &qptr, bool do_audio_output) :	// constructor
+p25p2_tdma::p25p2_tdma(const op25_audio& udp, int slotid, int debug, bool do_msgq, gr::msg_queue::sptr queue, std::deque<int16_t> &qptr, bool do_audio_output, int msgq_id) :	// constructor
         op25audio(udp),
 	write_bufp(0),
 	tdma_xormask(new uint8_t[SUPERFRAME_SIZE]),
@@ -105,6 +106,7 @@ p25p2_tdma::p25p2_tdma(const op25_audio& udp, int slotid, int debug, bool do_msg
         ESS_B(16,0),
         ess_algid(0x80),
         ess_keyid(0),
+        d_msgq_id(msgq_id),
 	p2framer()
 {
 	assert (slotid == 0 || slotid == 1);
@@ -145,6 +147,10 @@ int p25p2_tdma::process_mac_pdu(const uint8_t byte_buf[], const unsigned int len
 
         switch (opcode)
         {
+                case 0: // MAC_SIGNAL
+                        handle_mac_signal(byte_buf, len);
+                        break;
+
                 case 1: // MAC_PTT
                         handle_mac_ptt(byte_buf, len);
                         break;
@@ -169,6 +175,16 @@ int p25p2_tdma::process_mac_pdu(const uint8_t byte_buf[], const unsigned int len
 	// maps sacch opcodes into phase I duid values 
 	static const int opcode_map[8] = {3, 5, 15, 15, 5, 3, 3, 3};
 	return opcode_map[opcode];
+}
+
+void p25p2_tdma::handle_mac_signal(const uint8_t byte_buf[], const unsigned int len) 
+{
+	char nac_color[2];
+	int i;
+        i = (byte_buf[19] << 4) + ((byte_buf[20] >> 4) & 0xf);
+	nac_color[0] = i >> 8;
+	nac_color[1] = i & 0xff;
+	send_msg(std::string(nac_color, 2) + std::string((const char *)byte_buf, len), -6);
 }
 
 void p25p2_tdma::handle_mac_ptt(const uint8_t byte_buf[], const unsigned int len) 
@@ -372,7 +388,7 @@ void p25p2_tdma::decode_mac_msg(const uint8_t byte_buf[], const unsigned int len
 	}
 }
 
-int p25p2_tdma::handle_acch_frame(const uint8_t dibits[], bool fast) 
+int p25p2_tdma::handle_acch_frame(const uint8_t dibits[], bool fast, bool is_lcch) 
 {
 	int i, j, rc;
 	uint8_t bits[512];
@@ -430,6 +446,8 @@ int p25p2_tdma::handle_acch_frame(const uint8_t dibits[], bool fast)
 		j++;
 	}
 	rc = rs28.decode(HB, Erasures);
+//	if (d_debug >= 10)
+//		fprintf(stderr, "p25p2_tdma: rc28: rc %d\n", rc);
 	if (rc < 0)
 		return -1;
 
@@ -439,7 +457,7 @@ int p25p2_tdma::handle_acch_frame(const uint8_t dibits[], bool fast)
 	}
 	else {
 		j = 5;
-		len = 168;
+		len = (is_lcch) ? 180 : 168;
 	}
 	for (i = 0; i < len; i += 6) { // convert hexbits back to bits
 		bits[i]   = (HB[j] & 0x20) >> 5;
@@ -451,12 +469,17 @@ int p25p2_tdma::handle_acch_frame(const uint8_t dibits[], bool fast)
 		j++;
 	}
 
+	bool crc_ok = (is_lcch) ? (crc16(bits, len) == 0) : crc12_ok(bits, len);
+	int olen = (is_lcch) ? 23 : len/8;
 	rc = -1;
-	if (crc12_ok(bits, len)) { // TODO: rewrite crc12 so we don't have to do so much bit manipulation
-		for (int i=0; i<len/8; i++) {
+	if (crc_ok) { // TODO: rewrite crc12 so we don't have to do so much bit manipulation
+		// fprintf(stderr, "crc12 ok\n");
+		for (int i=0; i<olen; i++) {
 			byte_buf[i] = (bits[i*8 + 0] << 7) + (bits[i*8 + 1] << 6) + (bits[i*8 + 2] << 5) + (bits[i*8 + 3] << 4) + (bits[i*8 + 4] << 3) + (bits[i*8 + 5] << 2) + (bits[i*8 + 6] << 1) + (bits[i*8 + 7] << 0);
 		}
-		rc = process_mac_pdu(byte_buf, len/8);
+		rc = process_mac_pdu(byte_buf, olen);
+	} else {
+		// fprintf(stderr, "crc12 failed\n");
 	}
 	return rc;
 }
@@ -542,13 +565,15 @@ int p25p2_tdma::handle_packet(const uint8_t dibits[])
                 }
 		return -1;
 	} else if (burst_type == 3) {                   // scrambled sacch
-		rc = handle_acch_frame(xored_burst, 0);
+		rc = handle_acch_frame(xored_burst, 0, false);
 	} else if (burst_type == 9) {                   // scrambled facch
-		rc = handle_acch_frame(xored_burst, 1);
+		rc = handle_acch_frame(xored_burst, 1, false);
 	} else if (burst_type == 12) {                  // unscrambled sacch
-		rc = handle_acch_frame(burstp, 0);
+		rc = handle_acch_frame(burstp, 0, false);
+	} else if (burst_type == 13) {                  // TDMA CC OECI
+		rc = handle_acch_frame(burstp, 0, true);
 	} else if (burst_type == 15) {                  // unscrambled facch
-		rc = handle_acch_frame(burstp, 1);
+		rc = handle_acch_frame(burstp, 1, false);
 	} else {
 		// unsupported type duid
 		return -1;
@@ -606,9 +631,10 @@ void p25p2_tdma::handle_4V2V_ess(const uint8_t dibits[])
 
 void p25p2_tdma::send_msg(const std::string msg_str, long msg_type)
 {
+        unsigned char hdr[4] = {0xaa, 0x55, (unsigned char)((d_msgq_id >> 8) & 0xff), (unsigned char)(d_msgq_id & 0xff)};
 	if (!d_do_msgq || d_msg_queue->full_p())
 		return;
 
-	gr::message::sptr msg = gr::message::make_from_string(msg_str, msg_type, 0, 0);
+	gr::message::sptr msg = gr::message::make_from_string(std::string((char*)hdr, 4) + msg_str, msg_type, 0, 0);
 	d_msg_queue->insert_tail(msg);
 }

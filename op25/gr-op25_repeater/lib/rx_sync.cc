@@ -346,7 +346,7 @@ void rx_sync::dmr_sync(const uint8_t bitbuf[], int& current_slot, bool& unmute) 
 	}
 }
 
-rx_sync::rx_sync(const char * options, int debug, gr::msg_queue::sptr queue) :	// constructor
+rx_sync::rx_sync(const char * options, int debug, gr::msg_queue::sptr queue, int msgq_id) :	// constructor
 	d_symbol_count(0),
 	d_sync_reg(0),
 	d_cbuf_idx(0),
@@ -359,7 +359,8 @@ rx_sync::rx_sync(const char * options, int debug, gr::msg_queue::sptr queue) :	/
 	d_msg_queue(queue),
 	d_previous_nxdn_sync(0),
 	d_previous_nxdn_sr_structure(-1),
-	d_previous_nxdn_sr_ran(-1)
+	d_previous_nxdn_sr_ran(-1),
+	d_msgq_id(msgq_id)
 {
 	mbe_initMbeParms (&cur_mp[0], &prev_mp[0], &enh_mp[0]);
 	mbe_initMbeParms (&cur_mp[1], &prev_mp[1], &enh_mp[1]);
@@ -597,9 +598,10 @@ void rx_sync::rx_sym(const uint8_t sym)
 	}
 }
 
-static inline void qmsg(const gr::msg_queue::sptr msg_queue, const uint8_t s[], int len) {
+static inline void qmsg(const gr::msg_queue::sptr msg_queue, const uint8_t s[], int len, int msgq_id) {
+	unsigned char hdr[4] = {0xaa, 0x55, (unsigned char)((msgq_id >> 8) & 0xff), (unsigned char)(msgq_id & 0xff)};
 	if (!msg_queue->full_p()) {
-		gr::message::sptr msg = gr::message::make_from_string(std::string((char*)s, len), -5, 0, 0);
+		gr::message::sptr msg = gr::message::make_from_string(std::string((char*)hdr, 4) + std::string((char*)s, len), -5, 0, 0);
 		msg_queue->insert_tail(msg);
 	}
 }
@@ -730,7 +732,7 @@ void rx_sync::nxdn_frame(const uint8_t symbol_ptr[])
 			answer[1] = lich;
 			int nbytes = (answer_len + 7) / 8;
 			cfill(answer+2, sacch_answer, nbytes);
-			qmsg(d_msg_queue, answer, nbytes+2);
+			qmsg(d_msg_queue, answer, nbytes+2, d_msgq_id);
 			if (d_debug > 2)
 				debug_dump("nxdn: sacch", answer, nbytes+2);
 		} else if (answer_len > 0 && non_superframe == false) {
@@ -754,7 +756,7 @@ void rx_sync::nxdn_frame(const uint8_t symbol_ptr[])
 					answer[2] = sr_ran;
 					int nbytes = 9;
 					cfill(answer+3, d_sacch_buf, nbytes);
-					qmsg(d_msg_queue, answer, nbytes+3);
+					qmsg(d_msg_queue, answer, nbytes+3, d_msgq_id);
 					if (d_debug > 2)
 						debug_dump("nxdn: sacch", answer, nbytes+3);
 					d_previous_nxdn_sr_ran = -1;
@@ -772,7 +774,7 @@ void rx_sync::nxdn_frame(const uint8_t symbol_ptr[])
 		if (answer_len > 0) {
 			answer[0] = 'f';
 			answer[1] = lich;
-			qmsg(d_msg_queue, answer, answer_len+2);
+			qmsg(d_msg_queue, answer, answer_len+2, d_msgq_id);
 			if (d_debug > 2)
 				debug_dump("nxdn: facch", answer, answer_len+2);
 		}
@@ -787,7 +789,7 @@ void rx_sync::nxdn_frame(const uint8_t symbol_ptr[])
 			if (answer_len > 0) {
 				answer[0] = 'f';
 				answer[1] = lich;
-				qmsg(d_msg_queue, answer, answer_len+2);
+				qmsg(d_msg_queue, answer, answer_len+2, d_msgq_id);
 				if (d_debug > 2)
 					debug_dump("nxdn: facch", answer, answer_len+2);
 			}
@@ -799,7 +801,7 @@ void rx_sync::nxdn_frame(const uint8_t symbol_ptr[])
 		if (answer_len > 0) {
 			answer[0] = 'u';
 			answer[1] = lich;
-			qmsg(d_msg_queue, answer, answer_len+2);
+			qmsg(d_msg_queue, answer, answer_len+2, d_msgq_id);
 			if (d_debug > 2)
 				debug_dump("nxdn: facch2", answer, answer_len+2);
 		}
@@ -810,7 +812,7 @@ void rx_sync::nxdn_frame(const uint8_t symbol_ptr[])
 		if (answer_len > 0) {
 			answer[0] = 'c';
 			answer[1] = lich;
-			qmsg(d_msg_queue, answer, answer_len+2);
+			qmsg(d_msg_queue, answer, answer_len+2, d_msgq_id);
 			if (d_debug > 2)
 				debug_dump("nxdn: cac", answer, answer_len+2);
 		}

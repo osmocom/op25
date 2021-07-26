@@ -37,6 +37,9 @@ from optparse import OptionParser
 from multi_rx import byteify
 from tsvfile import load_tsv, make_config
 
+import logging
+logging.basicConfig()
+
 my_input_q = None
 my_output_q = None
 my_recv_q = None
@@ -57,9 +60,41 @@ def ensure_str(s):	# for python 2/3
         ns += chr(s[i])
     return ns
 
+class event_iterator:
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        _jslog_file = None	 # set to str(filename) to enable json log
+        msgs = []
+        while True:
+            msg = my_input_q.delete_head()
+            assert msg.type() == -4
+            d = json.loads(msg.to_string())
+            msgs.append(d)
+            if my_input_q.empty_p():
+                break
+        js = json.dumps(msgs)
+        # TODO: json.loads followed by dumps is redundant - 
+        #       can this be optimized?
+        s = 'data:%s\r\n\r\n' % (js)
+
+        if _jslog_file:
+            t = json.dumps(msgs, indent=4, separators=[',',':'], sort_keys=True)
+            with open(_jslog_file, 'a') as logfd:
+                logfd.write('%s\n' % t)
+        
+        if sys.version[0] != '2':
+            if isinstance(s, str):
+                s = s.encode()
+        return s
+
+    next = __next__	# for python2
+
 def static_file(environ, start_response):
-    content_types = { 'png': 'image/png', 'jpeg': 'image/jpeg', 'jpg': 'image/jpeg', 'gif': 'image/gif', 'css': 'text/css', 'js': 'application/javascript', 'html': 'text/html', 'ico': 'image/vnd.microsoft.icon'}
+    content_types = {'tsv': 'text/tab-separated-values', 'json': 'application/json', 'png': 'image/png', 'jpeg': 'image/jpeg', 'jpg': 'image/jpeg', 'gif': 'image/gif', 'css': 'text/css', 'js': 'application/javascript', 'html': 'text/html', 'ico': 'image/vnd.microsoft.icon'}
     img_types = 'png jpg jpeg gif ico'.split()
+    data_types = 'tsv txt json db'.split()
     if environ['PATH_INFO'] == '/':
         filename = 'index.html'
     else:
@@ -68,10 +103,12 @@ def static_file(environ, start_response):
     pathname = '../www/www-static'
     if suf in img_types:
         pathname = '../www/images'
+    elif suf in data_types:
+        pathname = TSV_DIR
     pathname = '%s/%s' % (pathname, filename)
     if suf not in content_types.keys() or '..' in filename or not os.access(pathname, os.R_OK):
         sys.stderr.write('404 %s\n' % pathname)
-        status = '404 NOT FOUND'
+        status = '404 NOT FOUND - PATHNAME: %s FILENAME: %s CWD: %s' % (pathname, filename, os. getcwd())
         content_type = 'text/plain'
         output = status
     else:
@@ -152,6 +189,32 @@ def do_request(d):
         filename = '%s%s.json' % (CFG_DIR, d['data']['name'])
         open(filename, 'w').write(json.dumps(d['data']['value'], indent=4, separators=[',',':'], sort_keys=True))
         return None
+    elif d['command'] == 'config-savesettings':
+        filename = 'ui-settings.json'
+        open(filename, 'w').write(d['data'])
+        sys.stderr.write('saved UI settings to %s\n' % filename)
+        return None
+    elif d['command'] == 'config-tsvsave':
+        filename = d['file']
+        ok = True
+        if  filename.lower().endswith('tsv'):
+            ok = True
+        elif  filename.lower().endswith('json'):
+            ok = True
+        else:
+            ok = False
+        if filename.startswith('.'):
+            ok = False
+        if '/' in filename:
+            ok = False
+        if '..' in filename:
+            ok = False
+        if not ok:
+            sys.stderr.write('cfg-tsvsave: invalid filename %s\n' % filename)
+            return None
+        open(filename, 'w').write(d['data'])
+        sys.stderr.write('saved UI settings to %s\n' % filename)
+        return None
 
 def post_req(environ, start_response, postdata):
     global my_input_q, my_output_q, my_recv_q, my_port
@@ -178,17 +241,20 @@ def post_req(environ, start_response, postdata):
             my_output_q.insert_tail(msg)
     time.sleep(0.2)
 
-    while not my_recv_q.empty_p():
-        msg = my_recv_q.delete_head()
-        if msg.type() == -4:
-            resp_msg.append(json.loads(msg.to_string()))
     status = '200 OK'
     content_type = 'application/json'
     output = json.dumps(resp_msg)
     return status, content_type, output
 
 def http_request(environ, start_response):
-    if environ['REQUEST_METHOD'] == 'GET':
+    if environ['REQUEST_METHOD'] == 'GET' and '/stream' in environ['PATH_INFO']:
+        status = '200 OK'
+        content_type = 'text/event-stream'
+        response_headers = [('Content-type', content_type),
+                            ('Access-Control-Allow-Origin', '*')]
+        start_response(status, response_headers)
+        return iter(event_iterator())
+    elif environ['REQUEST_METHOD'] == 'GET':
         status, content_type, output = static_file(environ, start_response)
     elif environ['REQUEST_METHOD'] == 'POST':
         postdata = environ['wsgi.input'].read()
@@ -200,6 +266,7 @@ def http_request(environ, start_response):
         sys.stderr.write('http_request: unexpected input %s\n' % environ['PATH_INFO'])
     
     response_headers = [('Content-type', content_type),
+                        ('Access-Control-Allow-Origin', '*'),
                         ('Content-Length', str(len(output)))]
     start_response(status, response_headers)
 
@@ -236,9 +303,10 @@ class http_server(object):
         my_port = int(port)
 
         my_recv_q = gr.msg_queue(10)
-        self.q_watcher = queue_watcher(my_input_q, process_qmsg)
 
-        self.server = create_server(application, host=host, port=my_port)
+        SEND_BYTES = 1024
+        NTHREADS = 10	# TODO: make #threads a function of #plots ?
+        self.server = create_server(application, host=host, port=my_port, send_bytes=SEND_BYTES, expose_tracebacks=True, threads=NTHREADS)
 
     def run(self):
         self.server.run()

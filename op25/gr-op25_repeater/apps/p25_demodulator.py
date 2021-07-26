@@ -268,6 +268,7 @@ class p25_demod_cb(p25_demod_base):
             self.bpf = filter.fir_filter_ccc(self.decim,  bpf_coeffs)
             self.lpf = filter.fir_filter_ccf(self.decim2, lpf_coeffs)
             resampled_rate = self.if2
+            self.relative_limit = (input_rate // 2) - (self.if1 // 2)
             self.bfo = analog.sig_source_c (self.if1, analog.GR_SIN_WAVE, 0, 1.0, 0)
             self.connect(self, self.bpf, (self.mixer, 0))
             self.connect(self.bfo, (self.mixer, 1))
@@ -284,9 +285,11 @@ class p25_demod_cb(p25_demod_base):
             decimation = int(input_rate / if_rate)
             self.lpf = filter.fir_filter_ccf(decimation, lpf_coeffs)
             resampled_rate = float(input_rate) / float(decimation) # rate at output of self.lpf
+            self.relative_limit = (input_rate // 2) - f1
             self.connect(self, (self.mixer, 0))
             self.connect(self.lo, (self.mixer, 1))
         self.connect(self.mixer, self.lpf)
+
 
         if self.if_rate != resampled_rate:
             self.if_out = filter.pfb.arb_resampler_ccf(float(self.if_rate) / resampled_rate)
@@ -335,6 +338,12 @@ class p25_demod_cb(p25_demod_base):
     def get_freq_error(self):	# get error in Hz (approx).
         return int(self.clock.get_freq_error() * self.symbol_rate)
 
+    def is_muted(self):
+        return self.clock.is_muted()
+
+    def set_muted(self, v):
+        self.clock.set_muted(v)
+
     def set_omega(self, omega):
         sps = self.if_rate / float(omega)
         if sps == self.sps:
@@ -344,7 +353,7 @@ class p25_demod_cb(p25_demod_base):
         self.clock.set_omega(self.sps)
 
     def set_relative_frequency(self, freq):
-        if abs(freq) > ((self.input_rate / 2) - (self.if1 / 2)):
+        if abs(freq) > self.relative_limit:
             #print 'set_relative_frequency: error, relative frequency %d exceeds limit %d' % (freq, self.input_rate/2)
             return False
         if freq == self.lo_freq:

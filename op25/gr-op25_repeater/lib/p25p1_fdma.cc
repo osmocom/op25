@@ -191,7 +191,7 @@ block_deinterleave(bit_vector& bv, unsigned int start, uint8_t* buf)
 	return 0;
 }
 
-p25p1_fdma::p25p1_fdma(const op25_audio& udp, int debug, bool do_imbe, bool do_output, bool do_msgq, gr::msg_queue::sptr queue, std::deque<int16_t> &output_queue, bool do_audio_output) :
+p25p1_fdma::p25p1_fdma(const op25_audio& udp, int debug, bool do_imbe, bool do_output, bool do_msgq, gr::msg_queue::sptr queue, std::deque<int16_t> &output_queue, bool do_audio_output, int msgq_id) :
         op25audio(udp),
 	write_bufp(0),
 	d_debug(debug),
@@ -200,11 +200,12 @@ p25p1_fdma::p25p1_fdma(const op25_audio& udp, int debug, bool do_imbe, bool do_o
 	d_do_msgq(do_msgq),
 	d_msg_queue(queue),
 	output_queue(output_queue),
-	framer(new p25_framer(debug)),
+	framer(new p25_framer(debug, msgq_id)),
 	d_do_audio_output(do_audio_output),
         ess_algid(0x80),
         ess_keyid(0),
 	vf_tgid(0),
+	d_msgq_id(msgq_id),
 	p1voice_decode((debug > 0), udp, output_queue)
 {
 	gettimeofday(&last_qtime, 0);
@@ -219,7 +220,11 @@ p25p1_fdma::process_duid(uint32_t const duid, uint32_t const nac, const uint8_t*
 		return;
 	if (d_msg_queue->full_p())
 		return;
-	assert (len+2 <= sizeof(wbuf));
+	assert (len+6 <= sizeof(wbuf));
+        wbuf[p++] = 0xaa;
+        wbuf[p++] = 0x55;
+        wbuf[p++] = (d_msgq_id >> 8) & 0xff;
+        wbuf[p++] =  d_msgq_id       & 0xff;
 	wbuf[p++] = (nac >> 8) & 0xff;
 	wbuf[p++] = nac & 0xff;
 	if (buf) {
@@ -450,8 +455,11 @@ void
 p25p1_fdma::process_LCW(std::vector<uint8_t>& HB)
 {
 	int ec = rs12.decode(HB); // Reed Solomon (24,12,13) error correction
-	if (ec < 0)
+	if (ec < 0) {
+		if (d_debug >= 10) 
+			fprintf(stderr, "p25p1_fdma::process_LCW: rs decode failure\n");
 		return; // failed CRC
+	}
 
 	int i, j;
 	std::vector<uint8_t> lcw(9,0); // Convert hexbits to bytes
@@ -660,10 +668,11 @@ p25p1_fdma::reset_timer()
 
 void p25p1_fdma::send_msg(const std::string msg_str, long msg_type)
 {
+	unsigned char hdr[4] = {0xaa, 0x55, (unsigned char)((d_msgq_id >> 8) & 0xff), (unsigned char) (d_msgq_id & 0xff)};
 	if (!d_do_msgq || d_msg_queue->full_p())
 		return;
 
-	gr::message::sptr msg = gr::message::make_from_string(msg_str, msg_type, 0, 0);
+	gr::message::sptr msg = gr::message::make_from_string(std::string((char*)hdr, 4) + msg_str, msg_type, 0, 0);
 	d_msg_queue->insert_tail(msg);
 }
 
@@ -671,6 +680,7 @@ void
 p25p1_fdma::rx_sym (const uint8_t *syms, int nsyms)
 {
   struct timeval currtime;
+  unsigned char hdr[4] = {0xaa, 0x55, (unsigned char)((d_msgq_id >> 8) & 0xff), (unsigned char) (d_msgq_id & 0xff)};
   for (int i1 = 0; i1 < nsyms; i1++){
   	if(framer->rx_sym(syms[i1])) {   // complete frame was detected
 
@@ -748,7 +758,7 @@ p25p1_fdma::rx_sym (const uint8_t *syms, int nsyms)
       }
 
       gettimeofday(&last_qtime, 0);
-      gr::message::sptr msg = gr::message::make(-1, 0, 0);
+      gr::message::sptr msg = gr::message::make_from_string(std::string((char*)hdr, 4), -1, 0, 0);
       d_msg_queue->insert_tail(msg);
     }
   }

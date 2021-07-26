@@ -90,7 +90,25 @@ uint8_t gardner_costas_cc_impl::slicer(float sym) {
 //		fprintf(stderr, "P25P1 Framing detect\n");
 		UPDATE_COUNT(' ')
 	}
-	else if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ 0x001050551155LL, 0, 48)) {
+	else if(check_frame_sync((nid_accum & P25P2_FRAME_SYNC_MASK) ^ P25P2_FRAME_SYNC_MAGIC, 0, 40)) {
+//		fprintf(stderr, "P25P2 Framing detect\n");
+		UPDATE_COUNT(' ')
+	}
+    if (d_is_tdma) {
+	if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ 0x000104015155LL, 0, 40)) {
+		fprintf(stderr, "TDMA: channel %d tuning error -1200\n", -1);
+		UPDATE_COUNT('-')
+	}
+	else if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ 0xfefbfeaeaaLL, 0, 40)) {
+		fprintf(stderr, "TDMA: channel %d tuning error +1200\n", -1);
+		UPDATE_COUNT('+')
+	}
+	else if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ 0xa8a2a80800LL, 0, 40)) {
+		fprintf(stderr, "TDMA: channel %d tuning error +/- 2400\n", -1);
+		UPDATE_COUNT('|')
+	}
+    } else {
+	if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ 0x001050551155LL, 0, 48)) {
 //		fprintf(stderr, "tuning error -1200\n");
 		UPDATE_COUNT('-')
 	}
@@ -102,10 +120,7 @@ uint8_t gardner_costas_cc_impl::slicer(float sym) {
 //		fprintf(stderr, "tuning error +/- 2400\n");
 		UPDATE_COUNT('|')
 	}
-	else if(check_frame_sync((nid_accum & P25P2_FRAME_SYNC_MASK) ^ P25P2_FRAME_SYNC_MAGIC, 0, 40)) {
-//		fprintf(stderr, "P25P2 Framing detect\n");
-		UPDATE_COUNT(' ')
-	}
+    }
     if (d_event_type == ' ' || d_event_count < 5) {
         d_update_request = 0;
     } else {
@@ -150,7 +165,7 @@ uint8_t gardner_costas_cc_impl::slicer(float sym) {
     d_event_count(0), d_event_type(' '),
     d_symbol_seq(samples_per_symbol * 4800),
     d_update_request(0),
-    d_fm(0), d_fm_accum(0), d_fm_count(0)
+    d_fm(0), d_fm_accum(0), d_fm_count(0), d_muted(false), d_is_tdma(false)
     {
   set_omega(samples_per_symbol);
   set_relative_rate (1.0 / d_omega);
@@ -259,6 +274,8 @@ gardner_costas_cc_impl::general_work (int noutput_items,
 
   int i=0, o=0;
   gr_complex symbol, sample, nco;
+  gr_complex interp_samp, interp_samp_mid, diffdec;
+  float error_real, error_imag, symbol_error;
 
   while((o < noutput_items) && (i < ninput_items[0])) {
     while((d_mu > 1.0) && (i < ninput_items[0]))  {
@@ -293,6 +310,9 @@ gardner_costas_cc_impl::general_work (int noutput_items,
     }
     
     if(i < ninput_items[0]) {
+	// to mitigate tracking drift in the event of no input signal
+	// skip tracking on muted channel
+	if (!d_muted) {
 		float half_omega = d_omega / 2.0;
 		int half_sps = (int) floorf(half_omega);
 		float half_mu = d_mu + half_omega - (float) half_sps;
@@ -304,18 +324,19 @@ gardner_costas_cc_impl::general_work (int noutput_items,
 		// half_mu the fractional part, of the halfway mark.
 		// locate two points, separated by half of one symbol time
 		// interp_samp is (we hope) at the optimum sampling point 
-		gr_complex interp_samp_mid = d_interp->interpolate(&d_dl[ d_dl_index ], d_mu);
-		gr_complex interp_samp = d_interp->interpolate(&d_dl[ d_dl_index + half_sps], half_mu);
+		interp_samp_mid = d_interp->interpolate(&d_dl[ d_dl_index ], d_mu);
+		interp_samp = d_interp->interpolate(&d_dl[ d_dl_index + half_sps], half_mu);
 
-		float error_real = (d_last_sample.real() - interp_samp.real()) * interp_samp_mid.real();
-		float error_imag = (d_last_sample.imag() - interp_samp.imag()) * interp_samp_mid.imag();
-		gr_complex diffdec = interp_samp * conj(d_last_sample);
-		/* cpu reduction */ (void)slicer(std::arg(diffdec));
+		error_real = (d_last_sample.real() - interp_samp.real()) * interp_samp_mid.real();
+		error_imag = (d_last_sample.imag() - interp_samp.imag()) * interp_samp_mid.imag();
+		diffdec = interp_samp * conj(d_last_sample);
+		if (!d_muted)	// if muted, assume channel idle (suspend tuning error checks)
+			(void)slicer(std::arg(diffdec));
 		d_last_sample = interp_samp;	// save for next time
 #if 1
-		float symbol_error = error_real + error_imag; // Gardner loop error
+		symbol_error = error_real + error_imag; // Gardner loop error
 #else
-		float symbol_error = ((sgn(interp_samp) - sgn(d_last_sample)) * conj(interp_samp_mid)).real();
+		symbol_error = ((sgn(interp_samp) - sgn(d_last_sample)) * conj(interp_samp_mid)).real();
 #endif
 		if (std::isnan(symbol_error)) symbol_error = 0.0;
 		if (symbol_error < -1.0) symbol_error = -1.0;
@@ -326,11 +347,19 @@ gardner_costas_cc_impl::general_work (int noutput_items,
 #if VERBOSE_GARDNER
 		printf("%f\t%f\t%f\t%f\t%f\n", symbol_error, d_mu, d_omega, error_real, error_imag);
 #endif
+        } else {
+		symbol_error = 0;
+	} /* end of if (!d_muted) */
 		d_mu += d_omega + d_gain_mu * symbol_error;   // update mu based on loop error
 
+	if (!d_muted) {
 		phase_error_tracking(diffdec * PT_45);
-  
-      out[o++] = interp_samp;
+	} /* end of if (!d_muted) */
+
+      if (d_muted)  
+          out[o++] = 0.0;
+      else
+          out[o++] = interp_samp;
     }
   }
 

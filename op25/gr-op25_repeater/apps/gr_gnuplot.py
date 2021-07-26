@@ -58,7 +58,7 @@ def limit(a,lim):
 PSEQ = 0
 
 class wrap_gp(object):
-	def __init__(self, sps=_def_sps, logfile=None, title=None, color_cfg='plot-colors.json'):
+	def __init__(self, sps=_def_sps, logfile=None, title="", color_cfg='plot-colors.json'):
 		global PSEQ
 		self.sps = sps
 		self.center_freq = 0.0
@@ -270,16 +270,16 @@ class wrap_gp(object):
 			h += 'set format ""\n'
 			h += 'set style line 11 lt 1 lw 2 pt 2 ps 2\n'
 
-			h+= 'set title "Constellation" %s\n' % (label_color)
+			h+= 'set title "Constellation %s" %s\n' % (self.title, label_color)
 		elif mode == 'eye':
 			h+= background
 			h+= 'set yrange [-4:4]\n'
-			h+= 'set title "Datascope" %s\n' % (label_color)
+			h+= 'set title "Datascope %s" %s\n' % (self.title, label_color)
 			plot_color = ''
 		elif mode == 'symbol':
 			h+= background
 			h+= 'set yrange [-4:4]\n'
-			h+= 'set title "Symbol" %s\n' % (label_color)
+			h+= 'set title "Symbol %s" %s\n' % (self.title, label_color)
 		elif mode == 'fft' or mode == 'mixer':
 			h+= background
 			h+= 'unset arrow; unset title\n'
@@ -289,9 +289,9 @@ class wrap_gp(object):
 			h+= 'set grid\n'
 			h+= 'set yrange [-100:0]\n'
 			if mode == 'mixer':	# mixer
-				h+= 'set title "Mixer: balance %3.0f (smaller is better)" %s\n' % (np.abs(self.avg_sum_pwr * 1000), label_color)
+				h+= 'set title "Mixer %s: balance %3.0f (smaller is better)" %s\n' % (self.title, np.abs(self.avg_sum_pwr * 1000), label_color)
 			else:			# fft
-				h+= 'set title "Spectrum" %s\n' % (label_color)
+				h+= 'set title "Spectrum %s" %s\n' % (self.title, label_color)
 				if self.center_freq:
 					arrow_pos = (self.center_freq - self.relative_freq) / 1e6
 					h+= 'set arrow from %f, graph 0 to %f, graph 1 nohead\n' % (arrow_pos, arrow_pos)
@@ -299,7 +299,7 @@ class wrap_gp(object):
 		elif mode == 'float':
 			h+= background
 			h+= 'set yrange [-2:2]\n'
-			h+= 'set title "Oscilloscope" %s\n' % (label_color)
+			h+= 'set title "Oscilloscope %s" %s\n' % (self.title, label_color)
 		elif mode == 'correlation':
 			h+= background
 			title = 'Correlation'
@@ -358,6 +358,9 @@ class eye_sink_f(gr.sync_block):
         consumed = self.gnuplot.plot(in0, 100*self.sps, mode='eye')
         return consumed ### len(input_items[0])
 
+    def set_title(self, title):
+        self.gnuplot.set_title(title)
+
     def kill(self):
         self.gnuplot.kill()
 
@@ -376,6 +379,9 @@ class constellation_sink_c(gr.sync_block):
         in0 = input_items[0]
         self.gnuplot.plot(in0, 1000, mode='constellation')
         return len(input_items[0])
+
+    def set_title(self, title):
+        self.gnuplot.set_title(title)
 
     def kill(self):
         self.gnuplot.kill()
@@ -399,6 +405,9 @@ class fft_sink_c(gr.sync_block):
             in0 = input_items[0]
             self.gnuplot.plot(in0, FFT_BINS, mode='fft')
         return len(input_items[0])
+
+    def set_title(self, title):
+        self.gnuplot.set_title(title)
 
     def kill(self):
         self.gnuplot.kill()
@@ -436,6 +445,9 @@ class mixer_sink_c(gr.sync_block):
             self.gnuplot.plot(in0, FFT_BINS, mode='mixer')
         return len(input_items[0])
 
+    def set_title(self, title):
+        self.gnuplot.set_title(title)
+
     def kill(self):
         self.gnuplot.kill()
 
@@ -455,6 +467,9 @@ class symbol_sink_f(gr.sync_block):
         self.gnuplot.plot(in0, 2400, mode='symbol')
         return len(input_items[0])
 
+    def set_title(self, title):
+        self.gnuplot.set_title(title)
+
     def kill(self):
         self.gnuplot.kill()
 
@@ -473,6 +488,9 @@ class float_sink_f(gr.sync_block):
         in0 = input_items[0]
         self.gnuplot.plot(in0, 2000, mode='float')
         return len(input_items[0])
+
+    def set_title(self, title):
+        self.gnuplot.set_title(title)
 
     def kill(self):
         self.gnuplot.kill()

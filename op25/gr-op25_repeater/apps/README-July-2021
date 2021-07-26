@@ -1,0 +1,265 @@
+
+New features in this release (June, 2021)
+=========================================
+
+1. With thanks to OP25 user Triptolemus, the web client is enhanced to
+   include comprehensive logs of recent control channel signalling and
+   call activity.  Many other features are also added: 
+    * unit ID (subscriber ID) tagging - similar to the existing TGID
+      tags setup.
+    * tag color coding (for both TGID and SUID tags).
+    * tag ranges and wildcarding - for both the TGID and SUID tag maps,
+      a single definition line may be used to create tags for a range of
+      IDs.
+    * real time system frequency status table
+    * smart colors
+    * user settings (colors, preferences) may be edited and saved via a
+      convenient set of web forms and applications
+    * Experimental TDMA Control Channel support
+
+2. The multi_rx app adds extensions to include trunked P25 call following 
+   concurrent with full-time tracking of one or more P25 control channels.
+   If necessary, additional SDR devices may be configured to allow full
+   coverage of all control channels without loss of CC data even during voice
+   call reception.  Several new command line options to multi_rx have been
+   added - -T (trunking TSV file) -l (terminal type) as well as -X and -U,
+   all having the same meaning as in rx.py.
+
+3. Control channel logging to SQL database is added.  For details see the
+   section on the Flask Datatables App, below.
+
+Installation
+============
+
+First locate and change to your current OP25 install build/ directory and
+run the command
+     sude make uninstall
+
+Since this version includes library C++ code updates it requires a full
+source rebuild via the standard install script (install.sh).
+
+The installation will include one or more SDR receivers, depending
+on the the amount of spectrum utilized by the target trunking system, how
+many control channels are to be monitored concurrently, and whether voice
+call following is desired.
+
+ * When SQL logging is used, it is most desirable to keep the control channel
+   tuned in 100% of the time.  With a single SDR this is not possible when the
+   range of control channel and voice channel frequencies exceed the tuning band
+   of the SDR.  
+ * When voice call following is to be used, a separate voice channel must be
+   defined for each device over which voice reception is desired.  It is 
+   redundant to have more than one voice channel assigned to a given device.
+ * A separate SDR can be dedicated to voice call following if needed.  If there
+   is already a frequency-locked ("tunable"=false) device whose tuning band 
+   includes all desired voice frequencies, a separate voice SDR is not needed.
+ * This version of OP25 follows the same voice call system as in rx.py.
+   That is, a single call at a time is monitored and a 3-second (nominal)
+   time delay is applied at the end of each call to catch possible replies.
+ * A single device may be shared by multiple channels.  When more than one channel
+   is assigned to a device, the device should be tuned to a fixed frequency and 
+   "tunable" should be set to "false".
+
+Simplified example:  Of all frequencies (control and voice) in the system,
+the lowest frequency is 464.05 and the highest is 464.6.  An RTL-SDR having
+a maximum sample rate of 2.56 MHz is to be used.  Since the band required is
+0.55 MHz, a single SDR configuration can be used.  The sample rate for 
+this example, 2.56 MHz, could be reduced to 1.0 MHz to conserve CPU.
+
+NOTE: Proper logging of CC activity requires two things:
+      1) Device and/or channel resources must be allocated so that there
+         is 100% time coverage of the control channel.  Voice channel
+         operation on the same SDR can only occur when the entire system
+         fits within the SDR tuning band.
+      2) Control channel reception and demodulation must be 100% error-free.
+         Occasional errors are potentially corrected by the FEC but a better
+         course is to increase the receive SNR and/or decrease the system BER.
+
+Notes on JSON Configuration/Parameters
+======================================
+Example json config files are included in the apps/ directory.  You
+should choose one of these files (as described above) and make edits
+to a working copy of the file.  The name of the resulting JSON config
+file must be passed to multi_rx.py via the "-c" parameter.
+   cfg-trunk.json  - When all system frequencies (CC and VC) will fit
+                     within the SDR tuning band (without retuning the SDR),
+                     or voice decode is not needed.
+   cfg-trunk2.json - When two SDRs are needed to cover both CC and all VCs.
+   cfg-trunkx.json - Large system example with voice following and several CCs.
+
+There are several key values to note:
+"tunable"	In the single-SDR configuration where all system frequencies
+                (primary/secondary CCs and VCs) are within the SDR band,
+                you should set this to "false".  In this case the SDR is
+                fixed-tuned and remains on a single frequency, the center
+                frequency.  You must set the center frequency to a value
+                halfway between the lowest and highest frequencies in the
+                system, via the device "frequency" setting.
+"frequency"     See above.  When "tunable" is set to "true" this value must
+                be filled in.  Otherwise the value is used to set the device
+                frequency at startup time (must be a valid frequency for the
+                device).  The device will most likely be retuned one or more
+                times during execution.
+"decode"        Assists multi_rx in assigning channels to the proper device(s).
+                If the value of "decode" starts with the string "p25_decoder",
+                multi_rx uses the p25 decoder instead of its standard decoder.
+
+Note that "tunable" is a device-specific parameter, and that "decode" is a
+channel-specific parameter.  Also, while both the device and channel define
+the "frequency" parameter, the description above is for device entries.  A
+channel entry may also define a frequency, but the channel "frequency" parameter
+is ignored (in this version).
+
+When the p25_decoder is used, there is a parameter string consisting of a 
+colon-separated list of parameters with each parameter in the form "key=value",
+with the parameter string defined as the value of the "decode" parameter.
+
+Here are two examples:
+	"decode": "p25_decoder:role=cc:dev=rtl11:nac=0x4e1",   [control]
+	"decode": "p25_decoder:role=vc:dev=rtl12_vc",          [voice]
+The valid parameter keywords are:
+"p25_decoder"   Required for trunked P25.  This keyword introduces the
+                parameter list.  There is no value.
+"role"          Must be set to "vc" or "cc".
+"dev"           Must be set to the name of the device.  Each channel is
+                assigned to exactly one device.
+"nac"           Comma-separated list of NACs for the channel.  Only trunked
+                systems having a NAC in the list can be assigned to this
+                channel.
+"sysid"         Comma-separated list of SYSIDs for the channel.  Only trunked
+                systems having a SYSID in the list can be assigned to this
+                channel.
+
+The "nac" and "sysid" options are only checked for control channels ("role=cc").
+Values starting with "0x" are hexadecimal; otherwise decimal values are assumed .
+A blank/default value for "sysid" and/or "nac" indicates that parameter is not 
+checked.
+
+The following startup messages in the stderr log are typical in a 2-SDR config:
+    assigning channel "p25 control channel" (channel id 1) to device "rtl11_cc"
+    assigning channel "p25 voice channel" (channel id 2) to device "rtl12_vc"
+Note that the channel ID displayed in the "tuning error +/-1200" messages can be 
+linked to the specific device(s) encountering the error using this ID.
+
+Experimental TDMA Control Channel Support
+=========================================
+
+The following specifics detail the JSON configuration file channel parameters
+needed to define a TDMA control channel:
+        "demod_type": "cqpsk",
+        "if_rate": 24000,
+        "symbol_rate": 6000,
+	"decode": "p25_decoder:role=cc:dev=<device-name>:nac=0x4e1",
+The NAC should be changed to match that of the system being received, and
+<device-name> should refer to the assigned device.
+
+Colors and Tags for Talkgroup and Radio IDs
+===========================================
+Tags and colors are defined in two TSV files, one for TGIDs and one for SUIDs.
+The TSV file format, compatible with earlier versions of OP25 has the TAB
+separated columns defined as:
+column one: decimal TG or SU ID.  May contain wildcards (see below)
+column two: tag text (string)
+column three(optional): encoded priority/color value, decimal (see below)
+The color code is directly mapped by client JS into style sheet (CSS) colors.
+If only two columns are present the third column is defaulted to zero.
+
+The file names of the two files are specified (comma-separated) in the
+trunking TSV "TGID Tags File" column (the trunking TSV in turn is the
+file referred to by the "-T" command option of rx.py or multi_rx.py).
+The talkgroup tags file name is specified first, followed by a comma,
+then the SUID tags file.  The SUID tags file can't be specified alone.
+
+Wildcard IDs (column one) may be (for example)
+ * 123-678 [all IDs in range, inclusive, are set to same tag/color]
+ * 444.... [all IDs from 4440000 to 4449999]
+ * 456* [all IDs starting with 456]
+ * 54321 [defines that one ID]
+
+Column three contains a color value from 0-99 (decimal).
+In the TGID file (only), the column value also contains a talkgroup
+priority, encoded as follows:
+ - the low-order two decimal digits (tens and units digits) are the
+   color code
+ - the remaining upper-order decimal digits (hundreds digit and above) are
+   the priority value for talkgroup pre-emption purposes.
+
+Setup SQL Log Database (Optional)
+=================================
+
+This addition provides a permanent server-side log of control channel 
+activity via logging to an SQL database.  See the next section for details
+on installing and using the log viewer.
+
+1. Make sure that sqlite3 is installed in python
+
+          WARNING:          OP25 MUST NOT BE RUNNING DURING THIS STEP
+2. Initialize DB (any existing DB data will be destroyed)
+op25/.../apps$ python sql_dbi.py reset_db
+          WARNING:          OP25 MUST NOT BE RUNNING DURING THIS STEP
+
+3. Import talkgroups tags file
+op25/.../apps$ python sql_dbi.py import_tgid tags.tsv <sysid>
+   also, import the radio ID tags file (optional)
+op25/.../apps$ python sql_dbi.py import_unit radio-tags.tsv <sysid>
+   import the System ID tags file (see below)
+op25/.../apps$ python sql_dbi.py import_sysid sysid-tags.tsv 0
+
+The sysid tags must be a TSV file containing two columns
+column 1 is the P25 trunked sysid (int, decimal)
+colunn 2 is the System Name (text)
+(Note: there is no header row line in this TSV file).
+
+NOTE: in the various import commands above, the sysid (decimal) must follow
+as the next argument after the TSV file name.  For the sysid tags file, the
+sysid should be set to zero.
+
+4. Run op25 as usual.  Logfile data should be inserted into DB in real time
+   and you should be able to view activity via the OP25 http console (once 
+   the flask/datatables app has been set up; see next section).
+
+Setup Flask Datatables App
+==========================
+
+0. The DB must first be established (see previous section)
+
+1. Install the necessary libs.  If you are running the install in Ubuntu
+   16.04 there are two lines in the script that must be un-commented prior
+   to running; then, in any case do:
+op25/.../apps$ sh install-sql.sh
+
+Note: you may need to 'sudo apt install git' prior to running this script.
+
+2. Update your .bashrc file as instructed, then re-login to pick up the
+   update to PATH.  Verify that the updated PATH is correct.  You can run 
+   the command "echo $PATH" to display its current value.  Here is an example
+   response:  /home/op25/.local/bin:/usr/local/sbin:/usr/local/bin.....
+   You should confirm that the file "flask" exists and is executable (see 
+   warning below).
+
+ $ ls -l ~/.local/bin/flask
+-rwxr-xr-x 1 op25 op25 212 Apr 29 21:43 /home/op25/.local/bin/flask
+
+3. First change to the "..../apps/oplog" directory, then run the following
+   commands to start the flask http process (listens on port 5000)
+
+op25/.../apps/oplog$ export FLASK_APP=op25
+op25/.../apps/oplog$ FLASK_DEBUG=1 flask run
+
+WARNING: if you receive the following messages when attempting the "flask run"
+command 
+-------------------------------------------------------------
+Command 'flask' not found, but can be installed with:
+sudo apt install python3-flask
+-------------------------------------------------------------
+most likely this indicates the PATH is not properly set up (see step 2).
+In this case we do NOT recommend that you attempt to install the apt version
+of flask.  The install-sql.sh script (step 1, above) should have installed a
+version of flask in a directory such as:
+
+ $ ls -l ~/.local/bin/flask
+-rwxr-xr-x 1 op25 op25 212 Apr 29 21:43 /home/op25/.local/bin/flask
+
+If install of the apt version of flask is attempted, it may result in an 
+obsolete and/or incompatible flask version being installed.
+

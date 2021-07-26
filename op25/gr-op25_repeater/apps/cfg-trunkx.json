@@ -1,0 +1,98 @@
+{
+    "channels": [
+        {
+            "demod_type": "cqpsk", 
+            "destination": "udp://127.0.0.1:23456", 
+            "excess_bw": 0.2, 
+            "filter_type": "rc", 
+            "frequency": 0, 
+            "if_rate": 24000, 
+            "name": "Oswego CC", 
+            "plot": "symbol", 
+            "decode": "p25_decoder:role=cc:dev=rtl12:nac=0x2a4", 
+            "symbol_rate": 4800
+        },
+        {
+            "demod_type": "cqpsk", 
+            "destination": "udp://127.0.0.1:23456", 
+            "excess_bw": 0.2, 
+            "filter_type": "rc", 
+            "frequency": 0, 
+            "if_rate": 24000, 
+            "name": "Cayuga CC", 
+            "plot": "symbol", 
+            "decode": "p25_decoder:role=cc:dev=rtl12:nac=0x2a8", 
+            "symbol_rate": 4800
+        },
+        {
+            "demod_type": "cqpsk", 
+            "destination": "udp://127.0.0.1:23456", 
+            "excess_bw": 0.2, 
+            "filter_type": "rc", 
+            "frequency": 0, 
+            "if_rate": 24000, 
+            "name": "460 MHz VC", 
+            "plot": "symbol", 
+            "decode": "p25_decoder:role=vc:dev=rtl12", 
+            "symbol_rate": 4800
+        },
+        {
+            "demod_type": "cqpsk", 
+            "destination": "udp://127.0.0.1:23456", 
+            "excess_bw": 0.2, 
+            "filter_type": "rc", 
+            "frequency": 0, 
+            "if_rate": 24000, 
+            "name": "453-454 MHz VC", 
+            "plot": "symbol", 
+            "decode": "p25_decoder:role=vc:dev=rtl11", 
+            "symbol_rate": 4800
+        },
+        {
+            "demod_type": "cqpsk", 
+            "destination": "udp://127.0.0.1:56124", 
+            "excess_bw": 0.2, 
+            "filter_type": "rc", 
+            "frequency": 0, 
+            "if_rate": 24000, 
+            "name": "Onondaga CC",
+            "plot": "symbol", 
+            "decode": "p25_decoder:role=cc:dev=rtl12:nac=0x2a0", 
+            "symbol_rate": 4800
+        },
+        {
+            "demod_type": "cqpsk", 
+            "destination": "udp://127.0.0.1:56124", 
+            "excess_bw": 0.2, 
+            "filter_type": "rc", 
+            "frequency": 0, 
+            "if_rate": 24000, 
+            "name": "Cortland CC",
+            "plot": "constellation", 
+            "decode": "p25_decoder:role=cc:dev=rtl11:nac=0x4e1", 
+            "symbol_rate": 4800
+        }
+    ], 
+    "devices": [
+        {
+            "args": "rtl=00000012",
+            "frequency": 460500000, 
+            "gains": "lna:49", 
+            "name": "rtl12", 
+            "offset": 0, 
+            "ppm": 54, 
+            "rate": 1000000, 
+            "tunable": false
+        },
+        {
+            "args": "rtl=00000011",
+            "frequency": 453850000, 
+            "gains": "lna:49", 
+            "name": "rtl11", 
+            "offset": 0, 
+            "ppm": 55,
+            "rate": 2048000, 
+            "tunable": false
+        }
+    ]
+}

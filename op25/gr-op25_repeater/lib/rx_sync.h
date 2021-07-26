@@ -93,7 +93,7 @@ class rx_sync {
 public:
 	void rx_sym(const uint8_t sym);
 	void sync_reset(void);
-	rx_sync(const char * options, int debug, gr::msg_queue::sptr queue);
+	rx_sync(const char * options, int debug, gr::msg_queue::sptr queue, int msgq_id);
 	~rx_sync();
         void insert_whitelist(int grpaddr);
         void insert_blacklist(int grpaddr);
@@ -138,6 +138,7 @@ private:
 	int d_previous_nxdn_sr_structure;
 	int d_previous_nxdn_sr_ran;
 	uint8_t d_sacch_buf[72];
+	int d_msgq_id;
 };
 
     } // end namespace op25_repeater

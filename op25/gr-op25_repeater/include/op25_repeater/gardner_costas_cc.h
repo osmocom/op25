@@ -50,6 +50,10 @@ namespace gr {
       virtual void set_omega(float omega) {}
       virtual float get_freq_error(void) {}
       virtual int get_error_band(void) {}
+      virtual void set_muted(bool) {}
+      virtual bool is_muted(void) {}
+      virtual void set_tdma(bool) {}
+      virtual bool is_tdma(void) {}
     };
 
   } // namespace op25_repeater

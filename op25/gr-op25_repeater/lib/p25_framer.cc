@@ -33,8 +33,9 @@ static const int max_frame_lengths[16] = {
 };
 
 // constructor
-p25_framer::p25_framer(int debug) :
+p25_framer::p25_framer(int debug, int msgq_id) :
 	d_debug(debug),
+	d_msgq_id(msgq_id),
 	reverse_p(0),
 	nid_syms(0),
 	next_bit(0),
@@ -61,6 +62,7 @@ p25_framer::~p25_framer ()
  */
 bool p25_framer::nid_codeword(uint64_t acc) {
 	bit_vector cw(64);
+	uint64_t save_acc = acc;
 
 	// save the parity lsb, not used by BCH`
 	int acc_parity = acc & 1;
@@ -109,6 +111,7 @@ bool p25_framer::nid_codeword(uint64_t acc) {
  * Returns true when complete frame received, else false
  */
 bool p25_framer::rx_sym(uint8_t dibit) {
+	struct timeval currtime;
 	symbols_received++;
         bool rc = false;
 	dibit ^= reverse_p;
@@ -134,7 +137,7 @@ bool p25_framer::rx_sym(uint8_t dibit) {
 	if (nid_syms > 0) // if nid accumulation in progress
 		nid_syms++; // count symbols in nid
 
-	if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ P25_FRAME_SYNC_MAGIC, 6, 48)) {
+	if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ P25_FRAME_SYNC_MAGIC, 3, 48)) {
 		nid_syms = 1;
 	}
 	if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ P25_FRAME_SYNC_REV_P, 0, 48)) {
@@ -143,13 +146,16 @@ bool p25_framer::rx_sym(uint8_t dibit) {
 		fprintf(stderr, "Reversed FS polarity detected - autocorrecting\n");
 	}
 	if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ 0x001050551155LL, 0, 48)) {
-		fprintf(stderr, "tuning error -1200\n");
+		gettimeofday(&currtime, 0);
+		fprintf(stderr, "%010lu.%06lu channel %d tuning error -1200\n", currtime.tv_sec, currtime.tv_usec, d_msgq_id);
 	}
 	if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ 0xFFEFAFAAEEAALL, 0, 48)) {
-		fprintf(stderr, "tuning error +1200\n");
+		gettimeofday(&currtime, 0);
+		fprintf(stderr, "%010lu.%06lu channel %d tuning error +1200\n", currtime.tv_sec, currtime.tv_usec, d_msgq_id);
 	}
 	if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ 0xAA8A0A008800LL, 0, 48)) {
-		fprintf(stderr, "tuning error +/- 2400\n");
+		gettimeofday(&currtime, 0);
+		fprintf(stderr, "%010lu.%06lu channel %d tuning error +/- 2400\n", currtime.tv_sec, currtime.tv_usec, d_msgq_id);
 	}
 	if (next_bit > 0) {
 		frame_body[next_bit++] = (dibit >> 1) & 1;

@@ -66,9 +66,18 @@ namespace gr {
   void set_verbose (bool verbose) { d_verbose = verbose; }
 
   //! Sets value of omega and its min and max values 
-  void set_omega (float omega);
-  float get_freq_error(void);
-  int get_error_band(void);
+  inline void set_omega (float omega);
+  inline float get_freq_error(void);
+  inline int get_error_band(void);
+  inline void set_muted(bool v) {
+    if (v == false && d_muted == true) {
+      d_event_count = 0;  // mute state change from muted to unmuted
+    }
+    d_muted = v;
+  }
+  inline bool is_muted(void) { return d_muted; }
+  inline void set_tdma(bool v) { d_is_tdma = v; }
+  inline bool is_tdma(void) { return d_is_tdma; }
 
 protected:
   bool input_sample0(gr_complex, gr_complex& outp);
@@ -110,6 +119,8 @@ protected:
   float				d_fm;
   float				d_fm_accum;
   int				d_fm_count;
+  bool                          d_muted;
+  bool                          d_is_tdma;
 
   float phase_error_detector_qpsk(gr_complex sample);
   void phase_error_tracking(gr_complex sample);

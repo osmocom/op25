@@ -59,7 +59,8 @@ class p25_decoder_sink_b(gr.hier_block2):
                  do_msgq	= False,
                  msgq		= None,
                  audio_output	= _def_audio_output,
-                 debug		= _def_debug):
+                 debug		= _def_debug,
+                 msgq_id        = 0):
         """
 	Hierarchical block for P25 decoding.
 
@@ -100,7 +101,7 @@ class p25_decoder_sink_b(gr.hier_block2):
         if num_ambe > 1:
            num_decoders += num_ambe - 1
         for slot in range(num_decoders):
-            self.p25_decoders.append(op25_repeater.p25_frame_assembler(wireshark_host, udp_port, debug, do_imbe, do_output, do_msgq, msgq, do_audio_output, do_phase2_tdma))
+            self.p25_decoders.append(op25_repeater.p25_frame_assembler(wireshark_host, udp_port, debug, do_imbe, do_output, do_msgq, msgq, do_audio_output, do_phase2_tdma, msgq_id+slot))
             self.p25_decoders[slot].set_slotid(slot)
 
             self.xorhash.append('')

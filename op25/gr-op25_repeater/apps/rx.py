@@ -131,6 +131,7 @@ class p25_rx_block (gr.top_block):
         self.last_change_freq_at = time.time()
         self.last_freq_params = {'freq' : 0.0, 'tgid' : None, 'tag' : "", 'tdma' : None}
         self.next_status_png = time.time()
+        self.last_process_update = 0
 
         self.src = None
         if (not options.input) and (not options.audio) and (not options.audio_if) and (not options.args.startswith('udp:')):
@@ -210,7 +211,7 @@ class p25_rx_block (gr.top_block):
             print ('Ready for GDB to attach (pid = %d)' % (os.getpid(),))
             raw_input("Press 'Enter' to continue...")
 
-        self.input_q = gr.msg_queue(10)
+        self.input_q = gr.msg_queue(20)
         self.output_q = gr.msg_queue(10)
  
         # configure specified data source
@@ -346,7 +347,7 @@ class p25_rx_block (gr.top_block):
                 logfile_workers.append({'demod': demod, 'decoder': decoder, 'active': False})
                 self.connect(source, demod, decoder)
 
-        self.trunk_rx = trunking.rx_ctl(frequency_set = self.change_freq, debug = self.options.verbosity, conf_file = self.options.trunk_conf_file, logfile_workers=logfile_workers)
+        self.trunk_rx = trunking.rx_ctl(frequency_set = self.change_freq, debug = self.options.verbosity, conf_file = self.options.trunk_conf_file, logfile_workers=logfile_workers, send_event=self.send_event)
 
         self.du_watcher = du_queue_watcher(self.rx_q, self.trunk_rx.process_qmsg)
 
@@ -388,6 +389,7 @@ class p25_rx_block (gr.top_block):
         if params['tdma'] is not None:
             set_tdma = True
             self.decoder.set_slotid(params['tdma'])
+        self.demod.clock.set_tdma(set_tdma)
         if set_tdma == self.tdma_state:
             return	# already in desired state
         self.tdma_state = set_tdma
@@ -477,6 +479,7 @@ class p25_rx_block (gr.top_block):
         params = self.last_freq_params
         params['json_type'] = 'change_freq'
         params['fine_tune'] = self.options.fine_tune
+        params['current_time'] = time.time()
         js = json.dumps(params)
         msg = gr.message().make_from_string(js, -4, 0, 0)
         self.input_q.insert_tail(msg)
@@ -673,9 +676,29 @@ class p25_rx_block (gr.top_block):
         error = None
         if self.options.demod_type == 'cqpsk':
             error = self.demod.get_freq_error()
-        d = {'json_type': 'rx_update', 'error': error, 'fine_tune': self.options.fine_tune, 'files': filenames}
+        d = {'json_type': 'rx_update', 'error': error, 'fine_tune': self.options.fine_tune, 'files': filenames, 'time': time.time()}
         msg = gr.message().make_from_string(json.dumps(d), -4, 0, 0)
         self.input_q.insert_tail(msg)
+
+    def process_update(self):
+        UPDATE_INTERVAL = 1.0	# sec.
+        now = time.time()
+        if now < self.last_process_update + UPDATE_INTERVAL:
+            return
+        self.last_process_update = now
+        self.freq_update()
+        if self.trunk_rx is None:
+            return ## possible race cond - just ignore
+        js = self.trunk_rx.to_json()
+        msg = gr.message().make_from_string(js, -4, 0, 0)
+        self.input_q.insert_tail(msg)
+        self.process_ajax()
+
+    def send_event(self, d):	## called from trunking module to send json msgs / updates to client
+        if d and not self.input_q.full_p():
+            msg = gr.message().make_from_string(json.dumps(d), -4, 0, 0)
+            self.input_q.insert_tail(msg)
+        self.process_update()
 
     def process_qmsg(self, msg):
         # return true = end top block
@@ -689,14 +712,9 @@ class p25_rx_block (gr.top_block):
             # should only get here if python3
             s = s.decode()
         if s == 'quit': return True
-        elif s == 'update':
-            self.freq_update()
-            if self.trunk_rx is None:
-                return False	## possible race cond - just ignore
-            js = self.trunk_rx.to_json()
-            msg = gr.message().make_from_string(js, -4, 0, 0)
-            self.input_q.insert_tail(msg)
-            self.process_ajax()
+        elif s == 'update':	## deprecated here: to be removed
+            pass
+            # self.process_update()
         elif s == 'set_freq':
             freq = msg.arg1()
             self.last_freq_params['freq'] = freq

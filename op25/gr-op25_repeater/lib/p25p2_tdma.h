@@ -40,7 +40,7 @@
 class p25p2_tdma
 {
 public:
-	p25p2_tdma(const op25_audio& udp, int slotid, int debug, bool do_msgq, gr::msg_queue::sptr queue, std::deque<int16_t> &qptr, bool do_audio_output) ;	// constructor
+	p25p2_tdma(const op25_audio& udp, int slotid, int debug, bool do_msgq, gr::msg_queue::sptr queue, std::deque<int16_t> &qptr, bool do_audio_output, int msgq_id) ;	// constructor
 	int handle_packet(const uint8_t dibits[]) ;
 	void set_slotid(int slotid);
 	uint8_t* tdma_xormask;
@@ -83,12 +83,14 @@ private:
         uint8_t ess_keyid;
         uint16_t ess_algid;
 	uint8_t ess_mi[9] = {0};
+	int d_msgq_id;
 
 	p25p2_framer p2framer;
 
-	int handle_acch_frame(const uint8_t dibits[], bool fast) ;
+	int handle_acch_frame(const uint8_t dibits[], bool fast, bool is_lcch) ;
 	void handle_voice_frame(const uint8_t dibits[]) ;
 	int process_mac_pdu(const uint8_t byte_buf[], const unsigned int len) ;
+        void handle_mac_signal(const uint8_t byte_buf[], const unsigned int len) ;
         void handle_mac_ptt(const uint8_t byte_buf[], const unsigned int len) ;
         void handle_mac_end_ptt(const uint8_t byte_buf[], const unsigned int len) ;
         void handle_mac_idle(const uint8_t byte_buf[], const unsigned int len) ;
