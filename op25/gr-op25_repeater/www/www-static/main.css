@@ -25,11 +25,12 @@
 /* ------------- LIGHT MODE -------------------- */
 :root {                            		/* default */
 	--logo: url("op25.png");
+	--cbox: url("cx-lite.png");
 	--sysmsg-text: #666;  		 
 	--label-hold: #c00;			
     --syscrptro: #f00000;				/* encrypted text */
     
-    --bg-color: White;			  		/* main page background color */
+    --bg-color: #fff;			  		/* main page background color */
    	--sysmsg-background: #f9f9f9;
     --div-border-1: grey;		  		/* border color for a main div */
     --div-border-2: #ccc;				/* a lighter div border (sysMsg) */
@@ -40,6 +41,12 @@
     --button-bord-1: gray;
     --button-text-1: white;
     --button-text-2: black;
+
+    --table-grad-1: #31687e;	  		/* table headers gradient */
+    --table-grad-2: #56a0bd;
+	--table-header-text: #fff;    
+	   
+    --hover-1: #ddd;					/* Table hover */
     
     --status-grad-1: white; 			/* main display border fade effect */
     --status-grad-2: silver;
@@ -53,29 +60,47 @@
     --display-grad-2: White;	  		/* 2 is the middle, 1 is the upper/lower */
     
     --red-value: #f00000;				/* red text, others */
-    --value: #000;						/* main display, tg id, source, freq, and others */
+    --value: #000060;						/* main display, tg id, source, freq, and others */
     
     --system-text: #000060;				/* main display, system, talkgroup */
     --gray-text-1: #999;
     
     --default-text: #000;
+
     
    	--label: #484848;					/* misc lables */
 	--label-sm: #444;
+	
+	--input-background: #fff;
+	--input-background-2: #eee;	
+	--input-text: #000;
+	
+	/* talkgroup colors: */
+	--c1: #0066ff;						/* blue - SmartColor 1 */
+	--c2: #ff0000;						/* red  - SmartColor 2 */
+	--c3: #ff6600; 						/* orange - SmartColor 3 */
+	--c4: #000;							/* black */
+	--c5: #800080;						/* purple */
+	--c6: #00cc00;						/* lime green */
+	--c7: #009933;						/* green */
+	--c8: #cc9900;						/* yellow */
+	--c9: #a6a6a6;						/* gray */
+	--c10: #ff6666;						/* pink (!) */
+	--c11: #005580;						/* lighter blue */	
 }
 
 /* ------------- DARK MODE -------------------- */
 
 [data-theme="dark"] {
 	--logo: url("op25-dark.png");
+	--cbox: url("cx.png");
 	--sysmsg-text: #666; 
 	--label-hold: #ff0000;			
 	--syscrptro: #f00000;				/* encrypted text */
 
 	--bg-color: Black;			  		/* main page background color */
 	--sysmsg-background: #060606;
-
-	--div-border-1: grey;		  		/* border color for any old div */
+	--div-border-1: #444;		  		/* border color for any old div */
     --div-border-2: #ccc;				/*  a lighter div border (sysMsg) */
 	--div-background-1: #eee;
 
@@ -84,6 +109,12 @@
 	--button-bord-1: gray;
 	--button-text-1: yellow;
 	--button-text-2: white;
+
+	--table-grad-1: #444;	  			/* table headers */ 
+	--table-grad-2: black;
+	--table-header-text: #ddd;	
+
+    --hover-1: #333;					/* Table hover */
 
 	--status-grad-1: #cca300; 			/* main display border fade effect */
 	--status-grad-2: #0c0;	
@@ -106,6 +137,25 @@
 
 	--label: #eee;						/* misc lables */
 	--label-sm: #eee;
+
+	--input-background: #000;
+	--input-background-2: #111;	
+	--input-text: #fff;	
+	
+	
+	/* talkgroup & tag colors: */
+	--c1: #0066ff;						/* blue - SmartColor 1 */
+	--c2: #ff0000;						/* red  - SmartColor 2 */
+	--c3: #ff6600; 						/* orange */
+	--c4: #fff;							/* white */
+	--c5: #9966ff;						/* purple */
+	--c6: #00ff00;						/* lime green */
+	--c7: #009933;						/* green */
+	--c8: #ffff00;						/* yellow */
+	--c9: #eee;							/* gray */
+	--c10: #ff3355;						/* pink (!) */
+	--c11: #0080C0;						/* lighter blue */
+	
 }
 
 /* END DARK MODE */
@@ -113,6 +163,12 @@
 
 body {
 	background-color: var(--bg-color);
+}
+
+.main {
+  margin-top: 5px;
+/*   make margin-top 60px for fixed nav-bar, see also .nav-bar below. */
+
 }
 
 a {
@@ -128,36 +184,41 @@ a {
 }
  */
  
-#div_status table { 
-
+header {
+	/* empty */
+}
+ 
+#div_status table {  /* rx screen */
 	border-collapse: collapse;
-	font-family: "Courier New", Courier, Monospace;
+/* 	font-family: "Courier New", Courier, Monospace; */
+/* 	font-family: Arial, Helvetica, sans-serif; */
+	font-family: Verdana, Arial, Helvetica, sans-serif;	
 	border: 1px solid var(--div-border-1);
 	width: 100%;
 }
 
 
 #div_status th {
-	
+
 	border: 1px solid var(--div-border-1);
 	padding: 3px;
 	font-family: Arial, Helvetica, sans-serif;
-	color: var(--default-text);
+	color: var(--table-header-text);
 	font-weight: bold;
 	background: var(--button-grad-1); /* For browsers that do not support gradients */
-	background: linear-gradient(var(--button-grad-1), var(--button-grad-2));
+	background: linear-gradient(var(--table-grad-1), var(--table-grad-2));
 }
 
 #div_status td {
-
  	border: 0px solid var(--div-border-1);
 	padding: 3px;
-
+	font-size: 10pt;
 }
 
 #div_images table {
 	width: 730px; 
 	border: 1px solid var(--div-border-1);
+	background-color: black;
 }
 
 #div_s2 table {
@@ -165,7 +226,6 @@ a {
 	}
 
 #div_s2 td {
-
  	border-bottom: 1px solid var(--div-border-1);
 	border-top: 1px solid var(--div-border-1);
 	border-left: 0px;
@@ -174,12 +234,138 @@ a {
 	background: transparent;
 }
 
+.tt {
+	font-family:'Lucida Console', monospace;
+}
+
+.colorPicker {
+	/* 	use this to set the background color
+	    of the color picker widget, default for now */
+}
+
+.colorReplacer {
+	/* just the color picker button */
+	background: var(--div-border-2);
+}
+
+input[type="checkbox"] {
+    display:none;
+}
+
+input[type="checkbox"] + label {
+    color: var(--default-text);
+    font-family:Arial, sans-serif;
+    font-size:14px;
+}
+
+input[type="checkbox"] + label span {
+    display:inline-block;
+    width:19px;
+    height:19px;
+    margin:-1px 4px 0 0;
+    vertical-align:middle;
+    background:var(--cbox) left top no-repeat;
+    cursor:pointer;
+}
+
+input[type="checkbox"]:checked + label span {
+    background:var(--cbox) -19px top no-repeat;
+}
+
+
+select {
+  margin: 0px 10px 0px 0px;
+  width: 150px;
+  padding: 2px 2px 2px 2px;
+  font-size: 14px;
+  border: 0px solid var(--div-border-2);
+  height: 20px;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  color: var(--default-text);
+  background: url(da.png) 100% / 20% no-repeat var(--sysmsg-background);
+}
+
+button {
+	border-color: var(--button-bord-1);
+	color: var(--button-text-1);
+	padding: 4px 6px 8px 6px;
+	text-decoration: none;
+	margin: 1px 1px 1px 1px;
+	cursor: pointer;
+	font-size: 14px;
+	box-shadow: 0 1px 1px 0 rgba(0,0,0,0.2), 0 2px 5px 0 rgba(0,0,0,0.19);
+	background: var(--button-grad-1); /* For browsers that do not support gradients */
+	background: linear-gradient(var(--button-grad-1), var(--button-grad-2)); 
+}
+
+button:hover {
+	background: linear-gradient(var(--button-grad-2), var(--button-grad-1)); 
+}
+
+.btn {
+	color: var(--button-text-1);
+}
+
+.btnExp {
+	color: var(--button-text-2);
+	background-color: var(--bg-color);
+	background: none;
+	float: right;
+	border: 0px solid var(--div-border-1);
+	cursor: pointer;
+}
+
+/* CAUTION: IE hackery ahead */
+select::-ms-expand { 
+    display: none; /* remove default arrow on ie10 and ie11 */
+}
+
+/* target Internet Explorer 9 to undo the custom arrow */
+@media screen and (min-width:0\0) {
+    select {
+        background:none\9;
+        padding: 5px\9;
+    } 
+}
+
+.time {  /* 24 hour time hh:mm:ss -- not currently used */
+	text-overflow: hidden;
+	max-width: 8ch;
+}
+
+.historyLabel {
+ 	width: 725px;
+/* 
+	background: linear-gradient(
+		180deg, var(--bg-color) calc(50% - 1px), 
+		var(--div-border-1) calc(50%), 
+		var(--bg-color) calc(50% + 1px)
+    );
+ */
+
+ 	vertical-align: bottom;
+ 	border-collapse: collapse;
+/*  	height: 48px; */
+	border: 0px solid var(--div-border-1);
+	margin: 0px 0px 0px 1px;
+	padding: 0px 6px 4px 6px;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: var(--default-text);
+	font-weight: normal;
+}
+
+.hlabel {
+	background-color: var(--bg-color);
+}
+
 .history {
  	width: 705px;
  	border-collapse: collapse;
 	border: 1px solid var(--div-border-1);
 	padding: 3px;
-	font-family: Arial, Helvetica, sans-serif;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
 	color: var(--default-text);
 	font-weight: normal;
 }
@@ -189,21 +375,43 @@ a {
 	border: 1px solid var(--div-border-1);
 	color: var(--default-text);
 	padding: 3px;
+}
 
+.history th {
+	background: var(--button-grad-1); /* For browsers that do not support gradients */
+	background: linear-gradient(var(--table-grad-1), var(--table-grad-2));
+	color: var(--table-header-text);
+/* 	fixed table heading */
+	position: -webkit-sticky;
+	position: sticky;
+	top: 0;
+	z-index: 2;	
+}
+
+.history td {
+	font-size: 10pt;
+}
+
+.plot td {
+	text-align: center; 
 }
 
 #div_logs {
 	width: 730px;
 }
 
+#bandplan th, td {
+/* 	background: none; */
+	border: 0px solid;
+}
+
 hr {
-	width: 730px;
+	width: 718px;
 	float: left;
     padding: 0px;
 }
 
 .control-button { /* skip/hold/lockout buttons */
-
 	border-color: var(--button-bord-1);
 	height: 42px;
 	color: var(--button-text-1);
@@ -211,7 +419,7 @@ hr {
 	text-decoration: none;
 	margin: 1px 1px;
 	cursor: pointer;
-	width: 100px;
+	width: 98px;
 	font-size: 14px;
 	font-weight: bold;
 	box-shadow: 0 1px 1px 0 rgba(0,0,0,0.2), 0 2px 5px 0 rgba(0,0,0,0.19);
@@ -224,7 +432,7 @@ hr {
 }
 	
 .controlsDisplay { /* holds buttons, and display */
- 	width: 730px;
+ 	width: 725px;                /* 730 */
 	border: 0px solid var(--div-border-1);
 	vertical-align: top;
 	height: 178px;
@@ -237,7 +445,7 @@ hr {
 .controls { /* skip/hold/lockout buttons   (1) */ 
 
 	border: 1px solid var(--button-bord-1);
-	width: 104px;
+	width: 100px;
 	float: left;
 	height: 100%;
 	text-align: center;
@@ -251,7 +459,7 @@ hr {
 
 .displaySettings {
 	border: 1px solid var(--div-border-1); 
-	padding: 5px; 
+	padding: 0px; 
 	width: 720px;
 
 }
@@ -278,7 +486,23 @@ hr {
 	background-image: var(--logo);
 	background-repeat: no-repeat;
 	background-position: right;
-	border: 1px solid var(--div-border-2);
+	border: 1px solid var(--div-border-1);
+  	font-family: Arial, Helvetica, sans-serif;
+  	color: var(--sysmsg-text);
+  	font-size: 8pt;  
+}
+
+.aboutMsg {  /* OP25 logo and message box on right   (3) */
+	padding: 0px;
+	/* display: inline-block; */
+	float: right; /* works left or right, right gives margin in between this & 2 */
+  	width: 95px;
+	height: 99%;
+  	background-color: var(--sysmsg-background);
+	background-image: var(--logo);
+	background-repeat: no-repeat;
+	background-position: right;
+	border: 0px solid var(--div-border-2);
   	font-family: Arial, Helvetica, sans-serif;
   	color: var(--sysmsg-text);
   	font-size: 8pt;  
@@ -318,7 +542,7 @@ div.adjacent {  /* adjacent sites container that holds the table */
 }
 
 .label {
-	font-family: Arial, Helvetica, sans-serif;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
 	color: var(--label);
 }
 
@@ -333,14 +557,14 @@ div.adjacent {  /* adjacent sites container that holds the table */
 }
 
 .label-sm {
-	font-family: Arial, Helvetica, sans-serif;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
 	color: var(--label-sm);
 	font-size: 8pt;
 	padding: 2px;
 }
 
 .label-lc {  /* Last Command text */
-	font-family: Arial, Helvetica, sans-serif;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
 	color: var(--label-sm);
 	font-size: 8pt;
 	padding: 2px;
@@ -376,7 +600,6 @@ div.adjacent {  /* adjacent sites container that holds the table */
 	font-weight: bold;
 	text-align: left;
 }
-
 
 .nac {  /* the whole NAC string... NAC, freq tsbks, etc. */
 	font-family: Arial, Helvetica, sans-serif;
@@ -419,6 +642,7 @@ div.adjacent {  /* adjacent sites container that holds the table */
 	float: left;
 	border-right: 1px solid var(--div-border-1);
 	background: linear-gradient(var(--nav-grad-1), var(--nav-grad-2));
+
 }
 
 .nav-li-active {
@@ -430,7 +654,17 @@ div.adjacent {  /* adjacent sites container that holds the table */
 	width: 730px;
 	padding: 0;
 	border: 1px solid var(--div-border-1);
+
+	
+/* 	uncomment below for fixed top nav-bar */
+/* 
+		position: fixed;         
+		top: 5px;
+		z-index: 99;
+ */
 }
+
+
 
 .nav-button {
 	background-color: var(--nav-background);
@@ -443,7 +677,6 @@ div.adjacent {  /* adjacent sites container that holds the table */
 	font-size: 14px;
 	font-weight: bold;
 }
-
 
 .nav-button-active {
 	background-color: var(--button-grad-2);
@@ -461,6 +694,7 @@ div.adjacent {  /* adjacent sites container that holds the table */
 	background-color: var(--button-grad-2);
 	background: linear-gradient(var(--button-grad-2), var(--button-grad-1));
 	color: var(--button-text-1);
+	cursor: pointer;
 }
 
 .nav-button-active:hover {
@@ -468,6 +702,7 @@ div.adjacent {  /* adjacent sites container that holds the table */
 	background: linear-gradient(var(--button-grad-1), var(--button-grad-2));
 	color:    var(--button-text-1);
 }
+/* 
 
 #div_settings table {
 	border-color:	var(--div-border-1);
@@ -500,9 +735,202 @@ div.adjacent {  /* adjacent sites container that holds the table */
 	font-weight: bold;
 	text-align:  right;
 }
+ */
 
+
+.dsettings {
+ 	width: 730px;
+ 	border-collapse: collapse;
+	border: 1px solid var(--div-border-1);
+	padding: 3px;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: var(--default-text);
+	font-weight: normal;
+}
+
+.dsettings th, td {
+ 	border-collapse: collapse;
+	border: 1px solid var(--div-border-1);
+	color: var(--default-text);
+	padding: 5px;
+}
+
+.dsettings th {
+	color: var(--table-header-text);
+	background: var(--button-grad-1); /* For browsers that do not support gradients */
+	background: linear-gradient(var(--table-grad-1), var(--table-grad-2));
+}
+
+.dsettings td {
+	padding: 10px;
+	font-size: 10pt;
+	border: 1px solid var(--div-border-1);	
+}
+
+.dsettings input[type="text"] {
+	height: 14px;
+	width: 75%;
+	padding: 4px;
+	font-size: 12pt;
+	background-color: var(--input-background-2);
+	color: var(--input-text);
+	border: 0px solid var( --div-border-1);
+    border-radius: 4px;
+}
+
+
+.editor {
+ 	width: 705px;
+ 	border-collapse: collapse;
+	border: 1px solid var(--div-border-1);
+	padding: 3px;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: var(--default-text);
+	font-weight: normal;
+	
+}
+
+.editor th, td {
+ 	border-collapse: collapse;
+	border: 1px solid var(--div-border-1);
+	color: var(--default-text);
+	padding: 3px;
+}
+
+.editor th {
+	color: var(--table-header-text);
+	background: var(--button-grad-1); /* For browsers that do not support gradients */
+	background: linear-gradient(var(--table-grad-1), var(--table-grad-2));
+
+/* 	fixed table heading */
+	position: -webkit-sticky;
+	position: sticky;
+	top: 0;
+	z-index: 2;	
+}
+
+.editor td {
+	font-size: 10pt;
+	border: 1px solid var(--div-border-1);	
+}
+
+#editor input {
+	height: 28px;
+	width: 95%;
+	padding: 4px;
+	font-size: 12pt;
+	background-color: var(--input-background);
+	color: var(--input-text);
+	border: 0px solid var( --div-border-1);
+    border-radius: 4px;
+}
+
+input[type="file"] {
+	height: 28px;
+	padding: 4px;
+	background-color: var(--input-background);
+	color: var(--input-text);
+	border: 1px solid var( --div-border-1);
+    border-radius: 4px;
+}
+
+#editor .delbutton {
+	color: var(--red-value);
+	background-color: var(--input-background);	
+}
+
+#editor-help {
+	font-family: Verdana, Arial, Helvetica, sans-serif;	
+	width: 696px;
+	padding: 4px;
+	background-color: var(--input-background);
+	color: var(--default-text);
+	border: 1px solid var( --div-border-1);
+    border-radius: 4px;
+}
+
+.tsv-controls {
+/* 	position: fixed; */
+	background-color: var(--bg-color);
+	width: 100%;
+}
+
+#save-div {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+	background-color: var(--bg-color);
+}
+
+#editor .savebutton {
+	/* empty */
+}
+
+#editor .newtg {
+	color: var(--system-text:);
+	animation: blinker 2s linear infinite;
+}
+
+.tsv {
+ 	width: 705px;
+ 	border-collapse: collapse;
+	border: 0px solid var(--bg-color);
+	padding: 3px;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: var(--default-text);
+	font-weight: normal;
+}
+
+.tsv td, tr {
+ 	border-collapse: collapse;
+	border: 0px;
+}
+
+
+.footer {
+  position: fixed;
+  left: 5;
+  border: 2px solid var(--div-border-1);  
+  bottom: 0;  
+  width: 702px;
+  background-color: var(--sysmsg-background);
+  color: white;
+  text-align: center;
+  height: 4rem;
+}
+
+
+#displaySettings input[type=text] {
+	width: 400px;
+	height: 24px;
+	padding: 4px;
+	background-color: var(--input-background);
+	color: var(--input-text);
+	border: 1px solid var( --div-border-1);
+    border-radius: 4px;
+}
+
+.scolor {
+ 	width: 500px;
+ 	border-collapse: collapse;
+	border: 0px solid var(--div-border-1);
+	padding: 3px;
+	font-family: Verdana, Arial, Helvetica, sans-serif;
+	color: var(--default-text);
+	font-weight: normal;
+	
+}
+
+.scolor th, td {
+ 	border-collapse: collapse;
+	border: 0px solid var(--div-border-1);
+	color: var(--default-text);
+	padding: 3px;
+}
+
+/* 
 #div_settings input[type=text] {
-	max-width: 75px;
+	max-width: 200px;
 	border-top: none;
 	border-bottom-width: 1px;
 	border-bottom: dotted;
@@ -510,6 +938,7 @@ div.adjacent {  /* adjacent sites container that holds the table */
 	border-left: none;
 	text-align:  right;
 }
+ */
 
 #div_settings input[type=button] {
 	max-width: 75px;
@@ -569,11 +998,366 @@ div#cfg_list_area select {
 	height: 178px;
 	padding: 2px;
 	box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 3px 10px 0 rgba(0,0,0,0.19);
-	background: var(--display-grad-1); /* For browsers that do not support gradients */
-	background: linear-gradient(var(--display-grad-1), var(--display-grad-2), var(--display-grad-1));	 
+	background: var(--sysmsg-background); /* For browsers that do not support gradients */
+/* 	background: linear-gradient(var(--display-grad-1), var(--display-grad-2), var(--display-grad-1));	 */ 
 }
 
 .aboutLogo {
 	height: 178px;
 	background-image: var(--logo);
 }
+
+.c {
+	/* no color selected */
+}
+
+@keyframes blinker {
+  50% {
+    opacity: 0;
+  }
+}
+
+/* 
+.example_blinker {
+	color: var(--c1);
+	background-color: var(--c3);
+	animation: blinker 1s linear infinite;
+}
+*/
+ 
+.enc {    /* the enc symbol in the freq table */
+	font-size: 9pt;
+	color: var (--default-text);
+	animation: blinker 1s linear infinite;
+}
+
+.c0 {
+	/*  no color, leave blank so parent can color the element */
+}
+/* 
+
+.c1 {
+	color: var(--c1);
+}
+
+.c2 {
+	color: var(--c2);
+}
+
+.c3 {
+	color: var(--c3);
+}
+
+.c4 {
+	color: var(--c4);
+}
+
+.c5 {
+	color: var(--c5);
+}
+
+.c6 {
+	color: var(--c6);
+}
+
+.c7 {
+	color: var(--c7);
+}
+
+.c8 {
+	color: var(--c8);
+}
+
+.c9 {
+	color: var(--c9);
+}
+
+.c10 {
+	color: var(--c10);
+}
+
+.c11 {
+	color: var(--c11);
+}
+
+.c97 {
+	color: var(--c8);
+	background-color: var(--c1);
+	animation: blinker 1.5s linear infinite;
+}
+
+.c98 {
+	color: white;
+	background-color: var(--c1);
+	animation: blinker 1.5s linear infinite;
+}
+
+.c99 {
+	color: var(--c4);
+	background-color: var(--c10);
+	animation: blinker 1.5s linear infinite;
+}
+ */
+
+table.fixed {
+	table-layout: fixed;
+	border-collapse: collapse; 	
+}
+
+table.fixed td {
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+table.fixed tr {
+	border-bottom: 1px solid var(--hover-1);
+}
+
+
+table.fixed tr:hover {
+  background-color: var(--hover-1);
+}
+
+
+table.rxsys {
+	table-layout: fixed;
+}
+
+table.rxsys td {
+/* 
+	overflow: hidden;
+	white-space: nowrap;
+ */
+}
+
+table.rxsys tr:hover {
+  background-color: var(--hover-1);
+}
+
+
+#searchInput {
+  background-image: url('search.png');
+  background-position: 10px 10px;
+  background-repeat: no-repeat;
+  background-color: var(--sysgmsg-background);
+  color: var(--default-text);
+  width: 100%;
+  font-size: 16px;
+  padding: 12px 20px 12px 40px;
+  border: 1px solid var(--div-border-1);
+  margin-bottom: 12px;
+}
+
+#searchTable {
+  border-collapse: collapse;
+  width: 100%;
+  border: 1px solid var(--div-border-1);
+  font-size: 18px;
+}
+
+#searchTable th, #myTable td {
+  text-align: left;
+  padding: 12px;
+}
+
+#searchTable tr {
+  border-bottom: 1px solid var(--div-border-1);
+}
+
+#searchTable tr.header, #searchTable tr:hover {
+  background-color: var(--div-border-1);
+}
+
+/* these are the little divs for the search box and css download icon in the search windows */
+.stc {
+   height: auto;
+   overflow: hidden;
+}
+
+.sr {
+    width: 40px;
+    float: right;
+
+}
+
+.sl {
+    width: auto;
+    overflow: hidden;
+}
+
+
+/* Custom dialog styles */
+#popup_title {
+	font-size: 14px;
+	font-weight: bold;
+	text-align: center;
+	line-height: 1.75em;
+	color: #FFFFFF;
+	background: #006699;
+	border: solid 1px #006699;
+	border-bottom: solid 1px #006699;
+	cursor: default;
+	padding: 0em;
+	margin: 0em;
+}
+
+#popup_container {
+	font-family: AntipastoRegular, sans-serif;
+	font-size: 14px;
+	min-width: 300px; /* Dialog will be no smaller than this */
+	max-width: 600px; /* Dialog will wrap after this width */
+	background: #FFFFFF;
+	border: solid 5px #006699;
+	color: #000000;
+	-moz-border-radius: 5px;
+	-webkit-border-radius: 5px;
+	border-radius: 5px;
+}
+
+#popup_content {
+	/*background: 16px 16px no-repeat url(images/info.gif);*/
+	padding: 1em 1.75em;
+	margin: 0em;
+}
+
+/*
+#popup_content.alert {
+	background-image: url(images/info.gif);
+}
+
+#popup_content.confirm {
+	background-image: url(images/important.gif);
+}
+
+#popup_content.prompt {
+	background-image: url(images/help.gif);
+}
+*/
+
+#popup_message {
+	/*padding-left: 10px;*/
+	margin:0px auto;
+}
+
+#popup_panel {
+	text-align: center;
+	margin: 1em 0em 0em 1em;
+}
+
+#popup_prompt {
+	margin: .5em 0em;
+}
+
+
+#popup_container INPUT[type='button'] {
+    width: 100px;
+	height: 30px;
+	border: outset 2px #006699;
+	color: #FFFFFF;
+	background: #006699;
+}
+
+
+/* some expiremental stuff below, not being used. */
+
+
+/* signal stuff is for a signal strength indicator (3 bars) */
+/* not currently used */
+
+.signal-icon {
+  height: 18px;
+  width: 18px;
+  /* To show you the power of flexbox! */
+  display: flex;
+  /* Bars should be placed left to right */
+  flex-direction: row;
+  /* Evenly space the bars with space in between */
+  justify-content: space-between;
+  /* Sink the bars to the bottom, so they go up in steps */
+  align-items: baseline;
+}
+.signal-icon .signal-bar {
+  /* 4 + 3 + 4 + 3 + 4 = 18px (as set above)
+     4px per bar and 3px margins between */
+  width: 4px;
+  /* All bars faded by default */
+  opacity: 30%;
+  /* Choose a color */
+  background: #aa2200;
+}
+
+/* 3 different heights for 3 different bars */
+.signal-icon .signal-bar:nth-child(1) { height: 40%; }
+.signal-icon .signal-bar:nth-child(2) { height: 70%; }
+.signal-icon .signal-bar:nth-child(3) { height: 100%; }
+
+/* Emphasize different bars depending on
+   weak/medium/strong classes */
+.signal-icon.weak .signal-bar:nth-child(1),
+.signal-icon.medium .signal-bar:nth-child(1),
+.signal-icon.medium .signal-bar:nth-child(2),
+.signal-icon.strong .signal-bar:nth-child(1),
+.signal-icon.strong .signal-bar:nth-child(2),
+.signal-icon.strong .signal-bar:nth-child(3)
+{ opacity: 100%; }
+
+
+/* spinner */
+.loader {
+  display: block;
+  margin-left: 350px;
+  margin-right: auto;
+  position: absolute;
+  display: none;
+  width: 40%;
+  border: 8px solid var(--div-border-1);
+  border-radius: 50%;
+  border-top: 8px solid var(--div-border-2);
+  width: 25px;
+  height: 25px;
+  -webkit-animation: spin 2s linear infinite; /* Safari */
+  animation: spin 2s linear infinite;
+}
+
+/* Safari */
+@-webkit-keyframes spin {
+  0% { -webkit-transform: rotate(0deg); }
+  100% { -webkit-transform: rotate(360deg); }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+
+/* 
+Start by setting display:none to make this hidden.
+   Then we position it in relation to the viewport window
+   with position:fixed. Width, height, top and left speak
+   for themselves. Background we set to 80% white with
+   our animation centered, and no-repeating   
+.modal {
+    display:    none;
+    position:   fixed;
+    z-index:    1000;
+    top:        0;
+    left:       0;
+    height:     100%;
+    width:      100%;
+    background: rgba( 255, 255, 255, .8 ) 
+                url('FhHRx.gif') 
+                50% 50% 
+                no-repeat;
+}
+
+When the body has the loading class, we turn
+   the scrollbar off with overflow:hiddenbody.loading .modal {
+    overflow: hidden;   
+}
+
+Anytime the body has the loading class, our
+   modal element will be visiblebody.loading .modal {
+    display: block;
+}
+ */

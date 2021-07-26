@@ -1,0 +1,66 @@
+<div id="editor-help">
+        <table class="tsv">
+            <tr colspan="2">
+               <td>
+                  <div id="title" class="nac" style="font-weight: normal;">TSV Editor Help</div>
+               </td>
+               <td>
+                  <p align="right"><a href="#" onclick="closeHelp();" style="text-decoration: none;" title="Close Help">&#x274C;</a>&nbsp;&nbsp;</p>
+               </td>
+            </tr>
+	</table>
+
+   Hint: Navigate to the TSV entry by double-clicking on the entry in the Call History table or the Active Frequency table. The script cannot (currently) navigate to range values.
+
+   	<h3>Saving Data</h3>
+
+   	After editing, click Save Talkgroups or Save Source IDs. The TSV file will be written to the server, and the Reload TSV command will be sent automatically to OP25.<br><br>
+   	
+   	Force TSV Reload:  <button onclick="this.blur(); command_reload_tsv(nac);" id="btnReload" title="Send Relaod TSV Command to Server">OP25 Reload IDs</button>
+	
+   	<br><br><span class="red_value">Important: </span>After creating a new entry, click Save. After deleting an entry or multiple enteries, click Save. If not, the changes will be abandoned.	
+	<br>
+	
+   <h3>Creating and Deleting Enteries</h3>
+
+   <h3>Talkgroup IDs</h3>
+
+	   <b>Talkgroup ID Field</b> <br> Can be one of either 1) specific value 2) range of values 3) wildcard values:<br><br>
+
+	   <b>Specific Value: 123456</b> <br> Matches ID 123456    <br><br>
+
+	   <b>Range of Value: 123* </b> <br> Match any ID starting with 123 <br><br>
+
+	   <b>Range of Value: 123... </b> <br> Match 123456 but not 1234567 (length is checked) (dot dot dot ) <br>
+
+	   <b>Range of Value: 1234-1250 </b><br> Matches the range (inclusive of first and last)<br><br>		
+
+   <h3>Priority / Color Field - Talkgroups</h3>
+
+   	A three value 0 through 999 where the first digit represents priority and the last 2 digits represent the CSS color code. (See Config tab, Show Colors button in the OP25 ui.)<br>
+
+	   <br>Example: 502: Priority 5, color 02 - 914:Priority 9, Color 12
+
+	   Higher priority value (9) = greatest priority.<br><br>
+	   
+	   <button onclick="this.blur(); displayColors();">Show Colors</button> &nbsp;&nbsp; Display color codes for use in TSV files.
+
+   <h3>Source IDs</h3>
+
+	   <b>Source ID Field</b> <br> Can be one of either 1) specific value 2) range of values 3) wildcard values:<br><br>
+
+	   <b>Specific Value: 123456</b> <br> Matches ID 123456    <br>
+
+	   <b>Range of Value: 123* </b> <br> Match any ID starting with 123 <br>
+
+	   <b>Range of Value: 123... </b> <br> Match 123456 but not 1234567 (length is checked) (dot dot dot ) <br>
+
+	   <b>Range of Value: 1234-1250 </b> <br> Matches the range (inclusive of first and last)<br>		
+
+   <h3>Priority / Color Field - Sources</h3>
+
+	   A single value 0 through 99 corresponding to the CSS colors. (See Config tab, Show Colors button in the OP25 ui.)
+	   
+	   
+</div>
+<br><br><br><br><br><br><br>

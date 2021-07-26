@@ -1,6 +1,4 @@
-
-// Copyright 2017, 2018, 2019, 2020 Max H. Parke KA1RBI
-// Copyright 2020, 2021 Michael Rose
+// Copyright 2017, 2018, 2019, 2020, 2021 Max H. Parke KA1RBI
 // 
 // This file is part of OP25
 //
@@ -19,9 +17,9 @@
 // Software Foundation, Inc., 51 Franklin Street, Boston, MA
 // 02110-1301, USA.
 
-var d_debug = 0;
-var update_interval = 500;              // UI update interval, ms (default=1000)
+var lastUpdated = "15-Jul-2021";
 
+var d_debug = 0;
 var http_req = new XMLHttpRequest();
 var counter1 = 0;
 var error_val = null;
@@ -41,662 +39,1426 @@ var summary_mode = true;
 var enable_changed = false;
 var enable_status = [];
 var last_srcaddr = [];
+var last_srctag = [];
 var last_alg = [];
 var last_algid = [];
 var last_keyid = [];
+var tgid_files = {};
+var srcid_files = {};
+var channel_id = {};
+var event_source = null;  // must be in global scope for Babysitter to work.
 
-function find_parent(ele, tagname) {
-    while (ele) {
-        if (ele.nodeName == tagname)
-            return (ele);
-        else if (ele.nodeName == "HTML")
-            return null;
-        ele = ele.parentNode;
-    }
-    return null;
-}
+window.g_change_freq = [];
+window.g_cc_event = [];
+window.src = [];
 
-function f_command(ele, command) {
-    var myrow = find_parent(ele, "TR");
-    var mytbl = find_parent(ele, "TABLE");
-    amend_d(myrow, mytbl, command);
-}
+var intvAlias = null;
+var intvCss = null;
+localStorage.AliasTableUpdated == true;
+localStorage.ColorsTableUpdated == true;
 
-function edit_freq(freq, to_ui) {
-	var MHZ = 1000000.0;
-	if (to_ui) {
-		var f = (freq / MHZ) + "";
-		if (f.indexOf(".") == -1)
-			f += ".0";
-		return f;
-	} else {
-		var f = parseFloat(freq);
-		if (freq.indexOf("."))
-			f *= MHZ;
-		return Math.round(f);
+var encsym = "&#x2205;";
+
+const zeroPad = (num, places) => String(num).padStart(places, '0');  	// leading zeros for single digit time values
+
+function do_onload() {
+    $('#div_status').show(window.animateSpeed);
+    $('#babysitter').hide();
+    $('#b1').addClass('nav-button-active');
+    $('#uiupdated').html(lastUpdated);
+    document.documentElement.setAttribute('data-theme', 'dark');
+    window.siteAlias = null;
+    getSiteAlias();
+    intvAlias = setInterval(getSiteAlias, 5000);
+	beginJsonSettings(); 
+	generateCSS();
+    intvCss = setInterval(generateCSS, 4000);
+    resetFileReload = setInterval(rstFileReload, 12000)	
+	connect();
+	accColorSel();
+	for (i = 1; i < 100; i ++) {
+		$('#unk_default').append(new Option(i, i));
 	}
+	window.animateSpeed = $('#ani_speed').val();
 }
 
-function edit_d(d, to_ui) {
-	var new_d = {};
-	var hexints = {"nac":1};
-	var ints = {"if_rate":1, "ppm":1, "rate":1, "offset":1, "nac":1, "logfile-workers":1, "decim-amt":1, "seek":1, "hamlib-model":1 };
-	var bools = {"active":1, "trunked":1, "rate":1, "offset":1, "phase2_tdma": 1, "phase2-tdma":1, "wireshark":1, "udp-player":1, "audio-if":1, "tone-detect":1, "vocoder":1, "audio":1, "pause":1 };
-	var floats = {"costas-alpha":1, "gain-mu":1, "calibration":1, "fine-tune":1, "gain":1, "excess-bw":1, "offset":1, "excess_bw":1};
-	var lists = {"blacklist":1, "whitelist":1, "cclist":1};
-	var freqs = {"frequency":1, "cclist":1};
+// vars set when saving things...
+// 	localStorage.AliasTableUpdated == true;
+//  localStorage.ColorsTableUpdated == true;
 
 
-	for (var k in d) {
-		if (!to_ui) {
-			if (d[k] == "None")
-				new_d[k] = "";
-			else
-				new_d[k] = d[k];
-			if (k == "plot" && !d[k].length)
-				new_d[k] = null;
-			if (k in ints) {
-				new_d[k] = parseInt(new_d[k]);
-			} else if (k in floats) {
-				new_d[k] = parseFloat(new_d[k]);
-			} else if (k in lists) {
-				var l = [];
-				if (new_d[k].length)
-					l = new_d[k].split(",");
-				if (k in freqs && new_d[k].length) {
-					var new_l = [];
-					for (var i in l)
-						new_l.push(edit_freq(l[i], to_ui));
-					new_d[k] = new_l;
-				} else {
-					new_d[k] = l;
-				}
-			} else if (k in freqs) {
-				new_d[k] = edit_freq(new_d[k], to_ui);
-			}
-		} else {
-			if (k in hexints) {
-				if (d[k] == null)
-					new_d[k] = "0x0";
-				else
-					new_d[k] = "0x" + d[k].toString(16);
-			} else if (k in ints) {
-				if (d[k] == null)
-					new_d[k] = "";
-				else
-					new_d[k] = d[k].toString(10);
-			} else if (k in lists) {
-				if (k in freqs) {
-					var new_l = [];
-					for (var i in d[k]) {
-						new_l.push(edit_freq(d[k][i], to_ui));
-					}
-					new_d[k] = new_l.join(",");
-				} else {
-					if ((!d[k]) || (!d[k].length))
-						new_d[k] = [];
-					else
-						new_d[k] = d[k].join(",");
-				}
-			} else if (k in freqs) {
-				new_d[k] = edit_freq(d[k], to_ui);
-			} else {
-				new_d[k] = d[k];
-			}
+$(document).ready(function() {
+	// populate url into oplog url field
+		var x = window.location.origin.split( ':' ); 
+		var y = x[0] + ':' + x[1] + ':5000';
+		$('#oplogUrl').val(y);
+		loadHelp();
+});
+
+function connect() {
+    event_source = new EventSource('/stream');
+    event_source.addEventListener('message', eventsource_listener);
+    event_source.onerror = function() {
+    	event_source.close();
+    	clearInterval(intvAlias);
+    	clearInterval(intvCss);
+    	clearInterval(resetFileReload);
+    }
+	setReconnect();
+}
+
+function eventsource_listener(event) {
+    dispatch_commands(event.data);
+}
+
+// Babysitter - watches /stream, reacts when lost/restored
+function setReconnect() {
+	// readyState values: 0 = connecting, 1 = open, 2 = closed
+	var reconnecting = false;
+	setInterval(() => {
+		if (event_source.readyState == 2) {
+			reconnecting = true;
+			$('#babysitter').show();
+			$('#estat').html(event_source.readyState);
+			connect();
+		} else if (reconnecting) {
+			reconnecting = false
+			$('#estat').html(event_source.readyState);
+			if (!event_source.readyState == 0)
+				$('#estat').html('OK');
+				$('#babysitter').hide();
+			    intvCss = setInterval(generateCSS, 4000);
+		        intvAlias = setInterval(getSiteAlias, 5000);
+		        resetFileReload = setInterval(rstFileReload, 12000)
 		}
-	}
-	return new_d;
+	}, 3000);
 }
 
-function edit_l(cfg, to_ui) {
-	var new_d = {"devices": [], "channels": []};
-	for (var device in cfg['devices'])
-		new_d["devices"].push(edit_d(cfg['devices'][device], to_ui));
-	for (var channel in cfg['channels'])
-		new_d["channels"].push(edit_d(cfg['channels'][channel], to_ui));
-	new_d["backend-rx"] = edit_d(cfg['backend-rx'], to_ui);
-	return new_d;
+
+function rstFileReload() {
+	// forces the alias and colors info to reload in case user
+	// makes changes to them from another browser.
+	localStorage.AliasTableUpdated == true;
+	localStorage.ColorsTableUpdated == true;
 }
 
-function amend_d(myrow, mytbl, command) {
-    var trunk_row = null;
-    if (mytbl.id == "chtable")
-        trunk_row = find_next(myrow, "TR");
-    if (command == "delete") {
-        var ok = confirm ("Confirm delete");
-        if (ok) {
-            myrow.parentNode.removeChild(myrow);
-            if (mytbl.id == "chtable")
-                trunk_row.parentNode.removeChild(trunk_row);
-        }
-    } else if (command == "clone") {
-        var newrow = myrow.cloneNode(true);
-	newrow.id = find_free_id("id_");
-        if (mytbl.id == "chtable") {
-            var newrow2 = trunk_row.cloneNode(true);
-	    newrow2.id = "tr_" + newrow.id.substring(3);
-            if (trunk_row.nextSibling) {
-                myrow.parentNode.insertBefore(newrow2, trunk_row.nextSibling);
-                myrow.parentNode.insertBefore(newrow, trunk_row.nextSibling);
-            } else {
-                myrow.parentNode.appendChild(newrow);
-                myrow.parentNode.appendChild(newrow2);
-            }
-        } else {
-            if (myrow.nextSibling)
-                myrow.parentNode.insertBefore(newrow, myrow.nextSibling);
-            else
-                myrow.parentNode.appendChild(newrow);
-        }
-    } else if (command == "new") {
-        var newrow = null;
-        var parent = null;
-        var pfx = "id_";
-        if (mytbl.id == "chtable") {
-            newrow = document.getElementById("chrow").cloneNode(true);
-            parent = document.getElementById("chrow").parentNode;
-        } else if (mytbl.id == "devtable") {
-            newrow = document.getElementById("devrow").cloneNode(true);
-            parent = document.getElementById("devrow").parentNode;
-        } else if (mytbl.className == "tgtable") {
-            newrow = mytbl.querySelector(".tgrow").cloneNode(true);
-            parent = mytbl.querySelector(".tgrow").parentNode;
-            pfx = "tg_";
-        } else {
-            return null;
-        }
-        newrow.style['display'] = '';
-	newrow.id = find_free_id(pfx);
-        parent.appendChild(newrow);
-        if (mytbl.id == "chtable") {
-            var newrow2 = document.getElementById("trrow").cloneNode(true);
-	    newrow2.id = "tr_" + newrow.id.substring(3);
-            parent.appendChild(newrow2);
-        }
-        return newrow;
-    }
+
+function navOplog() {
+	window.open($('#oplogUrl').val());
+}
+
+function phaseType(nac) {
+	// reset the UI to a Phase 1 display (untested)
+	window[nac + 'flavor'] = null;
 }
 
 function nav_update(command) {
-	var names = ["b1", "b2", "b3", "b4", "b5", "b7"];
-	var bmap = { "status": "b1", "settings": "b2", "rx": "b3", "help": "b4", "view": "b5", "about": "b7" };
-	var id = bmap[command];
-	for (var id1 in names) {
-		b = document.getElementById(names[id1]);
-		if (names[id1] == id) {
-			b.className = "nav-button-active";
-		} else {
-			b.className = "nav-button";
-		}
-	}
+    var names = [
+        'b1',
+        'b2',
+        'b3',
+        'b4',
+        'b5',
+        'b7'
+    ];
+    var bmap = {
+        'status': 'b1',
+        'settings': 'b2',
+        'rx': 'b3',
+        'help': 'b4',
+        'view': 'b5',
+        'about': 'b7'
+    };
+    var id = bmap[command];
+    for (var id1 in names) {
+        b = document.getElementById(names[id1]);
+        if (names[id1] == id) {
+            b.className = 'nav-button-active';
+        } else {
+            b.className = 'nav-button';
+        }
+    }
 }
 
 function f_select(command) {
-    var div_list = ["status", "settings", "rx", "help", "about"];
+    var div_list = [
+        'status',
+        'settings',
+        'rx',
+        'help',
+        'about'
+    ];
+    
     var orig_command = command;
-    if (command == "rx") {
-        command = "status";     //hack
+    
+    if (command == 'rx') {
+    	$('#div_logs').show(window.animateSpeed);
+        command = 'status';
         summary_mode = false;
     } else {
         summary_mode = true;
+    	$('#div_logs').hide(window.animateSpeed);        
     }
-    for (var i=0; i<div_list.length; i++) {
-        var ele = document.getElementById("div_" + div_list[i]);
-        if (command == div_list[i])
-            ele.style['display'] = "";
-        else
-            ele.style['display'] = "none";
+    
+    for (var i = 0; i < div_list.length; i++) {
+    	(command == div_list[i]) ? $('#div_' + div_list[i]).show(window.animateSpeed) :	$('#div_' + div_list[i]).hide(window.animateSpeed);
     }
-    if (command == "status" && summary_mode == true)
-        document.getElementById("div_images").style["display"] = "";
-    else
-        document.getElementById("div_images").style["display"] = "none";
-    var ctl = document.getElementById("controls");
-    if (command == "status")
-        ctl.style['display'] = "";
-    else
-        ctl.style['display'] = "none";
+    
+    (command == 'status' && summary_mode == true) ? $('#div_images').show(window.animateSpeed) : $('#div_images').hide(window.animateSpeed);
+      
+    (command == 'status') ? $('#controls').show() : $('#controls').hide();
+        
     nav_update(orig_command);
-    if (command == "settings")
+    
+    if (command == 'settings')
         f_list();
 }
 
-function is_digit(s) {
-    if (s >= "0" && s <= "9")
-        return true;
-    else
-        return false;
-}
-
 function rx_update(d) {
-    if (d["files"].length > 0) {
-        for (var i=0; i<d["files"].length; i++) {
-            var img = document.getElementById("img" + i);
-            if (img['src'] != d["files"][i]) {
-                img['src'] = d["files"][i];
-                img.style["display"] = "";
+    if (d['files'].length > 0) {
+        for (var i = 0; i < d['files'].length; i++) {
+            var img = document.getElementById('img' + i);
+            if (img['src'] != d['files'][i]) {
+                img['src'] = d['files'][i];
+                img.style['display'] = '';
             }
         }
     }
-    error_val = d["error"];
-    fine_tune = d["fine_tune"]; // displays Fine Tune value as supplied in the command line arguments
+    error_val = d['error'];
+    fine_tune = d['fine_tune'];
 }
 
 // frequency, system, and talkgroup display
+function change_freq(d) {    // d json_type = change_freq
+    t = 'TDMA';
+    var t = 'FDMA';
+    if ((d['tdma'] == 0) || (d['tdma'] == 1))
+        t = 'TDMA ' + d['tdma'];
+    $('#stx').html(t);
 
-function change_freq(d) {
+    var displayTgid = '&mdash;';
+    var displayTag = '&nbsp;';
+    var display_src = '&mdash;';
+    var display_alg = '&mdash;';
+    var display_keyid = '&mdash;';
+    var display_srctag = '&mdash;';
+    var e_class = 'value';
+	var trunc = $('#valTruncate').val();
 
-	var xj = document.getElementById("stx");	    // display FDMA or TDMA (untested, no P2 system here)
-	xj.innerHTML = " $nbsp; ";						// trip 01/2021
-	t = "TDMA";										// 
-	if (!d['tdma'])									// 
-	t = "FDMA";										// 
-	xj.innerHTML = t;								// 
-	
-	var displayTgid = "&mdash;";
-	var displayTag = "&nbsp;";
-	var display_src = "&mdash;";
-	var display_alg = "&mdash;";
-	var display_keyid = "&mdash;";
-	var e_class = "value";
+    last_srcaddr[d['nac']] = d['srcaddr'];
+    last_alg[d['nac']] = d['alg'];
+    last_algid[d['nac']] = d['algid'];
+    last_keyid[d['nac']] = d['keyid'];
+    last_srctag[d['nac']] = d['srcaddr.tag'];
+    if (d['tgid'] != null) {
+        displayTgid = d['tgid'];
+        displayTag = d['tag'].substring(0, trunc);
 
-	var doTruncate = document.getElementById("valTruncate").value; // get truncate value from Configuration
+        if (d['srcaddr'] != null && d['srcaddr'] > 0) {
+            display_src = d['srcaddr'];
+	        display_srctag = d['srcaddr_tag'];
+	    }   
+	    
+        display_alg = d['alg'];
 
-	last_srcaddr[d['nac']] = d['srcaddr'];
-	last_alg[d['nac']] = d['alg'];
-	last_algid[d['nac']] = d['algid'];
-	last_keyid[d['nac']] = d['keyid'];
-
-	if (d['tgid'] != null) {
-		displayTgid = d['tgid'];
-		displayTag = d['tag'].substring(0,doTruncate); 
-		if (d['srcaddr'] != null && d['srcaddr'] > 0)
-			display_src = d['srcaddr'];
-		display_alg = d['alg'];
-		if (d['algid'] != 128) {
-			display_keyid = d['keyid'];
-			e_class = "red_value";
-		}
-	}
-
-	var html = "<table style=\"width: 512px; height: 168px;\">";
-	var d_sys = ("system" in d) ? d['system'].substring(0,doTruncate) : "Undefined";
-	html += "<tr>";
-	html += "<td style=\"width: 422px;\" colspan=2><span class=\"systgid\" id=\"dSys\">" + d_sys + "</span></td>";
-	html += "<td align=\"center\" style=\"width: 88px;\">";
-        html += "<span class=\"label-sm\">Frequency</span><br><span class=\"value\">" + d['freq'] / 1000000.0 + "</span></td>";
-	html += "</tr>";
-	html += "<tr>";
-	html += "<td style=\"width: 422px;\" colspan=2><span class=\"systgid\" id=\"dTag\">" + displayTag + "</span></td>";
-	html += "<td align=\"center\" style=\"width: 88px;\">";
-        html += "<span class=\"label-sm\">Talkgroup ID</span><br><span class=\"value\">" + displayTgid + "</span>";
-	html += "</td>";
-	html += "</tr>";
-	html += "<tr>";
-	html += "<td align=\"left\">";
-        html += "<span class=\"label-sm\">Encryption</span><br><span class=\"" + e_class + "\" id=\"dAlg\">" + display_alg + "</span>";
-	html += "</td>";
-	html += "<td align=\"center\" style=\"width: 88px;\">";
-        html += "<span class=\"label-sm\">Key ID</span><br><span class=\"value\" id=\"dKey\">" + display_keyid + "</span>";
-	html += "</td>";
-	html += "<td align=\"center\" style=\"width: 88px;\">";
-        html += "<span class=\"label-sm\">Source Addr</span><br><span class=\"value\" id=\"dSrc\">" + display_src + "</span>";
-	html += "</td>";
-	html += "</tr>";
-	html += "</table>";
-
-	var div_s2 = document.getElementById("div_s2");
-	div_s2.innerHTML = html;
-	div_s2.style["display"] = "";
-
-	active_nac = d['nac'];
-	active_tgid = d['tgid'];
-	if (d['tgid'] != null) {
-		current_tgid = d['tgid'];
-	}
-	var fstyle = document.getElementById("valFontStyle").value;
-	var z1 = document.getElementById("valTagFont").value;       // set font size of TG Tag
-	var z = document.getElementById("dTag");
-	z.style = "font-size: " + z1 + "px; " + "font-weight: " + fstyle + ";";
-
-	var z1 = document.getElementById("valSystemFont").value;    // set font size of System
-	var z = document.getElementById("dSys");
-	z.style = "font-size: " + z1 + "px; " + "font-weight: " + fstyle + ";";
-
-}
-	
-
-// adjacent sites table
-
-function adjacent_data(d) {
-    if (Object.keys(d).length < 1)
-        return "";
-    var html = "<div class=\"adjacent\">"; // open div-adjacent
-    html += "<table border=1 border width=0 cellpadding=0 cellspacing=0 width=100%>";
-    html += "<tr><th colspan=99 style=\"align: center\">Adjacent Sites</th></tr>";
-    html += "<tr><th>Frequency</th><th>Sys ID</th><th>RFSS</th><th>Site</th><th>Uplink</th></tr>";
-    var ct = 0;
-    for (var freq in d) {
-        html += "<tr><td>" + freq / 1000000.0 + "</td><td>" + d[freq]['sysid'].toString(16) + "</td><td>" + d[freq]["rfid"] + "</td><td>" + d[freq]["stid"] + "</td><td>" + (d[freq]["uplink"] / 1000000.0) + "</td></tr>";
+        if (d['algid'] != 128) {
+            display_keyid = d['keyid'];
+            e_class = 'red_value';
+        }
     }
-    html += "</table></div>"; // close div-adjacent
-    return html;    // end adjacent sites table
-}
+    
+    // main display - system, talkgroup, encryption, keyid, source addr display
+    
+    var d_sys = 'system' in d ? d['system'].substring(0, trunc) : 'Undefined';
+    
+    var html = '<table style="width: 510px; height: 168px;">';
+    html += '<tr>';
 
-function trunk_summary(d) {
+    html += '<td style="width: 422px;" colspan=2><span class="systgid" id="dSys">' + d_sys + '</span></td>';
+    html += '<td align="center" style="width: 88px;">';
+    html += '<span class="label-sm">Frequency</span><br><span class="value">' + freqDisplay(d['freq'] / 1000000) + '</span></td>';
+
+    html += '</tr>';
+    html += '<tr>';
+
+    html += '<td style="width: 422px;" colspan=2><span class="systgid" id="dTag">' + displayTag + '</span></td>';
+    html += '<td align="center" style="width: 88px;">';
+    html += '<span class="label-sm">Talkgroup ID</span><br><span class="value" id="dTgid">' + displayTgid + '</span>';
+    html += '</td>';
+
+    html += '</tr>';
+    html += '<tr>';
+
+    html += '<td align="left">';
+    html += '<span class="label-sm">Encryption</span><br><span class="' + e_class + '" id="dAlg">' + display_alg + '</span>';
+    html += '</td>';
+    html += '<td align="center" style="width: 88px;">';
+    html += '<span class="label-sm">Key ID</span><br><span class="value" id="dKey">' + display_keyid + '</span>';
+    html += '</td>';
+    html += '<td align="center" style="width: 88px;">';
+    html += '<span class="label-sm">Source Addr</span><br><span class="value" id="dSrc">' + display_src + '</span>';
+    html += '</td>';
+
+    html += '</tr>';
+    html += '</table>';    
+    
+    $('#div_s2').html(html).show();
+    
+    active_nac = d['nac'];
+    active_tgid = d['tgid'];
+    if (d['tgid'] != null) {
+        current_tgid = d['tgid'];
+    }
+  
+  	// color/style for main display
+  	
+    var fontStyle = $('#valFontStyle').val();
+    var tgSize = $('#valTagFont').val();
+    var sysSize = $('#valSystemFont').val();    
+	var defColor = $('#sysColor').val();
+    var sysColor = "";
+    var tagColor = "";  
+	var clr = getProperty('.c' + d.tag_color, 'color', 'tgcolors');
+	var ani = getProperty('.c' + d.tag_color, 'animation', 'tgcolors');
+	var bg  = getProperty('.c' + d.tag_color, 'backgroundColor', 'tgcolors');
+	
+	sysColor = (cbState('color_main_sys') && d['tag_color']) ? clr : defColor;
+	tagColor = (cbState('color_main_tag') && d['tag_color']) ? clr : defColor;
+	
+    $('#dSys').css({"color": sysColor, "font-size": tgSize, "font-weight": fontStyle});
+    $('#dTag').css({"color": tagColor, "font-size": tgSize, "font-weight": fontStyle, "animation": ani, "background-color": bg});
+    
+} // end change_freq
+
+function trunk_summary(d) {    // d json_type = trunk_update
     var nacs = [];
     for (var nac in d) {
         if (!is_digit(nac.charAt(0)))
             continue;
         nacs[nac] = 1;
     }
-    var html = "";
-    html += "<br><div class=\"summary\">";
-    html += "<form>";
-    html += "<table border=1 width=732 borderwidth=0 cellpadding=0 cellspacing=0>"; 
-    html += "<tr><th>Enabled</th><th>NAC</th><th>System</th><th>Last Active</th><th>TSBK Count</th></tr>";
+    var html = '';
+    html += '<br><div class="summary">';
+    html += '<form>';
+    html += '<table border=1 width=732 border width=0 cellpadding=0 cellspacing=0>';
+    html += '<tr><th>Enabled</th><th>NAC</th><th>System</th><th>Last TSBK</th><th>TSBK Count</th><th>Alias TSV</tr>';
     for (nac in d) {
         if (!is_digit(nac.charAt(0)))
             continue;
         last_srcaddr[nac] = d[nac]['srcaddr'];
+        last_srctag[nac] = d[nac]['srcaddr_tag'];
         last_alg[nac] = d[nac]['alg'];
         last_algid[nac] = d[nac]['algid'];
         last_keyid[nac] = d[nac]['keyid'];
         if (!(nac in enable_status))
             enable_status[nac] = true;
         var times = [];
-        for (var freq in d[nac]['frequency_data']) {
-            times.push(parseInt(d[nac]['frequency_data'][freq]['last_activity']));
-        }
+		var last_tsbk = d[nac]['last_tsbk'] * 1000;
+        var display_last_tsbk = getTime(last_tsbk);
+        times.push(display_last_tsbk);
         var min_t = 0;
         if (times.length) {
-            for (var i=0; i<times.length; i++) {
+            for (var i = 0; i < times.length; i++) {
                 if (i == 0 || times[i] < min_t)
                     min_t = times[i];
             }
             times = min_t;
         } else {
-            times = "&nbsp;";
+            times = '&nbsp;';
         }
         var ns = parseInt(nac).toString(16);
-        html += "<tr>";
-	var checked = enable_status[nac] ? "checked" : "";
-        html += "<td align=center><span class=\"value\"><input type=\"checkbox\" id=\"enabled-" + nac + "\" " + checked + " onchange=\"javascript: f_enable_changed(this, " + nac + ");\"></input></span></td>";
-
-        html += "<td align=center><span class=\"value\">" + ns + "</span></td>";
-        html += "<td align=center><span class=\"value\">" + d[nac]['sysname'] + "</span></td>";
-        html += "<td align=center><span class=\"value\">" + times + "</span></td>";
-        html += "<td align=center><span class=\"value\">" + comma(d[nac]['tsbks']) + "</span></td>";
-        html += "</tr>";
+        html += '<tr>';
+        var tf = d[nac]['tgid_tags_file'];
+        var sf = d[nac]['unit_id_tags_file'];
+        var sysid = d[nac]['sysid'];
+        var checked = enable_status[nac] ? 'checked' : '';
+        
+        html += '<td align=center><span class="value"><input type="checkbox" id="enabled-' + nac + '" ' + checked + ' onchange="javascript: f_enable_changed(this, ' + nac + ');">';
+        html += '<label for="enabled-' + nac + '"><span></span>  ' + '</label></span></td>';
+        // checkbox styling nonsense above
+        html += '<td align=center><span class="value">' + ns.toUpperCase() + '</span></td>';
+        html += '<td align=center><span class="value">' + d[nac]['sysname'] + '</span></td>';
+        html += '<td align=center><span class="value">' + times + '</span></td>';
+        html += '<td align=center><span class="value">' + comma(d[nac]['tsbks']) + '</span></td>';  
+        html += '<td align=center>&nbsp;';
+        if (tf)        
+			html +='<a title="Talkgroups" style="text-decoration: none;" href="tsv-edit.html?file=' + tf + '&mode=tg&css=' + displayMode() + '&nac=' + nac + '" target="_new">TG</a>';
+		if (sf)
+			html +='&nbsp;&nbsp<a title="Source IDs" style="text-decoration: none;" href="tsv-edit.html?file=' + sf + '&mode=src&css=' + displayMode() + '&nac=' + nac + '" target="_blank">SRC</a>';
+		html += '&nbsp;&nbsp<a title="System Site Aliases" style="text-decoration: none;" href="alias-edit.html?file=site-alias.json&mode=alias&sys='+ (sysid) + '"&css=' + displayMode() +' target="_blank">SA</a>';
+		html += '</td>'
+        html += '</tr>';
     }
-    var display = "";
+    var display = '';
     if (!enable_changed)
-        display = "none";
-    html += "<tr id=\"save_list_row\" style=\"display: " + display + ";\"><td colspan=99>";
-    html += "<input type=\"button\" name=\"save_list\" value=\"Apply Settings\" onclick=\"javascript:f_save_list(this);\"></input>";
-    html += "</td></tr>";
-    html += "</table></form></div>";
+        display = 'none';
+    html += '<tr id="save_list_row" style="display: ' + display + ';"><td colspan=99>';
+    html += '<input type="button" name="save_list" value="Apply Settings" onclick="javascript:f_save_list(this);"></input>';
+    html += '</td></tr>';
+    html += '</table></form></div>';
     return html;
-}
+} // end trunk_summary()
 
-function f_save_list(ele) {
-    var flist = [];
-    for (var nac in enable_status) {
-        if (enable_status[nac])
-            flist.push(nac.toString(10));
-    }
-    document.getElementById("save_list_row").style["display"] = "none";
-    enable_changed = false;
-    send_command("settings-enable", flist.join(","));
-}
-
-function f_enable_changed(ele, nac) {
-    enable_status[nac] = ele.checked;
-    enable_changed = true;
-    document.getElementById("save_list_row").style["display"] = "";
-}
-
-// additional system info: wacn, sysID, rfss, site id, secondary control channels, freq error
-
-function trunk_detail(d) { // json_type = trunk_update
-    var html = "";
+// additional system info: wacn, sysID, rfss, site id, freq table, adjc sites, secondary control channels, freq error
+function trunk_detail(d) { // d json_type = trunk_update
+    var html = '';
+    var alias, sysid, rfss, site;
+    var error_val = fine_tune = "&mdash;";
     for (var nac in d) {
         if (!is_digit(nac.charAt(0)))
             continue;
+        var p2 = window[nac + 'flavor']; 				// if phase 2 was detected, add phase 2 layouts
+        var flavor = "Phase 1";
+        if (p2) 
+        	flavor = "Phase 2";
         last_srcaddr[nac] = d[nac]['srcaddr'];
+        last_srctag[nac] = d[nac]['srcaddr_tag'];        
         last_alg[nac] = d[nac]['alg'];
         last_algid[nac] = d[nac]['algid'];
-        last_keyid[nac] = d[nac]['keyid'];     
-
-
-        html += "<div class=\"content\">";     // open div-content
-        html += "<span class=\"nac\">";
-        html += "<br>" + d[nac]["sysname"] + " <br> ";
-        html += "NAC " + "0x" + parseInt(nac).toString(16) + " &nbsp; &nbsp; &nbsp; ";
-        html += d[nac]['rxchan'] / 1000000.0;
-        html += " / ";
-        html += d[nac]['txchan'] / 1000000.0;
-        html += " &nbsp; &nbsp; &nbsp; tsbks " + comma(d[nac]['tsbks']);
-        html += "</span><br>";
+        last_keyid[nac] = d[nac]['keyid'];        
+ 	    error_val = sessionStorage.errorVal;
+        fine_tune = sessionStorage.fineTune;
         
-        html += "<span class=\"label\">WACN: </span>" + "<span class=\"value\">0x" + parseInt(d[nac]['wacn']).toString(16) + " </span>";
-        html += "<span class=\"label\">System ID: </span>" + "<span class=\"value\">0x" + parseInt(d[nac]['sysid']).toString(16) + " </span>";
-        html += "<span class=\"label\">RFSS ID: </span><span class=\"value\">" + d[nac]['rfid'] + " </span>";
-        html += "<span class=\"label\">Site ID: </span><span class=\"value\">" + d[nac]['stid'] + "</span><br>";
-        if (d[nac]["secondary"].length) {
-            html += "<span class=\"label\">Secondary control channel(s): </span><span class=\"value\"> ";
-            for (i=0; i<d[nac]["secondary"].length; i++) {
-                html += d[nac]["secondary"][i] / 1000000.0;
-                html += "&nbsp;&nbsp;&nbsp;";
-        }
-            html += "</span><br>";
-        }
-        if (error_val != null) {
-            html += "<span class=\"label\">Frequency error: </span><span class=\"value\">" + error_val + " Hz. </span> &nbsp; ";
-            html += "<span class=\"label\">Fine tune: </span><span class=\"value\">" + fine_tune + "</span><br>";
+        sysid = d[nac]['sysid'];
+        rfss = d[nac]['rfid'];
+        site = d[nac]['stid'];
+        
+        // use the Site Alias if defined, otherwise use d/nac/sysname
+        if (window.siteAlias != null && window.siteAlias[sysid] && window.siteAlias[sysid][rfss] && window.siteAlias[sysid][rfss][site]) {
+        	alias = window.siteAlias[sysid][rfss][site]['alias'];
+        } else {
+        	alias =  d[nac]['sysname'];
         }
 
+        html += '<br><div>';
+        html += '<table class="rxsys" border=1 border width=0 cellpadding=0 cellspacing=0 width=100%">';
+        
+        html += '<col width="120px">';  	// 1
+        html += '<col width="120px">';  	// 2
+ 	    html += '<col width="120px">';  	// 3
+        html += '<col width="120px">';  	// 4
+        html += '<col width="120px">';  	// 5
+        html += '<col width="120px">';  	// 6
+             
+        html += '<th colspan="6">' +  alias + '</th><tr>';     
+        
+        // 1
+        html += '<td align="center">';
+        html += 'System ID<br> <span class="value">' + '0x' + parseInt(d[nac]['sysid']).toString(16).toUpperCase();
+        html += '</td>';
+        
+        // 2
+        html += '<td align="center">';
+        html += 'NAC<br> <span class="value">' + '0x' + parseInt(nac).toString(16).toUpperCase();
+        html += '</td>';
+        
+        // 3
+        html += '<td align="center">';
+        html += 'WACN<br> <span class="value">' + '0x' + parseInt(d[nac]['wacn']).toString(16).toUpperCase();
+        html += '</td>';
 
-// system frequencies table
+        // 4
+        html += '<td align="center">';
+        html += 'RFSS ID<br> <span class="value">' + d[nac]['rfid']
+        html += '</td>';
+        
+        // 5
+        html += '<td align="center">';
+        html += 'Site ID<br> <span class="value">' + d[nac]['stid']
+        html += '</td>';
+        
+        
+        // 6
+        html += '<td align="center" id="ptype" ondblclick="phaseType(' + nac + ')">';
+        html += '<span>Type<br> <span class="value">' + flavor + '</span></span>';
+        html += '</td>';
 
+        html += '</tr>';     
+           
+ 		// row 2
+        html += '<tr>';
+        
+        // 1
+        html += '<td align="center" style="white-space: nowrap;">';
+        html += 'Control Channel<br> <span class="value">' + freqDisplay(d[nac]['rxchan'] / 1000000); 
+        html += '</td>';
+        
+        // 2, 3, 4
+        html += '<td colspan="3" align="center">';   
+        
+		if (d[nac]['secondary'].length) {
+			html += 'Secondary Control Channels</span><br><span class="value"> ';
+			for (i = 0; i < d[nac]['secondary'].length; i++) {
+				html += freqDisplay(d[nac]['secondary'][i] / 1000000);
+				html += '&nbsp;&nbsp;&nbsp;';
+			}	
+		} else {
+			html += '<span class="value">None';			
+		}
+		
+			html += '</td></span>';
+        
+        // 5
+        html += '<td align="center">';
+        html += 'TSBK<br><span class="value">' + comma(d[nac]['tsbks']);
+        html += '</td>';
+        
+        // 6
+        var last_tsbk = d[nac]['last_tsbk'] * 1000;
+        var display_last_tsbk = getTime(last_tsbk);
+    	html += '<td align="center">';
+        html += 'Last TSBK<br> <span class="value">' + display_last_tsbk + '</span>';
+        html += '</td>';
+        
+        html += '</tr>';
+        
+        if (cbState('showBandPlan')) {
 
-        html += "<br><div class=\"info\"><div class=\"system\">"; //    open div-info  open div-system
-        html += "<table border=1 border width=0 cellpadding=0 cellspacing=0 width=100%>";
-        html += "<tr><th colspan=99 style=\"align: center\">System Frequencies</th></tr>";
-        html += "<tr><th>Frequency</th><th>Last</th><th colspan=2>Talkgoup</th><th>Hits</th></tr>";
-        var ct = 0;
-        for (var freq in d[nac]['frequency_data']) {
-            tg2 = d[nac]['frequency_data'][freq]['tgids'][1];
-            if (tg2 == null)
-                tg2 = "&nbsp;";
-            html += "<tr><td>" + parseInt(freq) / 1000000.0 + "</td><td>" + d[nac]['frequency_data'][freq]['last_activity'] + "</td><td>" + d[nac]['frequency_data'][freq]['tgids'][0] + "</td><td>" + tg2 + "</td><td>" + d[nac]['frequency_data'][freq]['counter'] + "</td></tr>";
-        }
-        html += "</table></div>"; // close div-system    // end system freqencies table
+			var zsys = d[nac]['sysid'];
+			html += '<tr><td colspan="6">';
+	
+			html += '<table id="bandplan" title="Channel ID / Band Plan"><tr>';
+			html += '<th>ID</th>';
+			html += '<th>Type</th>';
+			html += '<th>Base Frequency</th>';
+			html += '<th>Tx Offset</th>';
+			html += '<th>Spacing (kHz)</th>';
+			html += '<th>Slots</th></tr>';
+			for (p in channel_id[d[nac]['sysid']]) {
+				html += '<tr>';
+				html += '<td style="text-align: center;">' + channel_id[zsys][p]['iden'] + '</td>';
+				html += '<td style="text-align: center;">' + channel_id[zsys][p]['type'] + '</td>';
+				html += '<td style="text-align: center;">' + freqDisplay(channel_id[zsys][p]['freq']) + '</td>';
+				html += '<td style="text-align: center;">' + freqDisplay(channel_id[zsys][p]['offset']) + '</td>';		
+				html += '<td style="text-align: center;">' + (channel_id[zsys][p]['step'] * 100) + '</td>';
+				html += '<td style="text-align: center;">' + channel_id[zsys][p]['slots'] + '</td>';
+				html += '</tr>';
+			}
+			html += '</table>';
+			
+			html += '</td></tr>';
+        } 
+        
+        html += '</table></div>';
 
+        // system frequencies table  // d json_type = trunk_update
+        html += '<br>';
+        html += '<table class="fixed" id="sysfreq">';
+        
+        html += '<col width="100px">';  	// 1 Freq 
+        html += '<col width=" 75px">';  	// 2 Last
+        html += '<col width=" 80px">';  	// 3 tgid
+        html += '<col width="175px">';  	// 4 tgtag
+        html += '<col width=" 25px">';  	// 5 enc        
+        html += '<col width=" 80px">';  	// 6 srcaddr
+        html += '<col width="195px">';  	// 7 srctag
 
-        html += adjacent_data(d[nac]['adjacent_data']);
-        html += "</div><br></div><hr><br>";   // close div-content  close div-info  box-br  hr-separating each NAC
-    }
+        html += '<tr>';
+        html += '<th>Frequency </th>';      			// 1
+        html += '<th>Last </th>';						// 2
+        html += '<th colspan="3">Talkgroup</th>';       // 3 / 4 / 5
+        html += '<th colspan="2">Source</th>';        	// 6 / 7
+        html += '</tr>';
+
+        var c, src_c, sc_src, sf_freq, sf_last, sf_hits, sf_timeout;
+ 
+ 		// save keystrokes!
+		var fd = 'frequency_data';
+		var ft = 'frequency_tracking';
+		var td = 'talkgroup_data';
+		var ts = 'time_slot';
+		var calls = 'calls';
+		
+        sf_timeout = 0;		// delay before clearing the tg info
+		
+		// #frequency#
+			var sf_tdma;
+
+			//calls
+				var sf_count = [];	// "count"
+				var sf_lastactive = []; // "last_active"
+				var sf_protected = []; // "protected"
+				var sf_starttime = []; // "start_time"
+				var sf_endtime = []; // "end_time"
+				
+				//tgid
+					var sf_tgid = []; // "tg_id"
+					var sf_tgtag = [];	// "tag"
+					var sf_tgcolor = []; // "color"			
+				
+				//srcaddr
+					var sf_srcaddr = [];  // "unit_id"
+					var sf_srctag = [];	  // "tag"
+					var sf_srccolor = []; // "color"
+			
+		var slot, tgid, x, y;
+		var sf_enc = [];
+		var sf_la = [];
+		
+		var sf_last = 0;
+		
+		    sf_tgid[0] = " ";
+ 		   sf_tgtag[0] = " ";
+	 	 sf_srcaddr[0] = " ";
+		  sf_srctag[0] = " ";
+		     sf_enc[0] = " ";		  
+		 sf_tgcolor[0] = 0;
+		sf_srccolor[0] = 0;
+		      sf_la[0] = 0;
+		
+		    sf_tgid[1] = " ";
+ 		   sf_tgtag[1] = " ";
+	 	 sf_srcaddr[1] = " ";
+		  sf_srctag[1] = " ";
+		     sf_enc[1] = " ";	  
+		 sf_tgcolor[1] = 0;
+		sf_srccolor[1] = 0;
+		      sf_la[1] = 0;		
+
+        for (var freq in d[nac][ft]) {
+
+		slot = 0;
+						
+			for (var call of d[nac][ft][freq][calls]) {
+
+				if (call == null) {
+				
+						sf_tgid[slot] = " ";
+					   sf_tgtag[slot] = " ";
+					 sf_srcaddr[slot] = " ";
+					  sf_srctag[slot] = " ";
+						 sf_enc[slot] = " ";	
+				
+					slot++;
+					continue;
+				}
+								
+				if (call.end_time == 0) { // if end_time != 0 then the call is dead and should not be displayed in Active Freq table
+			
+					sf_tgid[slot] 		= call.tgid.tg_id;
+					
+					if (call.tgid.tag) {
+						sf_tgtag[slot] = call.tgid.tag; 
+					} else {
+						sf_tgtag[slot] = "Talkgroup " + call.tgid.tg_id;
+						call.tgid.color = $('#unk_default').val();
+					}
+					
+					sf_tgcolor[slot] 	= call.tgid.color;
+				
+					sf_srcaddr[slot] 	= call.srcaddr.unit_id ? call.srcaddr.unit_id : " ";
+					sf_srctag[slot] 	= call.srcaddr.tag ? call.srcaddr.tag : " ";
+					sf_srccolor[slot] 	= call.srcaddr.color;
+				
+					sf_protected[slot]	= call['protected']; 		// protected is a reserved word in JS so can't use dot notation here	
+					sf_enc[slot] = (sf_protected[slot] == true) ? encsym : " ";
+							
+				} // end if call.end_time
+												
+				sf_count[slot] 		= call.count;
+				sf_lastactive[slot] = call.last_active;
+				
+				sf_la[slot] = parseInt(d.time - sf_lastactive[slot], 10);
+				
+				slot++;
+				
+			}  // end for var call in calls
+				
+            sf_freq = freqDisplay(parseInt(freq) / 1000000);
+            
+            sf_last = d[nac][ft][freq]['last_active'];                  
+            	sf_last = parseFloat(sf_last).toFixed(0);
+            
+            if (sf_la[0] > sf_timeout) {         
+				sf_tgid[0] = " ";
+				sf_tgtag[0] = " ";
+				sf_srcaddr[0] = " ";
+				sf_srctag[0] = " ";
+				sf_enc[0] = " ";
+			}
+
+            if (sf_la[1] > sf_timeout) {         
+				sf_tgid[1] = " ";
+				sf_tgtag[1] = " ";
+				sf_srcaddr[1] = " ";
+				sf_srctag[1] = " ";
+				sf_enc[1] = " ";
+			}
+			
+            for (slot = 0; slot < 2; slot++ ) {
+            	            
+            	var c = 0;
+            	var src_c = 0;
+            	
+            	if (sf_tgcolor[slot]) {
+            		c = sf_tgcolor[slot];
+            	} else {
+            		c = smartColor(sf_tgtag[slot])
+            	}
+            
+              	if (sf_srccolor[slot]) {
+            		src_c = sf_srccolor[slot];
+            	} else {
+            		src_c = smartColor(sf_srctag[slot])
+            	}          
+
+				sc_src = "<span class=\"c" + src_c + "\">";
+				sc = "<span class=\"c" + c + "\">";
+				
+				var tfile = d[nac]['tgid_tags_file'];
+				var sfile = d[nac]['unit_id_tags_file'];
+					
+				// Active Frequencies Table
+						
+				html += '<tr>';				
+				if (slot == 0)
+					html += '<td style="cursor: crosshair;" title="' + sf_freq + ' Hits: ' + sf_count[slot] + '">' + sf_freq + '</td>';    						// 1
+				if (slot == 1)
+					html += '<td align="right" style="cursor: crosshair;" title="' + sf_freq + ' Hits: ' + sf_count[slot] + '"> / 2 &nbsp;&nbsp;&nbsp; </td>';	// 1
+				html += '<td>' + sf_la[slot] + '</td>';            																								// 2
+				html += '<td name="tgid" ondblclick="editTsv(this, 1, \'' + tfile + '\', ' + nac +');">' + sc + sf_tgid[slot]  + '</td>';            			// 3 								
+				html += '<td name="tag" ondblclick="editTsv(this, 1, \'' + tfile + '\', ' + nac +');">' + sc + sf_tgtag[slot] + '</td>';            			// 4
+				html += '<td><span class="enc">' + sf_enc[slot] + '</span></td>';       																		// 5
+				html += '<td name="srcid" ondblclick="editTsv(this, 1, \'' + sfile + '\', ' + nac +');">' + sc_src + sf_srcaddr[slot] + '</td>';            	// 6
+				html += '<td name="srctag" ondblclick="editTsv(this, 1, \'' + sfile + '\', ' + nac +');">' + sc_src + sf_srctag[slot] + '</td>';          		// 7				
+					
+				html += '</tr>';
+
+				if (!p2) break;
+			} // end for slot
+         } // end for freq
+        
+        html += '</table>';
+        
+        if (cbState('show_adj'))
+	       html += adjacent_data(d[nac]['adjacent_data']);
+
+    }   // end for nac in d
+    
     return html;
-}
+    
+} // end trunk_detail()
 
-function update_data(d) {
-	if (active_nac == null || active_tgid == null)
+function editTsv(click, source, file, nac) { // dbl click the ui to access the TSV editor
+	if (!click)
 		return;
-	var display_src = "&mdash;";
-	var display_alg = "&mdash;";
-	var display_keyid = "&mdash;";
-	var e_class = "value";
-	if (last_srcaddr[active_nac] != null) {
-		display_src = last_srcaddr[active_nac];
-		var ele = document.getElementById("dSrc");
-		if (ele != null)
-			ele.innerHTML = display_src;
+		
+	// source
+	// 1 = Active Frequencies
+	// 2 = Call History
+
+	window.getSelection().removeAllRanges();  // unselect the text that was double-clicked on
+	var cname = click.attributes.name;
+	cname = (cname.value);
+	
+	
+	if (source == 2 && (cname == "tgid" || cname == "tag")) {  // Call History Talkground dbl clicked
+		var sid = file;
+		file = tgid_files[sid];
 	}
-	if (last_algid[active_nac] == null || last_alg[active_nac] == null || last_keyid[active_nac] == null)
+	
+	if (source == 2 && (cname == "srcid" || cname == "srctag")) {  // Call History Source dbl clicked
+		var sid = file;
+		file = srcid_files[sid];
+	}	
+	
+	if ( (cname =="tgid" || cname == "tag") && (!file || file == "null"))  {  // null is being stored as a string in window.tgid_files
+		jAlert ("Talkgroup tag TSV file not specified in config file. Cannot edit.", "Error");
 		return;
-	display_alg = last_alg[active_nac];
-	if (last_algid[active_nac] != 128) {
-		display_keyid = last_keyid[active_nac];
-		e_class = "red_value";
 	}
-	ele = document.getElementById("dAlg");
+	
+	if ( (cname =="srcid" || cname == "srctag") && (!file || file == "null")) {
+		jAlert ("Source tag TSV file not specified in config file. Cannot edit.", "Error");
+		return;
+	}	
+		
+	var id = 0;
+	var url, x, y, tsv;
+	
+	// Active Frequencies						// Call History
+	// cellIndex[2] = Talkgroup ID				// cellIndex[3] = Talkgroup ID
+	// cellIndex[3] = Talkgroup Tag				// cellIndex[4] = Talkgroup Tag
+	// cellIndex[5] = Source ID					// cellIndex[5] = Source ID
+	// cellIndex[6] = Source Tag				// cellIndex[6] = Source Tag
+	
+	switch (source) { 
+		case 1: // sysfreq Table TD
+			x = 2;  // the cell index of tgid
+			y = 5;  // the cell index of srcid
+
+			switch (cname) {
+				case 'tgid':
+					id = click.innerText;			
+					url = 'tsv-edit.html?file=' + file + '&css=' + displayMode() + '&mode=tg&id=' + id + '&nac=' + nac;
+					tsv = window.open(url, 'tsv');			
+					break;
+
+				case 'tag':
+					id = click.parentElement.cells[x].innerText;
+					url = 'tsv-edit.html?file=' + file + '&css=' + displayMode() + '&mode=tg&id=' + id + '&nac=' + nac;
+					tsv = window.open(url, 'tsv');
+					break;
+			
+				case 'srcid':
+					id = click.innerText;			
+					url = 'tsv-edit.html?file=' + file + '&css=' + displayMode() + '&mode=src&id=' + id + '&nac=' + nac;
+					tsv = window.open(url, 'tsv');
+					break;
+
+				case 'srctag':
+					id = click.parentElement.cells[y].innerText;
+					url = 'tsv-edit.html?file=' + file + '&css=' + displayMode() + '&mode=src&id=' + id + '&&nac=' + nac;		
+					tsv = window.open(url, 'tsv');						
+					break;
+			}
+			break;
+			
+		case 2: // Call History Table SPAN
+			x = 3;  // the cell index of tgid
+			y = 5;  // the cell index of srcid
+			
+			switch (cname) {
+				case 'tgid':
+					id = click.parentElement.parentElement.cells[x].innerText;		
+					url = 'tsv-edit.html?file=' + file + '&css=' + displayMode() + '&mode=tg&id=' + id + '&nac=' + nac;
+					tsv = window.open(url, 'tsv');			
+					break;
+
+				case 'tag':
+					id = click.parentElement.parentElement.cells[x].innerText;
+					url = 'tsv-edit.html?file=' + file + '&css=' + displayMode() + '&mode=tg&id=' + id + '&nac=' + nac;;
+					tsv = window.open(url, 'tsv');
+					break;	
+			
+				case 'srcid':
+					id = click.parentElement.parentElement.cells[y].innerText;		
+					url = 'tsv-edit.html?file=' + file + '&css=' + displayMode() + '&mode=src&id=' + id + '&nac=' + nac;
+					tsv = window.open(url, 'tsv');
+					break;
+
+				case 'srctag':
+					id = click.parentElement.parentElement.cells[y].innerText;	
+					url = 'tsv-edit.html?file=' + file + '&css=' + displayMode() + '&mode=src&id=' + id + '&nac=' + nac;		
+					tsv = window.open(url, 'tsv');						
+					break;
+			} // end switch cname
+			break;
+	} // end switch source
+} // end editTsv()
+
+// adjacent sites table    
+function adjacent_data(d) {
+	// d json_type = trunk_update
+	if (Object.keys(d).length < 1)
+		return '';
+	//     var html = "<div class=\"adjacent\">"; // open div-adjacent
+	var html = '<br><table class="fixed" id="adjacent-sites" width=100%>';
+
+        html += '<col width="220px">';
+        html += '<col width="130px">';
+		html += '<col width="100px">';
+		html += '<col width=" 75px">';
+		html += '<col width=" 75px">';
+		html += '<col width="130px">';
+
+	html += '<th>Adjacent Sites</th><th>Frequency</th><th>System ID</th><th>RFSS ID</th><th>Site ID</th><th>Uplink</th>';
+	var ct = 0;
+	var alias, sysid, rfss, site;
+	for (var freq in d) {
+		sysid = d[freq]['sysid'];
+		rfss = d[freq]['rfid'];
+		site = d[freq]['stid'];
+		alias = "-";
+        if (window.siteAlias != null && window.siteAlias[sysid] && window.siteAlias[sysid][rfss] && window.siteAlias[sysid][rfss][site]) {
+        	alias = window.siteAlias[sysid][rfss][site]['alias'];
+        } else {
+        	alias =  'Site ' + d[freq]['stid'];
+        }
+		
+		html += '<tr><td>' + alias + '</td><td align="center">'+ freqDisplay(freq / 1000000) + '</td><td align="center">' + d[freq]['sysid'].toString(16).toUpperCase() + '</td>';
+		html += '<td  align="center">' + d[freq]['rfid'] + '</td><td  align="center">' + d[freq]['stid'] + '</td>';
+		html += '<td align="center">' + freqDisplay(d[freq]['uplink'] / 1000000) + '</td></tr>';
+	}
+	html += '</table>';
+	return html; // end adjacent sites table
+} // end adjacent_data()
+
+function trunk_update(d) {
+
+    var html;
+    if (summary_mode) {
+        html = trunk_summary(d); // home screen
+    } else {
+        html = trunk_detail(d); // RX screen
+        
+    }
+    
+    $('#div_s1').html(html);
+    
+    if (!summary_mode)
+    	sortTable('adjacent-sites', 4);
+    	
+    // display hold indicator 
+    if (d['data']['hold_mode']) {
+    	$('#holdIndicator').show();
+    } else {
+        $('#holdIndicator').hide();
+    }
+    
+    // display last command unless it was more than 10 seconds ago
+    x2 = d['data']['last_command'];
+    if (x2 && d['data']['last_command_time'] > -10) {
+        $('#lastCommand').html('Last Command<br><b>' + x2.toUpperCase() + '</b><br>' + ' ' + d['data']['last_command_time'] * -1 + ' secs ago');
+    } else {
+        $('#lastCommand').html('');
+    }
+
+    update_data(d);
+} // end trunk_update()
+
+function update_data(d) { // d json type = trunk_update
+    if (active_nac == null || active_tgid == null)
+        return;
+        
+    var    display_src = '&mdash;';
+    var display_srctag = '&mdash;';    
+    var    display_alg = '&mdash;';
+    var  display_keyid = '&mdash;';
+    
+    var e_class = 'value';
+    
+    if (last_srcaddr[active_nac] != null) {
+        display_src = last_srcaddr[active_nac];
+        var ele = document.getElementById('dSrc');
+        if (ele != null)
+            ele.innerHTML = display_src;
+    }
+    
+    if (last_srctag[active_nac] != null) {
+        display_srctag = last_srctag[active_nac];
+        var ele = document.getElementById('dSrctag');
+        if (ele != null)
+            ele.innerHTML = display_srctag;
+    }   
+    
+    if (last_algid[active_nac] == null || last_alg[active_nac] == null || last_keyid[active_nac] == null)
+        return;
+    display_alg = last_alg[active_nac];
+    if (last_algid[active_nac] != 128) {
+        display_keyid = last_keyid[active_nac];
+        e_class = 'red_value';
+    }
+    ele = document.getElementById('dAlg');
 	if (ele != null) {
 		ele.innerHTML = display_alg;
 		ele.className = e_class;
 	}
-	ele = document.getElementById("dKey");
-	if (ele != null)
-		ele.innerHTML = display_keyid;
-}
+    ele = document.getElementById('dKey');
+    if (ele != null)
+        ele.innerHTML = display_keyid; 
 
-function trunk_update(d) {
-    var div_s1 = document.getElementById("div_s1");
-    var html;
-    if (summary_mode)
-        html = trunk_summary(d);
-    else
-        html = trunk_detail(d);
-    div_s1.innerHTML = html;
+}  // end update_data()
 
-	// disply hold indicator  
-	var x = document.getElementById("holdIndicator");
-	if (d['data']['hold_mode']) {
-	         x.style.display = "block";
-	}				  
-	else {
-	        x.style.display = "none";
-	}
+function error_tracking() {
+	return;	// empty right now, handled in dispatch_commands switch block
+} // end error_tracking
 
-	// display last command unless it was more than 10 seconds ago
-	x2 = d['data']['last_command'];
-	if (x2 && d['data']['last_command_time'] > -10) {
-	document.getElementById("lastCommand").innerHTML = "Last Command<br><b>" + x2.toUpperCase() + "</b><br>" + " " + (d['data']['last_command_time'] * -1) + " secs ago";
-	}
-	else {
-		document.getElementById("lastCommand").innerHTML = "";	
-	}
-	update_data(d);
-}
-
-function config_list(d) {
-    var html = "";
-    html += "<select id=\"config_select\" name=\"cfg-list\" size=5>";
-    for (var file in d["data"]) {
-        html += "<option value=\"" + d["data"][file] + "\">" + d["data"][file] + "</option>";
-    }
-    html += "<option value=\"New Configuration\">New Configuration</option>";
-    html += "</select>";
-    document.getElementById("cfg_list_area").innerHTML = html;
-}
-
-function config_data(d) {
-    var cfg = edit_l(d['data'], true);
-    open_editor();
-    var chtable = document.getElementById("chtable");
-    var devtable = document.getElementById("devtable");
-    var chrow = document.getElementById("chrow");
-    var devrow = document.getElementById("devrow");
-    for (var device in cfg['devices'])
-        rollup_row("dev", amend_d(devrow, devtable, "new"), cfg['devices'][device]);
-    for (var channel in cfg['channels'])
-        rollup_row("ch", amend_d(chrow, chtable, "new"), cfg['channels'][channel]);
-    rollup_rx_rows(cfg['backend-rx']);
-}
-
-function open_editor() {
-    document.getElementById("edit_settings").style["display"] = "";
-    var rows = document.querySelectorAll(".dynrow");
-    var ct = 0;
-    for (var r in rows) {
-        var row = rows[r];
-        ct += 1;
-        if (row.id && (row.id.substring(0,3) == "id_" || row.id.substring(0,3) == "tr_")) {
-            row.parentNode.removeChild(row);
-        }
-    }
-    var oldtbl = document.getElementById("rt_1");
-    if (oldtbl)
-        oldtbl.parentNode.removeChild(oldtbl);
-    var tbl = document.getElementById("rxopt-table");
-    var newtbl = tbl.cloneNode(true);
-    newtbl.id = "rt_1";
-    newtbl.style["display"] = "";
-    var rxrow = newtbl.querySelector(".rxrow");
-    var advrow = newtbl.querySelector(".advrow");
-    rxrow.id = "rx_1";
-    advrow.id = "rx_2";
-    if (tbl.nextSibling)
-        tbl.parentNode.insertBefore(newtbl, tbl.nextSibling);
-    else
-        tbl.parentNode.appendChild(newtbl);
-}
-
-function http_req_cb() {
-    req_cb_count += 1;
-    s = http_req.readyState;
-    if (s != 4) {
-        nfinal_count += 1;
+function dispatch_commands(txt) {
+    if (txt == '[]') {
         return;
     }
-    if (http_req.status != 200) {
-        n200_count += 1;
-        return;
-    }
-    r200_count += 1;
-    var dl = JSON.parse(http_req.responseText);
-    var dispatch = {'trunk_update': trunk_update, 'change_freq': change_freq, 'rx_update': rx_update, 'config_data': config_data, 'config_list': config_list}
-    for (var i=0; i<dl.length; i++) {
+
+    var dl = JSON.parse(txt);
+
+    var dispatch = {
+        'trunk_update': trunk_update,
+        'change_freq': change_freq,
+        'rx_update': rx_update,
+        'config_data': config_data,
+        'config_list': config_list,
+        'cc_event': cc_event,
+        'freq_error_tracking': error_tracking
+    };
+    
+    for (var i = 0; i < dl.length; i++) {
         var d = dl[i];
-        if (!("json_type" in d))
+        if (!('json_type' in d))
             continue;
-        if (!(d["json_type"] in dispatch))
+        if (!(d['json_type'] in dispatch))
             continue;
-        dispatch[d["json_type"]](d);
-    }
-}
+        var j_type = d['json_type'];
+        var time = getTime(new Date());
+        if (d.time)
+            time = getTime(d.time * 1000); 
+        
+        switch (j_type) {
+        
+        	case 'freq_error_tracking':
+        		var ele, bx, cx, dx, ex, fx, gx;
+        		$('#error_tracking').show();
+        		bx = d.device;
+        		cx = d.name;
+        		dx = d.error_band;
+        		ex = d.freq_correction;
+        		fx = d.freq_error;
+        		gx = d.tuning_error;
+        		appendErrorTable (time, bx, cx, dx, ex, fx, gx, 'errors');
+        		break;
+        
+            case 'change_freq':
+                cb = cbState('log_cf');
+                time = getTime(d['effective_time'] * 1000);
+                if (d.tgid && !d.tag) {
+                    d.tag = 'Talkgroup ' + d.tgid + ''; // talkgroup tag isn't in the tsv
+                    d.tag_color = $('#unk_default').val();
+                }
+                sysid = d.sysid ? hex(d.sysid).toUpperCase() : "&mdash;"
+                var freq = d['freq'] / 1000000; 
+                var srctag = "&mdash;";
+                var color, srccolor, srcaddr;
+                
+                
+                if (d['tag_color']) {
+                    color = d['tag_color'];
+                } else {
+                    color = smartColor(d.tag);
+                    d['tag_color'] = color;
+                }
 
-function do_onload() {
-    var ele = document.getElementById("div_status");
-    ele.style["display"] = "";
-    var intv = setInterval(do_update, update_interval);              // UI update interval
-    b = document.getElementById("b1");
-    b.className = "nav-button-active";
-}
+                if (d['srcaddr_color']) {
+                    srccolor = d['srcaddr_color'];
+                } else {
+                    srccolor = smartColor(d.tag);
+                }
+                        
+                var tag = '<span class="c' + color + '">' + d.tag + '</span>';
+                var tgid = '<span class="c' + color + '">' + d.tgid + '</span>';
+                
+                // TODO - cb not defined keeps coming up a couple times in the console, right at start up.
+                if (cb && d.tgid) {
+	                appendJsonTable(time, j_type, sysid, tag, tgid, freq, '--', '--', 'history');
+                }
+                
+                if (d.tgid) {
+                    srctag = (window['srct' + d.srcaddr]) ? '<span class="c' + srccolor + '">' + window['srct' + d.srcaddr] : "&mdash;";
+                    srcaddr = '<span class="c' + srccolor + '">' + d.srcaddr;
+                }
+                window.g_change_freq = d;
+                break;
+                
+            case 'trunk_update':
+                cb = cbState('log_tu');
+                	var tf, sf, sid, a, z;
+					var sysid, site, rfid, color;
+					var grpaddr, c_grpaddr, srcaddr, c_srcaddr, talkgroup, c_talkgroup, srctag, c_srctag;
+				    for (nac in d) {
+				        if (Number.isInteger(parseInt(nac))) {  
+				        	sysid = d[nac]['sysid'];
+				        	sid = sysid;
+			        		sysid = hex(sysid).toUpperCase();
+				        	site = d[nac]['stid'];
+				        	rfid = d[nac]['rfid'];
+				        	grpaddr = d[nac]['grpaddr'];
+				        	srcaddr = d[nac]['srcaddr'];
+	
+							tf = d[nac]['tgid_tags_file'];
+							tgid_files[sid] = tf;
+
+							sf = d[nac]['unit_id_tags_file'];
+							srcid_files[sid] = sf;
+
+							if (window['tgidt' + grpaddr]) 
+								talkgroup = window['tgidt' + grpaddr]; 
+					        
+					        srctag = (window['srct' + srcaddr]) ? (window['srct' + srcaddr]) : "&nbsp;";
+				    
+				    		color = smartColor(talkgroup);
+				    		srccolor = smartColor(talkgroup);
+				    		
+				    		if (window['tgidc' + grpaddr])
+				    			color = window['tgidc' + grpaddr];
+				    		
+		                    c_grpaddr = '<span class="c' + color + '">' + grpaddr + '</span>';
+		                    c_talkgroup = '<span class="c' + color + '">' + talkgroup + '</span>';
+	
+		                    color = (window['srcc' + srcaddr]) ? window['srcc' + srcaddr] : "0";
+   		                    c_srcaddr = '<span class="c' + srccolor + '">' + srcaddr + '</span>';
+		                    c_srctag  = '<span class="c' + srccolor + '">' + srctag + '</span>';
+		                    
+		                    var sr = "Site: " + site + "  &nbsp;&nbsp;&nbsp; RFID: " + rfid;
+		                    
+		                    var col_f = "&mdash;"; // empty for now
+                    
+           				if (cb) {
+		                    if (grpaddr) {  // do not append the table if no grpaddr is present - TU into Events table is pretty much useless anyway
+					        	appendJsonTable(time, j_type, sysid, sr, c_grpaddr,  col_f, "--", "--", "history");
+							}
+						} //end if cb
+				      } // end if nac is number	
+					} // end for nac in d
+                sources(d);
+                window.g_trunk_update = d;      
+                break;
+                
+            case 'rx_update':
+                cb = cbState('log_rx');
+				if (d['files'][0]) {
+                	var ps = "Plots present";            	
+                	} else {
+						// do nothing
+                	}                
+                if (cb) {       
+                    appendJsonTable(time, j_type, ps, 'Fine Tune: ' + d['fine_tune'], 'Error: ' + d['error'], '-', '-', '--', 'history');
+                }  // this Events table entry doesn't add much value either.
+
+//                 window.g_rx_update = d;
+                sessionStorage.fineTune = d['fine_tune'] ? d['fine_tune'] : "&mdash;";
+                sessionStorage.errorVal = d['error'] ? d['error'] : "&mdash;";
+                break;
+                
+            case 'cc_event':
+            	time = getTime(d['time'] * 1000);
+                cb = cbState('log_cc');
+                var opcode, n_opcode, sysid, tag, target, source, srctag, src_c, color;
+                var logCall = 0;
+                var noLog = 0;
+                var xp = 0;
+                
+                if (d.opcode !== null) {
+                    opcode = d['opcode'].toString(16);
+                    if (g_opcode[opcode]) {
+                        n_opcode = g_opcode[opcode];
+                    } else {
+                        n_opcode = 'Opcode Not Found: ' + opcode;
+                    }
+                }
+                
+                tag = target = source = '&mdash;';
+                srctag = "&nbsp;";   // used           
+                
+                // [group] does not appear in every cc_event!
+                if (d.group) {
+
+              		if (d.group && d.group.tag) {
+							tag = d.group.tag;
+					} else {
+						d.group.tag = 'Talkgroup ' + d.group.tg_id;
+						d.group.color = $('#unk_default').val();			
+					}
+
+                }  // end if d.group
+                
+                if (d.reason) {
+                    tag = getReason(hex(d.reason));
+                }
+                   
+                n_opcode = g_opcode[opcode] ? g_opcode[opcode] : opcode;	
+				
+				if (d['srcaddr']) {
+                	source = (d.srcaddr.unit_id) ? d.srcaddr.unit_id : "&mdash; No ID";	// This condition is reached when there is traffic
+                																		// but no source unit id is present. on ebrcs, this
+                																		// happens when an old u/vhf system is patched onto ebrcs.
+                	srctag = (d.srcaddr.tag) ? d.srcaddr.tag : "&nbsp;";
+                }
+				
+            	// handle manufacturer opcodes:   
+				// 		   0x10 = Relm/BK
+				//		   0x68 = Kenwood	
+            	// 144(10) 0x90 = Motorola
+            	// 164(10) 0xA4 = Harris 
+            	//		   0xD8 = Tait
+            	//		   0xF8 = Vertex Standard
+            	//   trunking.py sends the following opcodes:
+            	//   -1, 0x00, 01, 02, 03, 09, 20, 27, 28, 2a, 2b, 2c, 2d, 2f, 33, 34, 3d
+            	
+            	switch (opcode) {
+            	
+            		case "-1": // end call (not a P25 standard)
+            			tag = d.tgid.tag;
+            			target = d.tgid.tg_id;
+						n_opcode = "End Call";
+						noLog = 1; // Events
+						// TODO - maybe nothing?
+            			break;
+            	
+					case "0":
+						if (d.mfrid != null) {
+							switch (d.mfrid) {
+								case 0:						
+									n_opcode = "Call";		// GRP_V_CH_GRANT
+									target = d['group']['tg_id'];
+									srctag = d['srcaddr']['tag'];
+									noLog = cbState('je_calls') ? 0 : 1;  //events
+									logCall = 1; // callHistory
+									break;
+								case 144: // MOTOROLA
+									n_opcode = "XP Adds";  //mot_grg_add_cmd 0x00"
+									tag = d.sg.tag;
+									target = d.sg.tg_id;	
+									noLog = 1; // chatty af		
+									logCall = 0; // callHistory
+									break;
+								case "default":
+									n_opcode = "Call";
+									target = d['group']['tg_id'];
+									srctag = d['srcaddr']['tag'];									
+									noLog = cbState('je_calls') ? 0 : 1;
+									logCall = 1; // callHistory
+									break;
+							} // end switch
+						} // end if
+						break;
+				
+					case "1": // 0x01 - RESERVED
+						if (d.mfrid != null) {
+							switch (d.mfrid) {
+								case 0:
+									n_opcode = "Reserved 0x01";
+									break;
+								case 144: // MOTOROLA
+									n_opcode = "XP Drops";
+									tag = d.sg.tag;
+									target = d.sg.tg_id;
+									break;
+							} // end switch
+						} // end if
+						break;            		
+				
+					case "2": // 0x02 - grp_v_ch_grant_updt
+						if (d.mfrid != null) {
+							switch (d.mfrid) {
+								case 0:
+									n_opcode = "grp_v_ch_grant_updt 0x02";
+									noLog = cbState('je_calls') ? 0 : 1;										
+									break;
+								case 144: // MOTOROLA
+									d['group'] = d['sg'];
+									d['srcaddr'] = d['sa'];
+									srctag = d.sa.tag;									
+									n_opcode = "XP Call"; // MOT XP Call  mot_grg_cn_grant 0x02
+									tag = d.sg.tag;
+									target = d.sg.tg_id;
+									source = d.sa.unit_id;			
+									noLog = cbState('je_calls') ? 0 : 1;
+									logCall = 1; // callHistory	
+									xp = 1;								
+									break;        				            		
+							} // end switch
+						} // end if
+						break;				
+
+					case "3": // 0x03 - GRP_V_CH_GRANT_UPDT_EXP
+						if (d.mfrid != null) {
+							switch (d.mfrid) {
+								case 0:
+									n_opcode = "grp_v_ch_grant_updt_exp 0x03";
+									break;
+								case 144: // MOTOROLA
+									n_opcode = "mot_grg_cn_grant_updt 0x03"; 
+									tag = d.sg1.tag;
+									target = d.sg1.tg_id;
+									noLog = 1;  // used for late entry, very chatty, probably should not log to JSON Events
+									break;
+							} // end switch
+						} // end if
+						break;
+						
+					case "9": // MOT System Load ? Could be "Motorola Scan Marker"
+						if (d.mfrid != null) {
+							switch (d.mfrid) {
+								case 0:
+									n_opcode = "Opcode 0x03";
+									break;
+								case 144: // MOTOROLA
+									n_opcode = "System Load " + d.test1;
+ 									noLog = 1;
+									break;
+							} // end switch
+						} // end if
+						break;
+
+					case "20":  // 0x20 - ACK_RSP_FNE
+						noLog = 1;
+						break;
+						
+					case "24":  // 0x24 - Extended Function Command (inhibit)  TODO: get reason code, log it
+						var efclass = d.efclass;
+						var efoperand = d.efoperand;
+						var efargs = d.efargs;
+						var target = d.target;
+						n_opcode = "Ext Fnct Cmd: " + efoperand;
+						source = efargs;	
+						noLog = 0;
+						break;							
+	
+					case "27":  // 0x27 - DENY_RSP
+						source = d.target.unit_id;
+						srctag = d.target.tag;
+						noLog = cbState('je_deny') ? 0 : 1;
+						break;		
+						
+					case "28":  // 0x28 - GRP_AFF_RSP
+						source = d.target.unit_id;
+						target = d.group.tg_id;
+						noLog = cbState('je_joins') ? 0 : 1;
+						break;		
+						
+					case "2a": // 0x2A - GRP_AFF_Q - Group Affiliate Query
+						noLog = 1;
+						break;
+						
+					case "2b": // 0x2B - LOC_REG_RSP - Location Registration Response
+						if (d['rv'] != null) {
+							switch (d['rv']) {
+								case 0:
+									n_opcode = "Joins";
+									target = d.group.tg_id;
+									source = d.target.unit_id;
+									srctag = d.target.tag;
+									noLog = cbState('je_joins') ? 0 : 1;
+									break;
+								case 1:
+									n_opcode = "Reg Fail";
+									target = d.group.tg_id;
+									source = d.target.unit_id;
+									srctag = d.target.tag;									
+									noLog = cbState('je_deny') ? 0 : 1;	
+									break;
+								case 2:
+									n_opcode = "Reg Denied";
+									target = d.group.tg_id;
+									source = d.target.unit_id;
+									srctag = d.target.tag;									
+									noLog = cbState('je_deny') ? 0 : 1;
+									break;
+								case 3:
+									n_opcode = "Reg Refused";
+									target = d.group.tg_id;
+									source = d.target.unit_id;
+									srctag = d.target.tag;								
+									noLog = cbState('je_deny') ? 0 : 1;
+									break;
+							} // end rv switch
+						} // end if
+						break;	
+
+					case "2c":  // 0x2C - U_REG_RSP - Login	TODO: source and target are the same from the json
+						source = d.source.unit_id;
+						srctag = d.source.tag;
+ 						// target = d.target.unit_id;
+ 						// tag = d.target.tag;
+						noLog = cbState('je_log') ? 0 : 1;
+						break;	
+
+					case "2d":  // 0x2D - U_REG_CMD - Force SU Registration
+						source = d.source.unit_id;
+						srctag = d.source.tag;
+						target = d.target.unit_id;
+						tag = d.target.tag;						
+						noLog = cbState('je_log') ? 0 : 1;
+						break;	
+						
+					case "2f":  // 0x2F - U_DE_REG_ACK - Logout
+						source = d.source.unit_id;
+						srctag = d.source.tag;						
+						noLog = cbState('je_log') ? 0 : 1;	
+						break;
+
+					case "33": // 0x33 - iden up tdma
+						var sysid 	= d.sysid;
+						var type	= 'TDMA';						
+						var iden 	= d.iden;
+						var freq 	= d.freq / 1000000;
+						var offset 	= d.offset / 1000000;
+						var step 	= d.step/100000;
+						var slots 	= d.slots;
+						channelId (sysid, iden, type, freq, offset, step, slots);
+						noLog = 1;
+						break;
+
+					case "34": // 0x34 - iden up vhf/uhf
+						// TODO - test this
+						var sysid 	= d.sysid;
+						var type	= 'FDMA';
+						var iden 	= d.iden;
+						var freq 	= d.freq / 1000000;
+						var offset 	= d.offset / 1000000;
+						var step 	= d.step/100000;
+						var slots 	= 1;
+						channelId (sysid, iden, type, freq, offset, step, slots);
+						noLog = 1;
+						break;
+					
+					case "3d": // 0x3D - iden up (7/800)
+						var sysid 	= d.sysid;
+						var type	= 'FDMA';
+						var iden 	= d.iden;
+						var freq 	= d.freq / 1000000;
+						var offset 	= d.offset / 1000000;
+						var step 	= d.step/100000;
+						var slots 	= 1;
+						channelId (sysid, iden, type, freq, offset, step, slots);
+						noLog = 1;
+						break;
+	
+				} // end switch - end handle manf opcodes
+
+                if (d.options) {
+                	n_opcode = ( (d.options >> 6) & 1 ) ? n_opcode = n_opcode + "&nbsp;&nbsp;&nbsp;&#x2205;" : n_opcode;  //encrypted
+                }
+
+				c = smartColor(tag);
+				src_c = 0;
+	
+				if (d['group']) 
+					c = (d['group']['color']) ? d['group']['color'] : c;
+				
+				if (d['sg']) 
+					c = (d['sg']['color']) ? d['sg']['color'] : c;
+				
+				tag = "<span class=\"c" + c + "\">" + tag;
+				target = "<span class=\"c" + c + "\">" + target;              
+				
+				if (d['srcaddr']) 
+					src_c = (d['srcaddr']['color']) ? d['srcaddr']['color'] : src_c;               	
+
+				source = "<span class=\"c" + src_c + "\">" + source;                
+				srctag = "<span class=\"c" + src_c + "\">" + srctag;                     		
+
+				if (cb && noLog == 0) {            	                	
+					appendJsonTable(time, j_type, n_opcode, tag, target, source, srctag, opcode, 'history');
+				}
+
+				if (target != "&mdash;" && logCall) {
+
+					target = "<span name=\"tgid\"  ondblclick=\"editTsv(this, 2, " + d.sysid + ", " + d.nac + ");\" class=\"c" + c + "\">" + target;    
+					   tag = "<span name=\"tag\"   ondblclick=\"editTsv(this, 2, " + d.sysid + ", " + d.nac + ");\" class=\"c" + c + "\">" + tag;
+
+					source = "<span name=\"srcid\"  ondblclick=\"editTsv(this, 2, " + d.sysid + ", " + d.nac + ");\" class=\"c" + src_c + "\">" + source;                
+					srctag = "<span name=\"srctag\" ondblclick=\"editTsv(this, 2, " + d.sysid + ", " + d.nac + ");\" class=\"c" + src_c + "\">" + srctag;   
+			
+					var tdma_slot = d.tdma_slot; // s/b null if not running tdma
+
+					appendCallHistory(time, "--", target, tag, source, srctag, 'callHistory', d.options, xp, d.sysid, d.nac, tdma_slot);
+				}
+
+                window.g_cc_event = d;
+                break;
+        } // end switch
+        
+        dispatch[d['json_type']](d); // correct function is called based on json type in the dataset
+    } // end for
+  f_debug(d);
+} // end dispatch_commands()
+
+function cc_event(d) {
+	// does nothing right now
+    return;
+} // end cc_event()
 
 function do_update() {
-    send_command("update", 0);
     f_debug();
-}
-
-function send_command(command, data) {
-    var d = {"command": command, "data": data};
-    send(d);
-}
-
-function send(d) {
-    request_count += 1;
-    if (send_queue.length >= SEND_QLIMIT) {
-        send_qfull += 1;
-        send_queue.unshift();
-    }
-    send_queue.push( d );
-    send_process();
-}
-
-function send_process() {
-    s = http_req.readyState;
-    if (s != 0 && s != 4) {
-        send_busy += 1;
-        return;
-    }
-    http_req.open("POST", "/");
-    http_req.onreadystatechange = http_req_cb;
-    http_req.setRequestHeader("Content-type", "application/json");
-    cmd = JSON.stringify( send_queue );
-    send_queue = [];
-    http_req.send(cmd);
-}
+} // do_update()
 
 function f_scan_button(command) {
     if (current_tgid == null)
@@ -706,333 +1468,1122 @@ function f_scan_button(command) {
 }
 
 function f_goto_button(command) {
-	var _tgid = 0;
-
-	if (command == "goto") {
-		command = "hold"
-		if (current_tgid != null)
-		   _tgid = current_tgid;
-		_tgid = parseInt(prompt("Enter tgid to hold.", _tgid));
-
-		if (isNaN(_tgid) || (_tgid < 0) || (_tgid > 65535)) 
-			_tgid = 0;
-		send_command(command, _tgid);									
-	}
+    var _tgid = 0;
+    if (command == 'goto') {
+        command = 'hold';
+        if (current_tgid != null)
+            _tgid = current_tgid;
+        _tgid = parseInt(prompt('Enter TGID to hold.', _tgid));
+        if (isNaN(_tgid) || _tgid < 0 || _tgid > 65535)
+            _tgid = 0;
+        send_command(command, _tgid);
+    }
 }
 
-function f_debug() {
-	if (!d_debug) return;
-	var html = "<div class='label'><br>";
-	html += "busy " + send_busy;
+function f_debug(d) {
+    if (!d_debug)
+        return;
+
+    var html = "<div class='label'>Debug:<br>";
+//     html += 'window.g_nac = ' + window.g_nac;
+    html += '<br>';    
+    html += 'json type: ' + d['json_type'];
+    html += '<br>';
+ 	html += "busy " + send_busy;
 	html += " qfull " + send_qfull;
 	html += " sendq size " + send_queue.length;
 	html += " requests " + request_count;
-	html += " update int=" + update_interval;
 	html += " <br>callbacks: ";
 	html += " total=" + req_cb_count;
 	html += " incomplete=" + nfinal_count;
 	html += " error=" + n200_count;
 	html += " OK=" + r200_count;
-	html += "</div>";
-	var div_debug = document.getElementById("div_debug");
-	div_debug.innerHTML = html;
+	html += "</div>";   
+    
+    $('#div_debug').html(html);
 }
 
-function find_next(e, tag) {
-	var n = e.nextSibling;
-	for (var i=0; i<25; i++) {
-		if (n == null)
-			return null;
-		if (n.nodeName == tag)
-			return n;
-		n = n.nextSibling;
-	}
-	return null;
+function popOut() { 
+    var myWindow = window.open(window.location.href, '', 'width=760,height=400');
 }
 
-function find_free_id(pfx) {
-	for (var seq = 1; seq < 5000; seq++) {
-		var test_id = pfx + seq;
-		var ele = document.getElementById(test_id);
-		if (!ele)
-			return test_id;
-	}
-	return null;
-}
-
-function f_trunked(e) {
-	var row = find_parent(e, "TR");
-	var trrow = document.getElementById("tr_" + row.id.substring(3));
-	trrow['style']["display"] = (e.checked) ? "" : "none";
-}
-
-function read_write_sel(sel_node, def) {
-	var result = [];
-	var elist = sel_node.querySelectorAll("option");
-	for (var e in elist) {
-		var ele = elist[e];
-		if (def) {
-			if (!def[sel_node.name])
-				return;
-			var options = def[sel_node.name].split(",");
-			var opts = {};
-			for (var o in options)
-				opts[options[o]] = 1;
-			if (ele.value in opts)
-				ele.selected = true;
-			else
-				ele.selected = false;
-		} else {
-			if (ele.selected)
-				result.push(ele.value);
-		}
-	}
-	if (!def)
-		return result.join();
-}
-
-function read_write(elist, def) {
-	var result = {};
-	for (var e in elist) {
-		var ele = elist[e];
-		if (ele.nodeName == 'INPUT') {
-			if (ele.type == 'text')
-				if (def)
-					ele.value = def[ele.name];
-				else
-					result[ele.name] = ele.value;
-			else if (ele.type == 'checkbox')
-				if (def)
-					ele.checked = def[ele.name];
-				else
-					result[ele.name] = ele.checked;
-		} else if (ele.nodeName == 'SELECT') {
-			if (def)
-				read_write_sel(ele, def);
-			else
-				result[ele.name] = read_write_sel(ele, def);
-		}
-	}
-	if (!def)
-		return result;
-}
-
-function rollup_row(which, row, def) {
-	var elements = Array.from(row.querySelectorAll("input,select"));
-	if (which == "ch") {
-		var trrow = document.getElementById("tr_" + row.id.substring(3));
-		var trtable = trrow.querySelector("table.trtable");
-		elements = elements.concat(Array.from(trtable.querySelectorAll("input,select")));
-		if (def)
-			trrow.style["display"] = (def["trunked"]) ? "" : "none";
-	}
-	else if (which == "rx") {
-		var advrow = document.getElementById("rx_2");
-		elements = elements.concat(Array.from(advrow.querySelectorAll("input,select")));
-	}
-	var result = read_write(elements, def);
-	if (which == "ch") {
-		var tgtable = trrow.querySelector("table.tgtable");
-		var tgrow = trrow.querySelector("tr.tgrow");
-		if (def) {
-			for (var k in def["tgids"]) {
-				var val = def["tgids"][k];
-				var newrow = amend_d(tgrow, tgtable, "new");
-				var inputs = newrow.querySelectorAll("input");
-				read_write(inputs, {"tg_id": k, "tg_tag": val});
-			}
-		} else {
-			var tgids = {};
-			var rows = tgtable.querySelectorAll("tr.tgrow");
-			for (var i=0; i<rows.length; i++) {
-				if (rows[i].id == null || rows[i].id.substring(0,3) != "tg_")
-					continue;
-				var inputs = rows[i].querySelectorAll("input");
-				var vals = read_write(inputs, null);
-				tgids[vals["tg_id"]] = vals["tg_tag"];
-			}
-			result['tgids'] = tgids;
-		}
-	}
-	if (!def)
-		return result;
-}
-
-function rollup(which, def) {
-	var result = [];
-	var mytbl = document.getElementById(which + "table");
-	var elements = mytbl.querySelectorAll(".dynrow");
-	for (var e in elements) {
-		var row = elements[e];
-		if (row.id != null && row.id.substring(0,3) == "id_")
-			result.push(rollup_row(which, row, def));
-	}
-	if (!def)
-		return result;
-}
-
-function rollup_rx_rows(def) {
-	return rollup_row("rx", document.getElementById("rx_1"), def);
-}
-
-function f_save() {
-	var name = document.getElementById("config_name");
-	if (!name.value) {
-		alert("Name is required");
-		name.focus();
-		return;
-	}
-	if (name.value == "New Configuration") {
-		alert ("'" + name.value + "' is a reserved name, please retry");
-		name.value = "";
-		name.focus();
-		return;
-	}
-	var cfg = { "devices": rollup("dev", null), "channels": rollup("ch", null), "backend-rx": rollup_rx_rows(null) };
-	cfg = edit_l(cfg, false);
-	var request = {"name": name.value, "value": cfg};
-	send_command("config-save", request);
-	f_list();
-}
-
-function f_list() {
-	var inp = document.getElementById("include_tsv");
-	send_command("config-list", (inp.checked) ? "tsv" : "");
-}
-
-function f_stop() {
-	send_command("rx-stop", "");
-}
-
-function f_start() {
-	var sel = document.getElementById("config_select");
-	if (!sel) return;
-	var val = read_write_sel(sel, null);
-	if ((!val) || val == "New Configuration") {
-		alert ("You must select a valid configuration to start");
-		return;
-	}
-	if (val.indexOf("[TSV]") >= 0) {
-		alert ("TSV files not supported. First, invoke \"Edit\"; inspect the resulting configuration; then click \"Save\".");
-		return;
-	}
-	send_command("rx-start", val);
-}
-
-function f_load() {
-	var sel = document.getElementById("config_select");
-	if (!sel) return;
-	var val = read_write_sel(sel, null);
-	if (!val) {
-		alert ("You must select a configuration to edit");
-		return;
-	}
-	if (val == "New Configuration") {
-		open_editor();
-	} else {
-		send_command('config-load', val);
-		var ele = document.getElementById("config_name");
-		ele.value = val;
-	}
-}
-
-function show_advanced(o) {
-    var tbl = find_parent(o, "TABLE");
-    var row = tbl.querySelector(".advrow");
-    toggle_show_hide(o, row);
-
-}
-
-function toggle_show_hide(o, ele) {
-    if (o.value == "Show") {
-        o.value = "Hide";
-        ele.style["display"] = "";
-    } else {
-        o.value = "Show";
-        ele.style["display"] = "none";
-    }
-}
-
-function f_tags(o) {
-    var mydiv = find_parent(o, "DIV");
-    var tbl = mydiv.querySelector(".tgtable");
-    toggle_show_hide(o, tbl);
-}
-
-// added UI functions - triptolemus
-
-// popout the UI to a minimal browser window 
-function popOut() {
-  var myWindow = window.open(window.location.href, "", "width=760,height=400");
-}
-
-// toggle dark/light mode
 function toggleCSS() {
-    var x = document.documentElement.getAttribute('data-theme');
-    if (x == "dark") {
-        document.documentElement.setAttribute('data-theme', 'light');
-        } else {
-        document.documentElement.setAttribute('data-theme', 'dark');
-        }
+	$(document.documentElement).attr('data-theme') == 'light' ? 
+		$(document.documentElement).attr('data-theme', 'dark') : 
+			$(document.documentElement).attr('data-theme', 'light');
+	sdmode();
 }
 
-// add comma formatting to number (tsbk)
 function comma(x) {
-    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    // add comma formatting to whatever you give it (xx,xxxx,xxxx)
+    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
-
-// keyboard shortcuts
 
 document.onkeydown = function(evt) {
+	// keyboard shortcuts
     evt = evt || window.event;
-    if (evt.keyCode == 71) {	// 'g' key - GOTO
-        f_goto_button("goto");
-    }
-    
-    if (evt.keyCode == 76) {	// 'l' key - LOCKOUT
-        f_scan_button("lockout");
-    }    
+    var x = document.activeElement.tagName;
+ 	if (x == "INPUT") 
+ 		return; // don't do anything if user is typing in an input field
 
-    if (evt.keyCode == 72) {	// 'h' key - HOLD
-        f_scan_button("hold");
-    } 
-
-    if (evt.keyCode == 83) {	// 's' key - SKIP
-        f_scan_button("skip");
-    } 
-
-    if (evt.keyCode == 86) {	// 'v' key - VIEW (light/dark)
-        toggleCSS();
-    }  
-    
-    if (evt.keyCode == 82) {	// 'r' key - RX screen
-       f_select("rx");
-    }
-    
-    if (evt.keyCode == 74) {	// 'j' key - HOME screen
-       f_select("status");
-    }
-
-    if (evt.keyCode == 77) {	// 'm' key - MINIFY
-        minify("nav-bar");
-        minify("div_images");
-        minify("div_s1");
-    } 
-    
-    if (evt.keyCode == 66) {	// 'b' key - bold
-        document.getElementById("valFontStyle").value="bold"
-    } 
-
-    if (evt.keyCode == 78) {	// 'n' key - normal
-        document.getElementById("valFontStyle").value="normal"
-    } 
-}
+    switch (evt.keyCode) {
+        case 71:
+            // 'g' key - GOTO
+        	$('#lastCommand').html('G - GOTO<br><br>').show();            
+            f_goto_button('goto');
+            break;
+        case 76:
+            // 'l' key - LOCKOUT
+        	$('#lastCommand').html('L - LOCKOUT<br><br>').show();               
+            f_goto_button('lockout');
+            break;
+        case 72:
+            // 'h' key - HOLD
+        	$('#lastCommand').html('H - HOLD<br><br>').show();                 
+            f_goto_button('hold');
+            break;
+        case 80:
+            // 'p' show/hide plots
+        	$('#lastCommand').html('P - Plots<br><br>').show();                
+             minify('div_images');
+            break;            
+        case 83:
+            //  's' key - SKIP
+        	$('#lastCommand').html('S - Skip<br><br>').show();                   
+            f_goto_button('skip');
+            break;
+        case 86:
+            //  'v' key - VIEW (light/dark)
+        	$('#lastCommand').html('V - View<br><br>').show();                 
+            toggleCSS();
+            break;
+        case 82:
+            //  'r' key - RX screen
+            f_select('rx');
+            break;
+        case 74:
+            //  'j' key - HOME screen
+            f_select('status');
+            break;
+        case 77:
+            //  'm' key - MINIFY
+            minify('nav-bar');
+            minify('div_images');
+            minify('div_s1');
+            break;
+        case 48: // '0' key - show/hide Main Display
+        	minify('controlsDisplay');
+        	break;
+        case 49:
+        	$('#lastCommand').html('1 - Calls<br><br>').show();             
+            //  '1' key - show/hide callHistory
+            minify('log_container_1');
+            break;
+        case 50:
+        	$('#lastCommand').html('2 - Events<br><br>').show();            
+            //  '2' key - show/hide history (json log)
+            minify('log_container_2');
+            break;
+        case 51:
+            //  '3' key - show/hide logs block
+        	$('#lastCommand').html('3 - Logs<br><br>').show();                   
+			if ( $('#div_logs').is(":hidden") ) {
+				 $('#div_logs').show(window.animateSpeed);
+			} else {
+				$('#div_logs').hide(window.animateSpeed);
+			}
+            break;        // showBandPlan
+        case 52:
+        	//  '4' key - show/hide Band Plan
+        	$('#lastCommand').html('4 - Bandplan<br><br>').show();
+        	$('#showBandPlan').trigger('click');
+        	setTimeout(function() {$('#lastCommand').html('').hide();}, 2000);
+            break;
+        case 65:
+        	$('#lastCommand').html('A - Neighbors<br><br>').show();        
+        	$('#show_adj').trigger('click');	        
+            break;
+        case 66:
+            //  'b' key - bold
+             $('#valFontStyle').val('bold');
+            break;
+        case 78:
+            //  'n' key - normal
+             $('#valFontStyle').val('normal');
+            break;
+    } // end switch
+}; // end onkeydown
 
 function minify(div) {
-  var x = document.getElementById(div);
-  if (x.style.display === "none") {
-    x.style.display = "block";
-  } else {
-    x.style.display = "none";
-  }
+	$('#' + div).toggle(window.animateSpeed);
 }
+
+function appendJsonTable(a, b, c, d, e, f, srctag, opcode, target) {
+    var numRows = document.getElementById(target).rows.length;
+    var size = document.getElementById('log_len').value;
+    if (!Number.isInteger(size))
+        // entry in Config / Display Options must be a number
+        size = 1500;
+    
+	// shorter friendly view
+    var fv = {
+        'cc_event': "<font color='#ff3300'>CC</font>",    
+        'rx_update': 'RX',
+        'change_freq': 'CF',
+        'trunk_update': 'TU'
+    };
+    
+    if (numRows > size)
+        document.getElementById(target).deleteRow(-1);
+    var table = document.getElementById(target);
+    var lastRowIndex = table.rows.length - 1;
+    var skip = 0;
+
+    var prevTime = nohtml(table.rows[1].cells[0].innerHTML);	// time
+
+    // do not duplicate history enteries - uses window object to store previous enteries and compares them with current data
+    // seems to work... 
+    
+    if (target == 'history' && b == 'trunk_update' && window.g_trunk_update_c && window.g_trunk_update_d) {
+        if (c == window.g_trunk_update_c && d == window.g_trunk_update_d && a == prevTime) {
+//             console.log('skip cond 1');
+            skip = 1;
+        }
+    }
+    if (target == 'history' && b.includes('cc_event') && window.g_cc_event_c && window.g_cc_event_e) {
+        if (c == window.g_cc_event_c && (e == window.g_cc_event_e || f == window.g_cc_event_f) && a == prevTime) {
+            skip = 1;
+// 			     console.log('skip cond 2');       
+        }
+
+    }
+    if (target == 'history' && b.includes('change_freq') && window.g_change_freq_c && window.g_change_freq_e) {
+        if (c == window.g_change_freq_c && e == window.g_change_freq_e && a == prevTime) {
+//             console.log('skip cond 3');
+            skip = 1;
+        }
+    }
+    
+    if (!skip) {
+        var row = table.insertRow(1);        // 2nd row insert        
+        
+        var cell0 = row.insertCell(0);
+        var cell1 = row.insertCell(1);
+        var cell2 = row.insertCell(2);
+        var cell3 = row.insertCell(3);        
+        var cell4 = row.insertCell(4);
+        var cell5 = row.insertCell(5);
+        var cell6 = row.insertCell(6);
+        var cell7 = row.insertCell(7);
+        
+        opcode = opcode.toString();
+        opcode = opcode.length == 1 ? "0" + opcode : opcode;
+        
+        cell0.innerHTML = a;  //time
+        cell1.innerHTML = (target == 'history') ? '<div align="center">' + fv[b] + '</div>' : '<div align="center">' + b + '</div>'; // type
+        cell2.innerHTML = f; // source id
+        cell3.innerHTML = srctag;
+        cell4.innerHTML = '<div align="center">' + opcode.toUpperCase() + '</div>'; // opcode
+        cell5.innerHTML = c;  // n_coode (event)
+        cell6.innerHTML = e;  // target
+        cell7.innerHTML = d; // tag
+        
+        // only update the window globals if we haven't skipped, so do this inside if !skip
+        if (target == 'history' && b == 'trunk_update') {
+            window.g_trunk_update_c = c;
+            window.g_trunk_update_d = d;
+        }
+        if (target == 'history' && b.includes('cc_event')) {
+            window.g_cc_event_c = c;
+            window.g_cc_event_e = e;
+            window.g_cc_event_f = f;            
+        }
+        
+        if (target == 'history' && b.includes('change_freq')) {
+            window.g_change_freq_c = c;
+            window.g_change_freq_e = e;
+        }
+        
+    } // end if !skip
+} // end appendJsonTable
+
+function appendCallHistory(a, b, c, d, e, f, target, options, xp, sysid, nac, tdma_slot) {
+    var numRows = document.getElementById(target).rows.length;
+//     var size = document.getElementById('log_len').value;
+    var size = $('#log_len').val();
+    if (!Number.isInteger(size))
+        // entry in Config / Display Options must be a number
+        size = 1500;
+    if (numRows > size)
+        $('#' + target + ' tr:last').remove();
+    var table = document.getElementById(target);
+    var lastRowIndex = table.rows.length - 1;
+    var skip = 0;
+    var pri, enc, xpatch, x, y;
+    
+    
+    b = (options) ? options : "&nbsp;";
+	enc = ((b >> 6) & 1 ) ? "&#x2205; " : "";
+	pri = ((b >> 2) & 1).toString() + ((b >> 1) & 1).toString() + ((b >> 0) & 1).toString();
+	pri = parseInt(pri, 2);	
+    pri = (xp) ? "XP " : pri;
+    
+	var prevTime, prevTg, prevSrc;
+
+	// avoid duplicate channel grant enteries into Call History table.
+	// Search previous 9 rows, compares current data with existing tgid, srcaddr, and time
+	// if tgid and srcaddr are equal and time is within 2 seconds, skip the entry,
+	search: {
+
+		for (x = 1; x < 8; x++) {
+			if (!table.rows[x]) {
+				break search;
+			}	
+			prevTime = nohtml(table.rows[x].cells[0].innerHTML);	// time
+			prevTg   = nohtml(table.rows[x].cells[3].innerHTML); 	// tgid
+			prevSrc  = nohtml(table.rows[x].cells[5].innerHTML);	// source addr
+			
+			var psec = prevTime.slice(-1);
+			var asec = a.slice(-1);
+			var diff = Math.abs(psec - asec);		
+			if (nohtml(c) == prevTg && nohtml(e) == prevSrc && (a == prevTime || diff <= 2)) {
+				skip = 1;
+			} // end if		
+		} // end for
+	} // end search
+	
+	if (((b >> 6) & 1) && cbState('hide_enc')) { 	// hide encrypted calls if selected in Config
+		skip = 1;
+	}
+	
+	// do not append the Call History table if not enabled on Home tab
+	if (enable_status[nac] == false)
+		skip = 1;
+	
+// 	console.log('callHistory slot=' + slot);
+	
+	var tslot = '';
+	if (cbState('showSlot') == true && tdma_slot != null) {
+		tslot = 'S' + ( tdma_slot +1 ) + ' ';
+	}
+	
+    if (!skip) {
+
+        var row = table.insertRow(1);        // 2nd row insert
+        
+        var cell0 = row.insertCell(0);
+        var cell1 = row.insertCell(1);
+        var cell2 = row.insertCell(2);
+        var cell3 = row.insertCell(3);
+        var cell4 = row.insertCell(4);
+        var cell5 = row.insertCell(5);
+        var cell6 = row.insertCell(6);        
+        
+        cell0.innerHTML = a;
+        cell1.innerHTML = '<div align="center">' + hex(sysid).toUpperCase() + '</div>';
+        cell2.innerHTML = '<div align="center">' + tslot + enc + pri + '</div>';
+			cell3.innerHTML = c;
+        cell4.innerHTML = d;
+        cell5.innerHTML = e;
+        cell6.innerHTML = f;
+         
+    } // end if !skip
+} // end appendCallHistory
+
+function appendErrorTable(ax, bx, cx, dx, ex, fx, gx, target) {
+
+    var numRows = document.getElementById(target).rows.length;
+    var size = document.getElementById('log_len').value;
+    if (!Number.isInteger(size))
+        // entry in Config / Display Options must be a number
+        size = 500;
+    
+    if (numRows > size)
+        document.getElementById(target).deleteRow(-1);
+    var table = document.getElementById(target);
+    var lastRowIndex = table.rows.length - 1;
+    var skip = 0;
+
+    if (!skip) {
+        var row = table.insertRow(1);        // 2nd row insert        
+        var cell0 = row.insertCell(0);
+        var cell1 = row.insertCell(1);
+        var cell2 = row.insertCell(2);
+        var cell3 = row.insertCell(3);        
+        var cell4 = row.insertCell(4);
+        var cell5 = row.insertCell(5);
+        var cell6 = row.insertCell(6);
+        
+        cell0.innerHTML = ax;  //time
+        cell1.innerHTML = bx;
+        cell2.innerHTML = cx;
+        cell3.innerHTML = dx;
+        cell4.innerHTML = ex;
+        cell5.innerHTML = fx;
+        cell6.innerHTML = gx;
+        
+    } // end if !skip
+} // end appendErrorTable
+
+function update_freq(d) {
+    return; // not currently used		
+}
+
+function channelId (sysid, iden, type, freq, offset, step, slots) {
+	!(sysid in channel_id) && (channel_id[sysid] = {});
+	!(iden in channel_id[sysid]) && (channel_id[sysid][iden] = {});
+	channel_id[sysid][iden] = {
+		 'iden': iden, 'type': type, 'freq': freq, 'offset': offset, 'step': step, 'slots': slots 
+	};
+}
+
+function smartColor(t) {
+	// searches string t for items in sc1 and sc2, returns a color if found.
+		
+    var z = 4; // number of smart colors - TOTO add the UI elements in index.html
+	
+    if (!t || !cbState('smartcolors'))
+        return 0;    // do nothing if there is no talkgroup name passed, or if the box is not checked (cb default is false!) 	
+    var tag = t.toString().toUpperCase(); // throws an error if t is an int
+    var color = 0;
+    var ele, x, i, sc, alen;
+    
+    for (i = 1; i < (z+1); i++) {
+    	ele = document.getElementById('sc'+i).value;
+    	sc = ele.split(" ");
+		for (var x = 0; x < sc.length; x++) {
+  			if (tag.includes(sc[x].toUpperCase())) {
+				color = i;
+				return color;
+			}
+    	}
+    }
+    return color;
+} // end smartColor()
+            
+function divExpand(div) {
+	switch ($('#' + div).height()) {
+		case 1:
+			$('#' + div).height(301);
+			$('#' + div).show();			
+			break;		
+		case 301:
+			$('#' + div).height(702);
+			break;
+		case 702:
+			$('#' + div).height(1);
+			$('#' + div).hide();
+			break;			
+	}
+}
+
+function openTable(div, ref) {
+	// popout window for review/search of log tables
+    var divText = $('#' + div).prop('outerHTML');
+    divText = divText.replace('table id="history"', 'table id="searchTable"');
+    divText = divText.replace('table id="callHistory"', 'table id="searchTable"');
+    divText = divText.replace('table id="errors"', 'table id="searchTable"');
+    
+    var myWindow = window.open('', '', 'width=900,height=600');
+    var view = document.documentElement.getAttribute('data-theme');
+    var doc = myWindow.document;
+    
+    doc.open();
+    doc.write('<script src="main.js"></script>');
+    doc.write('<script src="jquery.js"></script>');
+    doc.write('<script src="editor.js"></script>');    
+    doc.write('<script>window.tgid_files = window.opener.tgid_files;</script>');
+    doc.write('<script>window.srcid_files = window.opener.srcid_files;</script>');
+    doc.write('<script>generateCSS();</script>');
+    // search icon &#x1F50E
+    doc.write('<span class="nac">' + ref.id + '</span><br><br>');
+    doc.write('<input type="text" id="searchInput" onkeyup="searchTable()" placeholder="Search" title="Search">');
+    doc.write('<div align="right"><a href="#" style="text-decoration: none;" onclick="csvTable(\'searchTable\');">');
+    doc.write('<img src="csv.png" width="30" title="Download CSV"></a></div><br>');
+    doc.write('<script>document.getElementById("searchInput").focus();</script>');
+    doc.write('<link rel="stylesheet" type="text/css" id="style" href="main.css">');
+    if (view == 'dark')
+        doc.documentElement.setAttribute('data-theme', 'dark');
+    doc.write(divText);
+    doc.close();
+}
+
+function searchTable() {
+    var input, filter, table, tr, i, x, s, cols;
+    var td = [];
+    cols = document.getElementById('searchTable').rows[1].cells.length;
+    input = document.getElementById('searchInput');
+    filter = input.value.toUpperCase();
+    table = document.getElementById('searchTable');
+    tr = table.getElementsByTagName('tr');
+    for (i = 1; i < tr.length; i++) {
+		var s = undefined;
+    	for (x = 0; x < cols; x++) {
+    		td[x] = tr[i].getElementsByTagName('td')[x];
+    		s = s + ' ' + nohtml(td[x].innerHTML).toUpperCase();
+    	}	
+    	if ( s.includes(filter)) {
+    		tr[i].style.display = '';
+    	} else {
+    		tr[i].style.display = 'none'
+    	}
+    } // end for
+} // end function
+
+function searchTsvTable() {
+    var input, filter, table, tr, i, x, s, y, cols;
+    var td = [];
+    table = document.getElementById('talkgroups');
+    cols = table.rows[1].cells.length;
+    input = document.getElementById('searchInput');
+    filter = input.value.toUpperCase();
+    tr = table.getElementsByTagName('tr');
+    for (i = 1; i < tr.length; i++) {    
+		var s = undefined;
+    	for (x = 1; x < cols; x++) {         // don't search the first column [0]
+    		td[x] = tr[i].getElementsByTagName('td')[x];
+			s += ' ' + td[x].firstChild.value.toUpperCase();
+    	}	
+    	if ( s.includes(filter)) {
+    		tr[i].style.display = '';
+    	} else {
+    		tr[i].style.display = 'none'
+    	}
+    } // end for
+} // end function
+
+function hex(dec) {
+	if (!dec) return;
+    return dec.toString(16);
+}
+
+function dec(hex) {
+	if (!hex) return;
+    return parseInt(hex, 16);
+}
+
+function nohtml(str) {
+	if (typeof str != 'string') return str;
+	var x = str.replace(/(<([^>]+)>)/gi, "");
+	return x;
+}
+
+function freqDisplay(f) {
+	var freq;
+	if (!f) return;
+	if (cbState('trailing_zeros')) {
+		freq = f.toFixed(5);
+	} else {
+		if (Number.isInteger(f)) {
+			freq = f + ".0";
+		} else {
+			freq = f;
+		}
+	}
+	return freq;
+}
+
+function displayMode() { // just returns the display mode
+	var x,y;
+	x = document.documentElement.getAttribute('data-theme');
+	y = (x == "dark") ? "dark" : "light";
+	return y;
+}
+
+function sdmode() {
+	 $('#selDispMode').val(displayMode());
+}
+
+function sdmodeChange() {
+	var y = document.getElementById('selDispMode');
+	document.documentElement.setAttribute('data-theme', y.value);
+}
+
+function is_digit(s) {
+	return ((s >= '0' && s <= '9'));
+}
+
+function getTime(x) {
+    //expects Unix timestamp, returns 24 hour time, hrs:min:sec
+    date = new Date(x);
+    var time = zeroPad(date.getHours(), 2) + ':' + zeroPad(date.getMinutes(), 2) + ':' + zeroPad(date.getSeconds(), 2);
+    return time;
+}
+
+function cbState(x) {
+    // returns the state (true / false) of whatever checkbox you ask it to
+    return $('#' + x).is(':checked');
+}
+
+function csvTable(table_id, separator = ',') {       // Quick and simple export target #table_id into a csv
+    // console.log('trying CSV table...');
+    // Select rows from table_id
+    var rows = document.querySelectorAll('table#' + table_id + ' tr');
+    // Construct csv
+    var csv = [];
+    for (var i = 0; i < rows.length; i++) {
+        var row = [],
+            cols = rows[i].querySelectorAll('td, th');
+        for (var j = 0; j < cols.length; j++) {
+            // Clean innertext to remove multiple spaces and jumpline (break csv)
+            var data = cols[j].innerText.replace(/(\r\n|\n|\r)/gm, '').replace(/(\s\s)/gm, ' ');
+            // Escape double-quote with double-double-quote
+            data = data.replace(/"/g, '""');
+            // Push escaped string
+            row.push('"' + data + '"');
+        }
+        csv.push(row.join(separator));
+    }
+    var csv_string = csv.join('\n');
+    // Download it
+    var filename = 'export_' + table_id + '_' + new Date().toLocaleDateString() + '.csv';
+    var link = document.createElement('a');
+    link.style.display = 'none';
+    link.setAttribute('target', '_blank');
+    link.setAttribute('href', 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv_string));
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+}
+
+function exportToCsv(filename, rows) {   // another csv export tool, but this one accepts an array.
+    var processRow = function (row) {
+        var finalVal = '';
+        for (var j = 0; j < row.length; j++) {
+            var innerValue = row[j] === null ? '' : row[j].toString();
+            if (row[j] instanceof Date) {
+                innerValue = row[j].toLocaleString();
+            };
+            var result = innerValue.replace(/"/g, '""');
+            if (result.search(/("|,|\n)/g) >= 0)
+                result = '"' + result + '"';
+            if (j > 0)
+                finalVal += ',';
+            finalVal += result;
+        }
+        return finalVal + '\n';
+    };
+
+    var csvFile = '';
+    for (var i = 0; i < rows.length; i++) {
+        csvFile += processRow(rows[i]);
+    }
+
+    var blob = new Blob([csvFile], { type: 'text/csv;charset=utf-8;' });
+    if (navigator.msSaveBlob) { // IE 10+
+        navigator.msSaveBlob(blob, filename);
+    } else {
+        var link = document.createElement("a");
+        if (link.download !== undefined) { // feature detection
+            // Browsers that support HTML5 download attribute
+            var url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", filename);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    }
+}
+
+function sortTable(t, c) { // table id, column index
+	if (!cbState('show_adj'))
+		return;
+	if (!t) return;
+  var table, rows, switching, i, x, y, shouldSwitch;
+  table = document.getElementById(t);
+  switching = true;
+  while (switching) {
+    switching = false;
+    rows = table.rows;
+	// (skip the first row (0), which contains table headers)
+    for (i = 1; i < (rows.length - 1); i++) {
+      shouldSwitch = false;
+      x = rows[i].getElementsByTagName("TD")[c];
+      y = rows[i + 1].getElementsByTagName("TD")[c];
+      if (x.innerHTML.toLowerCase() > y.innerHTML.toLowerCase()) {
+        shouldSwitch = true;
+        break;
+      }
+    }
+    if (shouldSwitch) {
+      rows[i].parentNode.insertBefore(rows[i + 1], rows[i]);
+      switching = true;
+    }
+  }
+} // end sort table
+
+function sources(d) {  // d json type = trunk_update
+				
+	// stores source IDs and tags and colors in a global object
+
+		// USAGE:
+
+		// window['tgidc' + tgid] = tgid color
+		// window['tgidt' + tgid] = tgid tag "talkgroup"
+		
+		// window['srct' + srcaddr] = srcaddr tag
+		// window['srcc' + srcaddr] = srcaddr color
+	
+    if (Object.keys(d).length < 1)
+        return;
+    var f, nac, srcaddr, srcaddr_tag;
+    var ft = 'frequency_tracking';
+    var calls = 'calls';
+    for (nac in d) {
+        if (Number.isInteger(parseInt(nac))) { 
+            for (f in d[nac][ft]) {
+
+                srcaddr_tag = d[nac][ft][f]['calls'][0]['srcaddr']['tag'] ?     d[nac][ft][f]['calls'][0]['srcaddr'] : null;
+                srcaddr =     d[nac][ft][f]['calls'][0]['srcaddr']['unit_id'] ? d[nac][ft][f]['calls'][0]['srcaddr'] : null;
+
+                if (srcaddr && srcaddr_tag) {
+                    window['tgidc' + d[nac][ft][f]['calls'][0]['tgid']['tg_id']] = d[nac][ft][f]['calls'][0]['tgid']['color'];
+	                window['tgidt' + d[nac][ft][f]['calls'][0]['tgid']['tg_id']] = d[nac][ft][f]['calls'][0]['tgid']['tag'];
+	                
+                	window['srct' + d[nac][ft][f]['calls'][0]['srcaddr']['unit_id']] = d[nac][ft][f]['calls'][0]['srcaddr']['tag'];
+                  	window['srcc' + d[nac][ft][f]['calls'][0]['srcaddr']['unit_id']] = d[nac][ft][f]['calls'][0]['srcaddr']['color'];              
+                }
+                
+				if (d[nac][ft][f]['tdma'] == true ) {
+					window[nac + 'flavor'] = "2"; // set it as p2 and leave it that way for the duration
+				}   
+            } // end for f
+        } // end if number
+    } // end for x
+} // end function
+
+function getReason(r) {
+	// denial reason lookup
+    if (g_reason[r]) {
+        result = '0x' + r + ' - ' + g_reason[r];
+    } else {
+        result = '0x' + r;
+    }
+    return result;
+}
+
+function saveDisplaySettings() {
+	var settings = {};
+	$('#saveSettings').html('Saved');
+	setTimeout(() => {  $('#saveSettings').html('Save Display Settings');}, 2000);
+
+	var s = [
+		"valSystemFont",
+		"valTagFont",
+		"valTruncate",
+		"valFontStyle",
+		"sc1",
+		"sc2", 
+		"sc3",
+		"sc4",		
+		"log_len",
+		"color_main_tag",
+		"color_main_sys",
+		"smartcolors",
+		"log_cc",
+		"log_cf", 
+		"log_tu",
+		"log_rx", 
+		"show_adj",
+		"je_joins", 
+		"je_calls",
+		"je_deny", 
+		"je_log", 
+		"hide_enc", 
+		"trailing_zeros", 
+		"selDispMode",
+		"acc1",
+		"acc2",
+		"sysColor",
+		"valColor",
+		"sysColor",
+		"btnColor",
+		"unk_default",
+		"ani_speed",
+		"showBandPlan",
+		"showSlot" ];
+	
+	for (r in s) {
+		if ($('#' + s[r]).attr('type') == "checkbox") {				
+				settings[s[r]] = $('#' + s[r]).is(':checked') ? true : false;
+		} else {
+			settings[s[r]] = $('#' + s[r]).val();
+		}	
+	} // end for
+	
+	var settingsJSON = JSON.stringify(settings, null, 2);	
+	send_command('config-savesettings', settingsJSON);
+}
+
+
+function loadHelp(){  // this is also called from editor.js
+
+	f = 'help.html';
+	$.ajax({
+		url     : f,
+		type    : 'GET',
+		success : popHelp,
+		error   : function(XMLHttpRequest, textStatus, errorThrown) {alert('Settings File Acces Error: \n\nFile:' + f + '\n\n' + errorThrown + '\n\n');} 
+	});
+}
+
+function popHelp(h){
+	$('#div_help').html(h)
+}
+
+
+function beginJsonSettings(){  // this is also called from editor.js
+
+	f = 'ui-settings.json';
+	$.ajax({
+		url     : f,
+		type    : 'GET',
+		success : loadJsonDisplaySettings,
+		error   : function(XMLHttpRequest, textStatus, errorThrown) {alert('Settings File Acces Error: \n\nFile:' + f + '\n\n' + errorThrown + '\n\n');} 
+	});
+}
+
+function loadJsonDisplaySettings(settings) { 
+	$('#loadSettings').html('Loaded');	
+	setTimeout(() => { $('#loadSettings').html('Load Display Settings'); }, 2000);
+
+	var ele, m;
+	for (item in settings) {
+		ele = document.getElementById(item);
+		if (ele) {
+			if (ele.type == "checkbox") {
+				ele.checked = settings[item] == true ? true : false;
+				continue;
+			}
+
+			if (ele.type == "select") {
+				ele.value = settings[item];
+				continue;		
+			}
+		
+			ele.value = settings[item];
+		}		
+		
+		if (item == "selDispMode") {
+		   m = settings[item];
+	       document.documentElement.setAttribute('data-theme', m);
+	       sdmode();
+		}
+	
+	} // end for item	
+	
+	uiColorRefresh();
+	
+}
+
+function uiColorRefresh() { // this is also called from editor.js
+	$('#acc1').trigger('change');
+	$('#valColor').trigger('change');
+	$('#sysColor').trigger('change');
+	$('#btnColor').trigger('change');
+	$('#ani_speed').trigger('change');		
+}
+
+function changeCss(className, classValue) {
+
+    // we need invisible container to store additional css definitions
+    var cssMainContainer = $('#css-modifier-container');
+    if (cssMainContainer.length == 0) {
+        cssMainContainer = $('<div id="css-modifier-container"></div>');
+        cssMainContainer.hide();
+        cssMainContainer.appendTo($('body'));
+    }
+
+    // and we need one div for each class
+    var classContainer = cssMainContainer.find('div[data-class="' + className + '"]');
+    if (classContainer.length == 0) {
+        classContainer = $('<div data-class="' + className + '"></div>');
+        classContainer.appendTo(cssMainContainer);
+    }
+
+    // append additional style
+    classContainer.html('<style>' + className + ' {' + classValue + '}</style>');
+}
+
+function getSiteAlias() {
+		if (localStorage.AliasTableUpdated == false)
+			return;
+	    $.ajax({
+        url     : 'site-alias.json',
+        type    : 'GET',
+        success : loadSiteAlias,
+        error   : function(XMLHttpRequest, textStatus, errorThrown) {console.log('site_alias.json file not found. \n\nFile:' + f + '\n\n' + errorThrown + '\n\n');} 
+	    });
+}
+
+function loadSiteAlias(json) {
+	window.siteAlias = json;
+	localStorage.AliasTableUpdated == false;
+}
+
+function accColorSel() {  // this is also called from editor.js
+	
+	$('.accColor').on('change', function() { 
+		this.blur();
+		var c1 = $('#acc1').val();
+		var c2 = $('#acc2').val();
+		var z = 'linear-gradient(' + c1 + ', ' + c2 +')';
+		$('.controlsDisplay').css('background', z);
+	});
+
+	$('#valColor').on('change', function() { 
+		this.blur();
+		var c1 = $('#valColor').val();
+		changeCss('.value', 'color: ' + c1 + ';');
+		changeCss('.nac', 'color: ' + c1 + ';');		
+	});
+	
+	$('#sysColor').on('change', function() { 
+		this.blur();
+		var c1 = $('#sysColor').val();
+		changeCss('.systgid', 'color: ' + c1 + ';');
+	});	
+
+	$('#btnColor').on('change', function() { 
+		this.blur();
+		var c1 = $('#btnColor').val();
+		changeCss('button', 'color: ' + c1 + ';');
+		changeCss('.nav-button-active', 'color: ' + c1 + ';');
+		changeCss('.nav-button:hover', 'color: ' + c1 + ';');		
+		changeCss('.nav-button-active:hover', 'color: ' + c1 + ';');
+		changeCss('.btn', 'color: ' + c1 + ';');
+		changeCss('.control-button', 'color: ' + c1 + ';');
+		changeCss('.control-button:hover', 'color: ' + c1 + ';');		
+	});			
+		
+	$('#ani_speed').on('change', function() { 
+		this.blur();
+		window.animateSpeed = parseInt(this.value);
+	});	
+	
+}
+
+// color, animation, backgroundColor - used for main talkgroup/system display
+// returns the property value of the selector supplied. sheet is document.styleSheets[index].title
+function getProperty(selector, property, sheet) { 
+	for (y in document.styleSheets) {
+		if (document.styleSheets[y].title == sheet) // this title is set in the json color map builder func
+			break;
+	}
+    rules = document.styleSheets[y].cssRules;
+    for(i in rules) {
+        if(rules[i].selectorText == selector) 
+            return rules[i]['style'][property];
+    }
+    return false;
+}
+
+function getStyle(className) {        //test, not used
+    var cssText = "";
+    var classes = document.styleSheets[1].rules || document.styleSheets[0].cssRules;
+    for (var x = 0; x < classes.length; x++) {        
+        if (classes[x].selectorText == className) {
+            cssText += classes[x].cssText || classes[x].style.cssText;
+        }         
+    }
+    return cssText;
+}
+
+var g_opcode = {  // global opcodes
+    '0': 'Call', 						// Group Voice Grant grp_v_ch_grant dec=0
+    '1': 'Reserved', // REserved 0x01
+    '2': 'Update 0x02', 				
+    '3': 'Update 0x03',
+    '4': 'UnitVoiceGrant',
+    '5': 'UU_ANS_RSP', 					// unit to unit answer response
+    '6': 'UnitVoiceUpdate',
+    '8': 'PhoneGrant',
+    '9': 'TELE_INT_PSTN_AEQ',
+    '0a': 'Phone Alert',				// tele interconnect
+    '0b': 'Reserved',
+    '10': 'UnitDataGrant',
+    '11': 'GroupDataGrant',
+    '12': 'GroupDataUpdate',
+    '13': 'GroupDataUpdateExplicit',
+    '18': 'UnitStatusUpdate',
+    '1a': 'UnitStatusQuery',
+    '1c': 'UnitShortMessage',
+    '1d': 'UnitMonitor',
+    '1f': 'UnitCallAlert',    			// Call Alert
+    '20': 'Ack Response',    		// AckResponse - ACK_RESP_U - This is the generic response supplied by a unit to acknowledge an action when there is no other expected response. Response from radio to system poll ("are you still there?")
+    '21': 'QueuedResponse',
+    '24': 'ExtFunctionCommand',
+    '27': 'Denied',    					// DenyResponse
+    '28': 'Joins', 		// GroupAffiliationResponse - GRP_AFF_RSP - This is the response to the request for group affiliation by a unit. This will present the necessary information to the requesting unit to allow it to perform group operations for the indicated group identity.
+    '29': 'Ack Response FNE',    		// This is the generic response supplied to a unit to acknowledge an action when there is no other expected response. This response is sent to a subscriber unit in response to an earlier action or service request.
+    '2a': 'Group Aff Q',    	// GRP_AFF_Q - This transaction is to be used to determine what a targeted subscriber unit maintains as the group affiliation data for the unit. The Query will usually originate in the system, but the standard enables other originators.
+    '2b': 'Joins',    	// LocRegResponse - This transaction is to be used to respond to a Location Registration Request. The response indicates that the subscriber is registered in the new location area.
+    '2c': 'Login',		// UnitRegResponse
+    '2d': 'Force SU Reg',    			// UnitRegCommand - U_REG_CMD - This transaction is to be used to force an SU to initiate Unit Registration
+    '2e': 'UnitAuthCommand',
+    '2f': 'Logout',    					// UnitDeregAck
+    '36': 'RoamingAddrCommand',
+    '37': 'RoamingAddrUpdate',
+    '38': 'SystemServiceBroadcast',    	// This broadcast will inform the subscriber units of the current system services supported and currently offered on the Primary control channel of this site. 
+    '39': 'AltControlChannel',
+    '3a': 'RfssStatusBroadcast',
+    '3b': 'NetworkStatusBroadcast',
+    '3c': 'AdjacentSite',			    // Adjacent Site Broadcast
+    '3d': 'ChannelParamsUpdate',	    // IDEN_UP
+    '3e': 'ProtectionParamBroadcast',
+    '3f': 'ProtectionParamUpdate'
+};
+
+var g_reason = {    // TIA-10.AABC-B Annex B Deny Response Reason Codes
+    '10': 'Unit not valid',
+    '11': 'Unit not authoirized',
+    '20': 'Target unit not valid',
+    '21': 'Target unit not authorized',
+    '2f': 'Target unit refused',
+    '30': 'Target group invalid',
+    '31': 'Target group not authoirzed',
+    '40': 'Invalid dialing',
+    '41': 'Telephone number not authroized',
+    '42': 'PSTN address invalid',
+    '50': 'Call time-out',
+    '51': 'Call terminated by landline',
+    '52': 'Call terminated by subscriber',
+    '5f': 'Call pre-empted',
+    '60': 'Site access denial',
+    '61': 'User/system def', // 0x61 - 0xEF per standard
+    '67': 'User/sys def', 
+    '77': 'User/sys def',
+    'c0': 'User/sys def',  // seen on MOT system
+    'f0': 'Call options invalid',
+    'f1': 'Protection service option invalid',
+    'f2': 'Duples service option invalid',
+    'f3': 'circuit/packet mode service option invalid',
+    'ff': 'Service not supported by system'
+};
+
+var g_moto_opcode = {    // opcodes when mfrid is MOT (0x90, 144)
+    '0': 'MOT Add Patch Group',
+    '1': 'MOT Del Patch Group',
+    '3': 'MOT Patch Voice Channel Grant Update',
+	'4': 'MOT Unknown',
+	'5': 'MOT Traffic Chan Stn ID',
+	'6': 'MOT Unknown',
+	'7': 'MOT Unknown',
+	'8': 'MOT Unknown',
+	'9': 'MOT System Load',	
+	'0a': 'MOT Unknown',
+	'0b': 'MOT Control Chan Base Stn ID',
+	'0c': 'MOT Unknown',	
+	'0d': 'MOT Unknown',	
+	'0e': 'MOT Planned Control Channel Shutdown',
+	// 0f through 3f = unknown
+};
+
+var g_serviceOption = { 
+	// TODO - populate this, not used currently.
+	// bits 0-2 priority
+    '0': 'reserved',
+    '1': 'Lowest',
+    '2': 'User/system def',
+	'3': 'User/system def',
+	'4': 'Default',
+    '5': 'User/system def',
+	'6': 'User/system def',
+	'7': 'Highest',
+
+	// bit 3 - reserved
+	// bit 4 - mode
+
+};
+
+ 
+// const value_string MFIDS[] = {
+//    { 0x00, "Standard MFID (pre-2001)" },
+//    { 0x01, "Standard MFID (post-2001)" },
+//    { 0x09, "Aselsan Inc." },
+//    { 0x10, "Relm / BK Radio" },
+//    { 0x18, "EADS Public Safety Inc." },
+//    { 0x20, "Cycomm" },
+//    { 0x28, "Efratom Time and Frequency Products, Inc" },
+//    { 0x30, "Com-Net Ericsson" },
+//    { 0x34, "Etherstack" },
+//    { 0x38, "Datron" },
+//    { 0x40, "Icom" },
+//    { 0x48, "Garmin" },
+//    { 0x50, "GTE" },
+//    { 0x55, "IFR Systems" },
+//    { 0x5A, "INIT Innovations in Transportation, Inc" },
+//    { 0x60, "GEC-Marconi" },
+//    { 0x64, "Harris Corp." },
+//    { 0x68, "Kenwood Communications" },
+//    { 0x70, "Glenayre Electronics" },
+//    { 0x74, "Japan Radio Co." },
+//    { 0x78, "Kokusai" },
+//    { 0x7C, "Maxon" },
+//    { 0x80, "Midland" },
+//    { 0x86, "Daniels Electronics Ltd." },
+//    { 0x90, "Motorola" },
+//    { 0xA0, "Thales" },
+//    { 0xA4, "M/A-COM" },
+//    { 0xB0, "Raytheon" },
+//    { 0xC0, "SEA" },
+//    { 0xC8, "Securicor" },
+//    { 0xD0, "ADI" },
+//    { 0xD8, "Tait Electronics" },
+//    { 0xE0, "Teletec" },
+//    { 0xF0, "Transcrypt International" },
+//    { 0xF8, "Vertex Standard" },
+//    { 0xFC, "Zetron, Inc" },
+// };
+
+
+// const value_string ALGIDS[] = {
+//    /* Type I */
+//    { 0x00, "ACCORDION 1.3" },
+//    { 0x01, "BATON (Auto Even)" },
+//    { 0x02, "FIREFLY Type 1" },
+//    { 0x03, "MAYFLY Type 1" },
+//    { 0x04, "SAVILLE" },
+//    { 0x05, "Motorola Assigned - PADSTONE" },
+//    { 0x41, "BATON (Auto Odd)" },
+//    /* Type III */
+//    { 0x80, "Unencrypted" },
+//    { 0x81, "DES-OFB, 56 bit key" },
+//    { 0x83, "3 key Triple DES, 168 bit key" },
+//    { 0x84, "AES-256-OFB" },
+//    { 0x85, "AES-128-ECB"},
+//    { 0x88, "AES-CBC"},
+//    { 0x89, "AES-128-OFB"},
+//    /* Motorola proprietary - some of these have been observed over the air,
+//       some have been taken from firmware dumps on various devices, others
+//       have come from the TIA's FTP website while it was still public,
+//       from document "ALGID Guide 2015-04-15.pdf", and others have been
+//       have been worked out with a little bit of "guesswork" ;) */
+//    { 0x9F, "Motorola DES-XL 56-bit key" },
+//    { 0xA0, "Motorola DVI-XL" },
+//    { 0xA1, "Motorola DVP-XL" },
+//    { 0xA2, "Motorola DVI-SPFL"},
+//    { 0xA3, "Motorola HAYSTACK" },
+//    { 0xA4, "Motorola Assigned - Unknown" },
+//    { 0xA5, "Motorola Assigned - Unknown" },
+//    { 0xA6, "Motorola Assigned - Unknown" },
+//    { 0xA7, "Motorola Assigned - Unknown" },
+//    { 0xA8, "Motorola Assigned - Unknown" },
+//    { 0xA9, "Motorola Assigned - Unknown" },
+//    { 0xAA, "Motorola ADP (40 bit RC4)" },
+//    { 0xAB, "Motorola CFX-256" },
+//    { 0xAC, "Motorola Assigned - Unknown" },
+//    { 0xAD, "Motorola Assigned - Unknown" },
+//    { 0xAE, "Motorola Assigned - Unknown" },
+//    { 0xAF, "Motorola AES-256-GCM (possibly)" },
+//    { 0xB0, "Motorola DVP"},
+// };
+
+
+
+
+
+

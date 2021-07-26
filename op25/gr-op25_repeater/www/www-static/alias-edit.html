@@ -1,0 +1,116 @@
+<!--  
+   Copyright 2017, 2018 Max H. Parke KA1RBI
+   Copyright 2021 Michael Rose
+   
+   This file is part of OP25
+   
+   OP25 is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 3, or (at your option)
+   any later version.
+   
+   OP25 is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
+   License for more details.
+   
+   You should have received a copy of the GNU General Public License
+   along with OP25; see the file COPYING. If not, write to the Free
+   Software Foundation, Inc., 51 Franklin Street, Boston, MA
+   02110-1301, USA.
+   
+   -->
+<!DOCTYPE html>
+
+<html>
+   <head>
+      <meta charset="utf-8">
+      <title>OP25 - Edit System Site Alias</title>
+      <script src="jquery.js"></script>
+      <script src="editor.js"></script>
+      <script src="main.js"></script>
+      <script src="config.js"></script>
+	  <script src="jquery.alerts.js"></script>
+      <link rel="stylesheet" type="text/css" id="style" href="main.css">
+   </head>
+   <body onload="javascript:tsv_onload();">
+      <a href="#" name="top"></a>
+      <div class="tsv-controls">
+         <!-- <table style="width: 705px; border-collapse: collapse; border: 0px solid var(~~bg-color);"> -->
+         <table class="tsv">
+            <tr colspan="2">
+               <td>
+                  <div id="title" class="nac" style="font-weight: normal;">Editor - OP25</div>
+               </td>
+               <td>
+                  <p align="right"><a href="#" onclick="window.close();" style="text-decoration: none;" title="Close">&#x274C;</a></p>
+               </td>
+            </tr>
+            <tr>
+               <td>
+                  <button onclick="this.blur(); beginAlias();" id="btnLoad" title="Load from Server">Load</button>&nbsp;&nbsp;
+                  <button onclick="this.blur(); saveAliasTable();"id="btnSave1" class="saveButton" title="Save to Server">Save</button>&nbsp;&nbsp;
+<!-- 
+                  <button onclick="this.blur(); dispImport();" title="Import TSV or CSV">Import TODO</button>&nbsp;&nbsp;
+		          <button onclick="tsv_csv();" title="Export as CSV">Export TODO</button>      
+ -->    
+               </td>
+               <td align='right'>
+                  <span class="label">Status: </span>
+                  <span id="message" class="value">Ready</span>
+                  <img src="loading.gif" style="height: 15px;" id="loading">
+               </td>
+            </tr>
+         </table>
+                     
+         <br>
+         <input type="text" id="searchInput" style="width: 643px;" onkeyup="searchTsvTable()" placeholder="Filter" title="Search">
+       <div id="csv-upload" style="display: none;"> 
+       <table class=editor><th colspan="2">Import Data</th>
+       <tr><td>
+       <span class="label"> Select a CSV or TSV file to import. <br><br>
+       <input type="file" id="csvfile" name="filename">&nbsp;&nbsp;
+<!--         <button id="importnow" onclick="this.blur(); importNow();">Import Now</button> -->
+       </td>
+       <td style="width: 100px; text-align: center;">
+       <button onclick="document.getElementById('csvfile').value='';" style="width: 80px;"> Reset </button><br>
+       <button onclick="this.blur(); hideImport();" style="width: 80px;"> Cancel </button>
+       </td>
+       </tr>
+       </table>
+       <br><br>
+		</div>
+      </div>
+      <div id="save-div">
+         <br>&nbsp;&nbsp;
+         <!-- <button onclick="saveTable();"id="btnSave" class="saveButton">Save Talkgroups</button>&nbsp;&nbsp;<br>&nbsp;&nbsp; -->
+         <!-- <button onclick="window.location.href='#top;'"id="btnSave" class="saveButton">Top</button>&nbsp;&nbsp;<br>&nbsp; -->
+      </div>
+      <div id="main"></div>
+      <!-- Main Content Area -->
+      <div class="footer">
+         &nbsp;<br><button onclick="saveAliasTable();"id="btnSave2" class="saveButton">Save Talkgroups</button>
+         &nbsp;
+         &nbsp;
+         
+         <button onclick="deleteSys()">Delete System</button>
+         
+    	 &nbsp;
+         &nbsp;
+         <button onclick="up();">Go to Top</button>&nbsp;&nbsp;&nbsp;
+<!--          <button onclick="tsv_csv();">Export as CSV</button>&nbsp;&nbsp;&nbsp; -->
+         <button onclick="this.blur(); help();" class="btnHelp">Help</button>&nbsp;&nbsp;         
+         <button onclick="window.close();">Close</button>
+         <br>
+      </div>
+		<div style="display: none;"> <!-- placeholder for the color values -->
+			<span id="loadSettings"></span>
+			<input type="color" class="accColor" id="acc1"></input>
+			<input type="color" class="accColor" id="acc2"></input>
+			<input type="color" class="valColor" id="valColor">
+			<input type="color" class="sysColor" id="sysColor"></input>
+			<input type="color" class="btnColor" id="btnColor"></input>
+		</div>
+      
+   </body>
+</html>

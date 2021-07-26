@@ -1,431 +1,821 @@
+<!--  
+   Copyright 2017, 2018 Max H. Parke KA1RBI
+   Copyright 2020, 2021 Michael Rose
+   
+   This file is part of OP25
+   
+   OP25 is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 3, or (at your option)
+   any later version.
+   
+   OP25 is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
+   License for more details.
+   
+   You should have received a copy of the GNU General Public License
+   along with OP25; see the file COPYING. If not, write to the Free
+   Software Foundation, Inc., 51 Franklin Street, Boston, MA
+   02110-1301, USA.
+   
+   UPDATED: 19-May-2021
+   
+   -->
 <!DOCTYPE html>
-<html>
-<head>
-	<title>OP25</title>
-	<link rel="stylesheet" type="text/css" id="style" href="main.css">
-	<script src="main.js"></script>
-	<meta http-equiv="Content-Type" content="text/html;charset=UTF-8">
-</head>
+<html lang="en">
+   <head>
+      <meta charset="UTF-8">
+      <title>OP25</title>
+      <link rel="stylesheet" type="text/css" id="mainStyle" href="main.css">
+      <script src="jquery.js"></script>      
+      <script src="main.js"></script>
+      <script src="config.js"></script>  <!-- online config stuff -->
+      <script src="editor.js"></script>    
+      <script src="jquery.alerts.js"></script>        
+   </head>
+   <body onload="javascript:do_onload();">
+      <div class="main">
+         <form method="post" action="#" id="form_scan">
+            <!-- nav bar -->
+            <div class="nav-bar" id="nav-bar">
+               <ul class="nav-ul">
+                  <li id="li1" class="nav-li"><input id="b1" class="nav-button" type="button" name="B1" value="Home" onclick="this.blur(); javascript:f_select('status');"></li>
+                  <li id="li2" class="nav-li"><input id="b2" class="nav-button" type="button" name="B2" value="Config"  onclick="this.blur(); javascript:f_select('settings');"></li>
+                  <li id="li3" class="nav-li"><input id="b3" class="nav-button" type="button" name="B3" value="RX" onclick="this.blur(); javascript:f_select('rx');"></li>
+                  <li id="lix" class="nav-li"><input id="bx" class="nav-button" type="button" name="Bx" value="Logs" onclick="$('#btnLogs').trigger('click');"></li>
+                  <li id="li4" class="nav-li"><input id="b4" class="nav-button" type="button" name="B4" value="Help" onclick="this.blur(); javascript:f_select('help');"></li>
+                  <li id="li5" class="nav-li"><input id="b5" class="nav-button" type="button" name="B5" value="View" onclick="this.blur(); javascript:toggleCSS();"></li>
+                  <li id="li6" class="nav-li"><input id="b6" class="nav-button" type="button" name="B6" value="Popout" onclick="this.blur(); javascript:this.blur(); popOut();"></li>
+                  <li id="li7" class="nav-li"><input id="b7" class="nav-button" type="button" name="B7" value="About" onclick="this.blur(); javascript:f_select('about');"></li>
+                  <li id="li8">&nbsp;</li>
+               </ul>
+            </div>
+            <!-- end div nav-bar -->
+         </form>
+         <div id="div_debug" style="display: block;"></div>
+         <!-- end div_debug -->
+         <div id="div_help" class="help" style="display:none;">
+            <P>
+            <h2>Keyboard Shortcuts</h2>
+            G - Go To <br>
+            L - Lockout<br>
+            H - Hold<br>
+            S - Skip/Scan<br>
+            V - View (light/dark toggle)<br>
+            R - RX Screen<br>
+            J - Home Screen<br>
+            M - Minify<br>
+            P - Show / Hide Plots<br>
+            B - Make display text BOLD<br>
+            N - Make display text NORMAL<br>
+            1 - Show / Hide Call History<br>
+            2 - Show / Hide Events<br>
+            3 - Show / Hide Logs Block<br>
+            4 - Show / Hide Channel ID Band Plan<br>                         
+            <br>
+            <h2>Setup and Monitor a Trunked System</h2>
+            Before proceeding you will need to know the control channel frequency or frequencies for your system and the system NAC code.  Also needed is the frequency correction (PPM) value for your SDR.
+            <ul>
+               <li>Select "Configuration" from the top nav bar</li>
+               <li>Select "sample_trunked" from the list of available configurations; then click "Edit"</li>
+               <li>
+                  The various Frequency parameters are used as follows:
+                  <ul>
+                     <li>The Channel frequency is the same as the "center frequency".  If the entire P25 system being monitored fits within the sampling band (as defined by the device sampling rate), choose a frequency that is halfway between the lowest and highest system frequencies and enter it here. OP25 will use a "software LO" to achieve tuning within this band.  If the value is zero or if the desired frequency when retuning is outside the sampling band, OP25 will change the SDR hardware receive frequency each time a frequency change is needed.</li>
+                     <li>The Device frequency is ignored in trunked operation, but must be set to a non-zero number.  TODO: fix this.</li>
+                     <li>Under "Trunking Info" the "CC Freq's" should be set to a list of control channel frequencies.  If your system has more than one control channel you should enter them as a comma separated list.  Some systems with multiple control channels seem to favor a certain frequency; if so you can speed up acquisition by entering such channel(s) first in the list.</li>
+                  </ul>
+               <li>Enter the frequency correction value of the SDR device in the "PPM" field.  If your SDR is GPSDO stabilized, you can enter zero here; all others must contend with setting a proper correction value.</li>
+               <li>Enter the name of your system in the channel "Name" input.</li>
+               <li>Enter the system NAC.</li>
+               <li>Be sure to check the "P2 TDMA" box if your system utilizes P25 Phase 2/TDMA.</li>
+               <li>Choose and enter a name for the new configuration file and click "Save".</li>
+               <li>The displayed list of configurations should update, showing the new configuration.</li>
+               <li>After selecting the configuration from the list, click "Start" to launch the receiver app (rx.py) in the background*</li>
+            </ul>
+            *The "Start" and "Stop" options are only usable when OP25 has been started in the backend as "http.py", not as "rx.py" or "multi_rx.py".
+            <h3>NOTES</h3>
+            <ul>
+               <li>Configuration files are saved in the <span class="tt">op25/gr-op25_repeater/www/config</span> directory, as JSON.</li>
+               <li>If you aleady have installed OP25 with a TSV configuration file, to import the TSV config files check the box to include TSV files and click "Refresh". TSV files are searched for in the <span class="tt">op25/gr-op25_repeater/apps</span> directory.</li>
+               <li>The current version does not allow configurations with more than one channel unless all the channels share the same value for the "Trunked" parameter.  That is, the configuration must define either none of the channels as trunked or all of the channels as trunked.  The selected backend used in these two cases is multi_rx.py or rx.py, respectively.</li>
+               <li>You can define more than one trunked (P25) system by adding an additional channel for each one.  The list of currently-active channels can be managed from the HTTP console "Home" page.</li>
+               <li>Please refer to <a href="https://osmocom.org/projects/gr-osmosdr/wiki" target="_blank">this page</a> for details about specifying the Device Args parameter values for your SDR device.</li>
+               <li>After creating and verifying a configuration you can arrange for that configuration to be automatically started whenever <span class="tt">http.py</span> is (re)started.  When starting <span class="tt">http.py</span>, use the <span class="tt">-c <em>Name</em></span> parameter to give the name of the configuration to be started.  <span class="tt"><em>Name</em></span> should not contain any prefixes or suffixes,</li>
+            </ul>
+         </div>
+         <!-- end div_help -->
+         <div id="div_about" class="copyright-text" style="display:none;">
+            <br>
+            <table class="aboutTable">
+               <tr>
+                  <td>
+                     <span class="copyright-text">
+                     This program comes with ABSOLUTELY NO WARRANTY.<br>
+                     OP25 is free software, and you are welcome to redistribute it<br>
+                     under certain conditions.  For further details refer to the "License"
+                     link (below).
+                     </span>
+                     <br><br>
+                     <table style="border-collapse: collapse;">
+                        <tr>
+                           <td>Copyright:</td>
+                           <td>&copy; 2017&dash;2021 Max H. Parke KA1RBI</td>
+                        </tr>
+                        <tr>
+                           <td>License:</td>
+                           <td><a href="https://www.gnu.org/licenses/gpl-3.0.en.html" target="_blank">https://www.gnu.org/licenses/gpl-3.0.en.html</a></td>
+                        </tr>
+                        <tr>
+                           <td>Mailing list:</td>
+                           <td><a href="https://lists.osmocom.org/mailman/listinfo/op25-dev" target="_blank">https://lists.osmocom.org/mailman/listinfo/op25-dev</a></td>
+                        </tr>
+                        <tr>
+                           <td>Download:</td>
+                           <td><span class="tt">git clone https://git.osmocom.org/op25</span></td>
+                        </tr>
+                        <tr>
+                           <td>Website:</td>
+                           <td><a href="http://op25.osmocom.org" target="_blank">http://op25.osmocom.org</a></td>
+                        </tr>
+                        <tr>
+                           <td>UI Updated:</td>
+                           <td><span id="uiupdated"></span></td>
+                     </table>
+                  </td>
+                  <td>
+                     <div class="aboutMsg"> <br><br><br><br><br><br><br><br><br><br><br><br><br><br>&nbsp; </div>
+                  </td>
+            </table>
+         </div>
+         <!-- end div_about -->
+      </div>
+      <!-- end div class=main -->
+      <br>
+      <div id="div_status" style="display: none;">
+         <div id="controlsDisplay" class="controlsDisplay">
+            <div id="controls" class="controls">
+               <div>
+                  <input type="button" class="control-button" name="skip" value="SCAN" onclick="javascript:this.blur(); f_scan_button(&quot;skip&quot;);">
+               </div>
+               <div>
+                  <input type="button" class="control-button" name="hold" value="HOLD" onclick="javascript:this.blur(); f_scan_button(&quot;hold&quot;);">
+               </div>
+               <div>
+                  <input type="button" class="control-button" name="lockout" value="LOCKOUT" onclick="javascript:this.blur(); f_scan_button(&quot;lockout&quot;);">
+               </div>
+               <div>
+                  <input type="button" class="control-button" name="popout" value="GO TO" onclick="javascript:f_goto_button(&quot;goto&quot;);">
+               </div>
+            </div>
+            <div class="statDisplay">
+               <div id="div_s2" class="s2" style="display: none;">
+                  <!-- frequency, system, tg display -->
+               </div>
+            </div>
+            <div class="sysMsg">
+               <!-- hold / last command box w/ logo-->
+               <div id="holdIndicator" class="label-hold" style="display: none;"><br>TG HOLD ON</div>
+               <div id="lastCommand" class="label-lc"> &nbsp; </div>
+               <div id="stx" class="label-lc"> &nbsp; </div>
+               <br>
+            </div>
+         </div>
+         <div id="preload" style="display: none;"><img src="loading.gif" style="height: 20px;" id="loading-pre" alt="loading"></div>
+         <div id="babysitter" style="text-align: center; width: 720px;">
+            <span class="label"><br>OP25 EventSource not present. Waiting for data.  Status: <span id="estat">OK</span><br><br><img src="loading.gif" style="height: 20px;" alt="loading"></span>
+         </div>
+         <!-- for testing / debug -->
+         <div id="div_s1" class="s1">
+            <!-- system freq and adjacent sites -->
+            <div style="text-align: center;"><span class="label"><br>Waiting for data... <img src="loading.gif" style="height: 20px;" alt="loading"></span></div>
+         </div>
+         <br>
+         <div id="div_images" class="s1">
+            <table class="plot" id="plot">
+               <!--    <table id="plot_table"> -->
+               <tr>
+                  <td>
+                     <img src="1x1.png" id="img0" style="display:none;" alt="plot">
+                  </td>
+                  <td>
+                     <img src="1x1.png" id="img1" style="display:none;" alt="plot">
+                  </td>
+               </tr>
+               <tr>
+                  <td>
+                     <img src="1x1.png" id="img2" style="display:none;" alt="plot">
+                  </td>
+                  <td>
+                     <img src="1x1.png" id="img3" style="display:none;" alt="plot">
+                  </td>
+               </tr>
+               <tr>
+                  <td>
+                     <img src="1x1.png" id="img4" style="display:none;" alt="plot">
+                  </td>
+                  <td>
+                     <img src="1x1.png" id="img5" style="display:none;" alt="plot">
+                  </td>
+               </tr>
+            </table>
+         </div>
+         <!-- end div_images -->
+      </div>
+      <!-- end div_status -->
+      <div id="div_plot" style="display: none;"></div>
+      <!-- end div_plot -->
+      <div id="div_settings" class="div_settings" style="display: none;">
+         <!-- Main Display Settings -->
+         <table class="dsettings">
+            <th colspan="3">Display Settings</th>
+            <tr>
+               <td style="border-right: 0px solid;">UI Display Mode Toggle</td>
+               <td style="width: 85px; border-left: 0px solid;">
+                  <!--          	<button id="displayMode" onclick="this.blur(); toggleCSS();">Light / Dark</button> -->
+                  <select name="selDispMode" id="selDispMode" onchange="sdmodeChange();" style="width: 75px;">
+                     <option value="dark">Dark</option>
+                     <option value="light">Light</option>
+                  </select>
+                  <script> sdmode();</script>
+               </td>
+               <td>
+                  <input type="checkbox" id="show_adj" checked><label for="show_adj"> <span></span> Show Adjacent Sites on RX Screen</label>
+               </td>
+            </tr>
+            <tr>
+               <td style="border-right: 0px solid;">System Font Size</td>
+               <td style="border-left: 0px solid;">
+                  <select name="valSystemFont" id="valSystemFont" titl="Default: 24" style="width: 75px;">
+                     <option value="28">28</option>
+                     <option value="26">26</option>
+                     <option value="24" selected>24</option>
+                     <option value="20">20</option>
+                     <option value="18">18</option>
+                     <option value="16">16</option>
+                     <option value="14">14</option>
+                     <option value="12">12</option>
+                  </select>
+               </td>
+               <td title="462.0 vs. 462.00000   462.125 vs. 462.12500">
+                  <input type="checkbox" id="trailing_zeros" checked><label for="trailing_zeros"> <span></span> Show Trailing Zeros on Frequencies </label>
+               </td>
+            </tr>
+            <tr>
+               <td style="border-right: 0px solid;">Talkgroup Font Size</td>
+               <td style="border-left: 0px solid;">
+                  <select name="valTagFont" id="valTagFont" titl="Default: 24" style="width: 75px;">
+                     <option value="28">28</option>
+                     <option value="26">26</option>
+                     <option value="24" selected>24</option>
+                     <option value="20">20</option>
+                     <option value="18">18</option>
+                     <option value="16">16</option>
+                     <option value="14">14</option>
+                     <option value="12">12</option>
+                  </select>
+               </td>
+               <td>
+                  <input type="checkbox" id="color_main_tag"> <label for="color_main_tag"><span></span>  Use TG Colors in Main Display - Talkgroup</label>
+               </td>
+            </tr>
+            <tr>
+               <td style="border-right: 0px solid;">Main Display Font Style</td>
+               <td style="border-left: 0px solid;">
+                  <select name="valFontStyle" id="valFontStyle" style="width: 75px;">
+                     <option value="normal">Normal</option>
+                     <option value="bold" selected>Bold</option>
+                  </select>
+               </td>
+               <td>
+                  <input type="checkbox" id="color_main_sys"><label for="color_main_sys"><span></span>  Use TG Colors in Main Display - System</label>
+               </td>
+            </tr>
+            <tr>
+               <td style="border-right: 0px solid;"> Animation Speed (0 = off) </td>
+               <td style="border-left: 0px solid;" title="In milliseconds. Default = 0">
+                  <select name="ani_speed" id="ani_speed" style="width: 75px;" >
+                     <option value="0" selected>0</option>
+                     <option value="250">250 ms</option>
+                     <option value="500">500 ms</option>
+                     <option value="1000">1000 ms</option>
+                  </select>
+               </td>
+               <td>
+                  <input type="checkbox" id="showBandPlan"> <label for="showBandPlan"><span></span>  Show Band Plan on RX Screen</label>
+               </td>
+            </tr>
+            <tr>
+               <td style="border-right: 0px solid;"> <label for="unk_default"> <span></span> Color Code for Unknown Talkgroups</label> </td>
+               <td style="border-left: 0px solid;" colspan="1" title="Unkown talkgroups are talkgoups which are not in the talkgroup TSV file.">
+                  <select name="unk_default" id="unk_default" style="width: 75px;" >
+                     <option value="0">0</option>
+                     <!-- 1-99 added in the js -->
+                  </select>
+               </td>
+               <td>
+                  <input type="checkbox" id="hide_enc"><label for="hide_enc"> <span></span> Exclude Encrypted Calls from History Log</label>
+               </td>
+            </tr>
+            <tr>
+               <td style="border-right: 0px solid;" title="Default = 50">Max Display String Length: </td>
+               <td style="border-left: 0px solid;">
+<!--                   <input name="valTruncate" type="text" id="valTruncate" style="width: 30px; text-align: center;" value="50"> -->
+                  <select name="valTruncate" id="valTagFont" titl="Default: 50" style="width: 75px;">
+                     <option value="20">20</option>
+                     <option value="25">25</option>
+                     <option value="35">35</option>                     
+                     <option value="50" selected>50</option>
+                     <option value="60">60</option>
+                     <option value="75">75</option>
+                     <option value="100">100</option>
+                  </select>                  
+                  
+                   
+               </td>
+               <td>
+                  <input type="checkbox" id="showSlot"> <label for="showSlot"><span></span>  Show Timeslots in Call History Log</label>
+               </td>
+            </tr>
+            <tr>
+               <td colspan="3">
+                  <input type="checkbox" id="smartcolors"> <label for="smartcolors"><span></span>Use SmartColors - 
+                  searches the talkgroup name for each item in the box below and applies the color on match.
+                  Separate each item by a space. Example: <b>pd police swat so sheriff</b>. Color code in TSV file has priority over SmartColors. SmartColors evaluated 1 through 4.</label><br><br>
+                  <span class="c1">SmartColor 1: </span><input type="text" id="sc1" value="police pd sheriff so swat"> <br><br>
+                  <span class="c2">SmartColor 2: </span><input type="text" id="sc2" value="fd fire"> <br><br>
+                  <span class="c3">SmartColor 3: </span><input type="text" id="sc3" value="ac amr ccco"> <br><br>
+                  <span class="c4">SmartColor 4: </span><input type="text" id="sc4" value=""> <br><br>
+               </td>
+            </tr>
+            <tr>
+               <td colspan="3">
+                  <table style="width: 100%; border: 0px;">
+                     <th colspan="6">UI Colors</th>
+                     <tr>
+                        <td style="text-align: center;"><a href="tsv-edit.html?mode=color&css=dark" target="_blank"><button title="Display and edit talkgroup tag and source tag color codes." onclick="this.blur();">Tag Colors Editor</button></a>
+                        </td>
+                        <td style="text-align: center;">
+                           Accent 1 <br>
+                           <input type="color" title="Top accent color in main display." class="accColor" id="acc1">
+                        </td>
+                        <td style="text-align: center;">
+                           Accent 2 <br>
+                           <input type="color" title="Bottom accent color in main display." class="accColor" id="acc2">
+                        </td>
+                        <td style="text-align: center;">
+                           Values <br>
+                           <input type="color" title="Data values" class="valColor" id="valColor">
+                        </td>
+                        <td style="text-align: center;">
+                           System / TG <br>
+                           <input type="color" title="Default color for system/talkgroup display (when TG Colors options above are not used)." class="sysColor" id="sysColor">
+                        </td>
+                        <td style="text-align: center;">
+                           Buttons <br>
+                           <input type="color" title="Button label font color" class="btnColor" id="btnColor">
+                        </td>
+                     </tr>
+                  </table>
+               </td>
+            </tr>
+            <tr>
+               <td colspan="3">
+                  <span class="label">
+                     <b>Log events in browser:  </b><br><br>
+                     <input type="checkbox" id="log_cc" checked><label for="log_cc"> <span></span> Control Channel Event</label> <br>
+                     &nbsp;&nbsp;&nbsp; Log these:
+                     <input type="checkbox" id="je_joins" checked> <label for="je_joins"> <span></span> Joins (28, 2b)</label>
+                     &nbsp;&nbsp;&nbsp;
+                     <input type="checkbox" id="je_log" checked> <label for="je_log"> <span></span> Login (2c), Logout (2f)</label>
+                     &nbsp;&nbsp;&nbsp;
+                     <input type="checkbox" id="je_calls" checked> <label for="je_calls"> <span></span> Calls (00)</label>
+                     &nbsp;&nbsp;&nbsp;
+                     <input type="checkbox" id="je_deny" checked> <label for="je_deny"> <span></span> Denials (27. 2b)</label>    
+                     <br>
+                     <input type="checkbox" id="log_cf"> <label for="log_cf"> <span></span> Change Frequency</label> <br>
+                     <input type="checkbox" id="log_tu"> <label for="log_tu"> <span></span> Trunk Update </label><br>
+                     <input type="checkbox" id="log_rx"> <label for="log_rx"> <span></span> RX Update</label><br> <!-- default = unchecked, rx update doesn't tell us much -->               
+                  </span>
+               </td>
+            </tr>
+            <tr>
+               <td style="border-right: 0px solid;">
+                  Number of Rows in Browser Log Tables
+               </td>
+               <td style="border-left: 0px solid;">                  
+                    <select name="log_len" id="log_len" title="Default: 2,000" style="width: 75px;">
+                     <option value="250">250</option>
+                     <option value="500">500</option>
+                     <option value="1000">1,000</option>                     
+                     <option value="2000" selected>2,000</option>
+                     <option value="2500">2,500</option>
+                     <option value="5000">5,000</option>
+                     <option value="10000">10,000</option>
+                     <option value="25000">25,000</option>                     
+                  </select>  
 
-<body onload="javascript:do_onload();">
-
-<form method="post" action="#" id="form_scan">
-
-<!-- nav bar -->
-
-<div class="nav-bar" id="nav-bar">
-	<ul class="nav-ul">
-	<li id="li1" class="nav-li"><input id="b1" class="nav-button" type="button" name="B1" value="Home" onclick="javascript:f_select('status');"></li>
-	<li id="li2" class="nav-li"><input id="b2" class="nav-button" type="button" name="B2" value="Config"  onclick="javascript:f_select('settings');"></li>
-	<li id="li3" class="nav-li"><input id="b3" class="nav-button" type="button" name="B3" value="RX" onclick="javascript:f_select('rx');"></li>
-	<li id="li4" class="nav-li"><input id="b4" class="nav-button" type="button" name="B4" value="Help" onclick="javascript:f_select('help');"></li>
-	<li id="li5" class="nav-li"><input id="b5" class="nav-button" type="button" name="B5" value="View" onclick="javascript:toggleCSS();"></li>
-	<li id="li5" class="nav-li"><input id="b6" class="nav-button" type="button" name="B6" value="Popout" onclick="javascript:this.blur(); popOut();"></li>	
-	<li id="li5" class="nav-li"><input id="b7" class="nav-button" type="button" name="B7" value="About" onclick="javascript:f_select('about');"></li>
-	<li id="li5"> &nbsp; </li>
-	</ul> 
-</div>
-
-<div id="div_debug" style="display: block;"></div>
-
-<div id="div_help" class="help" style="display:none;">
-<P>
-<h2>Keyboard Shortcuts</h2>
-	G - Go To <br>
-	L - Lockout<br>
-	H - Hold<br>
-	S - Skip<br>
-	V - View (light/dark toggle)<br>
-	R - RX Screen<br>
-	J - Home Screen<br>
-	M - Minify<br>
-	B - Make display text BOLD<br>
-	N - Make display text NORMAL<br>
-<br>
-
-<h2>Setup and Monitor a Trunked System</h2>
-Before proceeding you will need to know the control channel frequency or frequencies for your system and the system NAC code.  Also needed is the frequency correction (PPM) value for your SDR.
-<ul>
-<li>Select "Configuration" from the top nav bar</li>
-<li>Select "sample_trunked" from the list of available configurations; then click "Edit"</li>
-<li>The various Frequency parameters are used as follows:
-	<ul>
-	<li>The Channel frequency is the same as the "center frequency".  If the entire P25 system being monitored fits within the sampling band (as defined by the device sampling rate), choose a frequency that is halfway between the lowest and highest system frequencies and enter it here. OP25 will use a "software LO" to achieve tuning within this band.  If the value is zero or if the desired frequency when retuning is outside the sampling band, OP25 will change the SDR hardware receive frequency each time a frequency change is needed.</li>
-	<li>The Device frequency is ignored in trunked operation, but must be set to a non-zero number.  TODO: fix this.</li>
-	<li>Under "Trunking Info" the "CC Freq's" should be set to a list of control channel frequencies.  If your system has more than one control channel you should enter them as a comma separated list.  Some systems with multiple control channels seem to favor a certain frequency; if so you can speed up acquisition by entering such channel(s) first in the list.</li>
-	</ul>
-<li>Enter the frequency correction value of the SDR device in the "PPM" field.  If your SDR is GPSDO stabilized, you can enter zero here; all others must contend with setting a proper correction value.</li>
-<li>Enter the name of your system in the channel "Name" input.</li>
-<li>Enter the system NAC.</li>
-<li>Be sure to check the "P2 TDMA" box if your system utilizes P25 Phase 2/TDMA.</li>
-<li>Choose and enter a name for the new configuration file and click "Save".</li>
-<li>The displayed list of configurations should update, showing the new configuration.</li>
-<li>After selecting the configuration from the list, click "Start" to launch the receiver app (rx.py) in the background*</li>
-</ul>
-*The "Start" and "Stop" options are only usable when OP25 has been started in the backend as "http.py", not as "rx.py" or "multi_rx.py".
-<h3>NOTES</h3>
-<ul>
-<li>Configuration files are saved in the <tt>op25/gr-op25_repeater/www/config</tt> directory, as JSON.</li>
-<li>If you aleady have installed OP25 with a TSV configuration file, to import the TSV config files check the box to include TSV files and click "Refresh". TSV files are searched for in the <tt>op25/gr-op25_repeater/apps</tt> directory.</li>
-<li>The current version does not allow configurations with more than one channel unless all the channels share the same value for the "Trunked" parameter.  That is, the configuration must define either none of the channels as trunked or all of the channels as trunked.  The selected backend used in these two cases is multi_rx.py or rx.py, respectively.</li>
-<li>You can define more than one trunked (P25) system by adding an additional channel for each one.  The list of currently-active channels can be managed from the HTTP console "Home" page.</li>
-<li>Please refer to <a href="https://osmocom.org/projects/gr-osmosdr/wiki" target="_blank">this page</a> for details about specifying the Device Args parameter values for your SDR device.</li>
-<li>After creating and verifying a configuration you can arrange for that configuration to be automatically started whenever <tt>http.py</tt> is (re)started.  When starting <tt>http.py</tt>, use the <tt>-c <em>Name</em></tt> parameter to give the name of the configuration to be started.  <tt><em>Name</em></tt> should not contain any prefixes or suffixes,</li>
-</ul>
-</div>
-
-<!-- copyright / about div-->
-
-<div id="div_about" style="display:none;">
-	<br>
-	<table class="aboutTable"><tr><td>
-	<div class="copyright-text">
-	This program comes with ABSOLUTELY NO WARRANTY.<br>
-	OP25 is free software, and you are welcome to redistribute it<br>
-	under certain conditions.  For further details refer to the "License"
-        link (below).<p>
-	<table border=0>
-	<tr><td>Copyright:</td><td>&copy; 2017&dash;2021 Max H. Parke KA1RBI</td></tr>
-	<tr><td>License:</td><td><a href="https://www.gnu.org/licenses/gpl-3.0.en.html" target="_blank">https://www.gnu.org/licenses/gpl-3.0.en.html</a></td></tr>
-	<tr><td>Mailing list:</td><td><a href="https://lists.osmocom.org/mailman/listinfo/op25-dev target="_blank2">https://lists.osmocom.org/mailman/listinfo/op25-dev</a></td></tr>
-	<tr><td>Download:</td><td><tt>git clone https://git.osmocom.org/op25</tt></td></tr>
-	<tr><td>Web site:</td><td><a href="http://op25.osmocom.org" target="_blank3">http://op25.osmocom.org</a></td></tr>
-	</table>
-	</td><td><div class="sysMsg"> &nbsp; </div></td><tr></table>
-	</div>
-	<br>
-</div>
-
-</form>
-
-
-<div id="div_status" style="display: none;">
-
-	<div class="controlsDisplay">
-
-		<div id="controls" class="controls">
-
-			<div>
-			<input type="button" class="control-button" name="skip" value="SKIP" onclick="javascript:this.blur(); f_scan_button(&quot;skip&quot;);">
-			</div>
-
-			<div>
-			<input type="button" class="control-button" name="hold" value="HOLD" onclick="javascript:this.blur(); f_scan_button(&quot;hold&quot;);">
-			</div>
-
-			<div>
-			<input type="button" class="control-button" name="lockout" value="LOCKOUT" onclick="javascript:this.blur(); f_scan_button(&quot;lockout&quot;);">
-			</div>
-			
-			
-			<div>
-			<input type="button" class="control-button" name="popout" value="GO TO" onclick="javascript:f_goto_button(&quot;goto&quot;);">
-			</div>			
-			
-		</div>
-		
-		<div class="statDisplay">
-			<div id="div_s2" class="s2" style="display: none;">
-				<!-- frequency, system, tg display -->
-			</div>
-		</div>
-
-		<div class="sysMsg"> <!-- hold / last command box w/ logo-->
-		<div id="holdIndicator" class="label-hold" style="display: none;"><br>TG HOLD ON</div>
-		<div id="lastCommand" class="label-lc"> &nbsp; </div>
-		<div id="stx" class="label-lc"> &nbsp; </div>
-		</div>
-	</div>
-	
-	<div id="j"></div> <!-- for testing / debug -->
-	
-	<div id="div_s1" class="s1">
-
-	<!-- system freq and adjacent sites -->
-		<span class="label">Waiting for data...</span>
-	</div>
-<br>
-	<div id="div_images" class="s1">
-    <table border=0 borderwidth=0 cellpadding=0 cellspacing=0 style="width: 730px;">
-        <tr><td align="center">
-	<img src="1x1.png" id="img0" style="display:none;" alt="plot">
-        </td><td align="center">
-	<img src="1x1.png" id="img1" style="display:none;" alt="plot">
-        </td></tr>
-        <tr><td align="center">
-	<img src="1x1.png" id="img2" style="display:none;" alt="plot">
-        </td><td align="center">
-	<img src="1x1.png" id="img3" style="display:none;" alt="plot">
-        </td></tr>
-        <tr><td align="center">
-	<img src="1x1.png" id="img4" style="display:none;" alt="plot">
-        </td><td align="center">
-	<img src="1x1.png" id="img5" style="display:none;" alt="plot">
-        </td></tr>
-        </table>
-	</div>
-
-</div>  <!-- closing div for div_status -->
-
-<div id="div_plot" style="display: none;">
-</div>
-
-<div id="div_settings" class="div_settings" style="display: none;">
-
-<!-- Main Display Settings -->
-<div id = "displaySettings" class="displaySettings">
-	<span class="nac"><b>Display Settings</b></span><br><br>
-	<span class="label">System Font Size:&nbsp;&nbsp;</span>
-	<select name="valSystemFont" id="valSystemFont" style="width: 50px;">
-	  <option value="28">28</option>
-	  <option value="26">26</option>
-	  <option value="24" selected>24</option>
-	  <option value="20">20</option>
-	  <option value="18">18</option>
-	  <option value="16">16</option>
-	  <option value="14">14</option>
-	  <option value="12">12</option>
-	</select>&nbsp;&nbsp;<span class="label">px (default = 24)</span><br><br>
-
-	<span class="label">Talkgroup Tag Font Size:&nbsp;&nbsp;</span>
-	<select name="valTagFont" id="valTagFont" style="width: 50px;">
-	  <option value="28">28</option>
-	  <option value="26">26</option>
-	  <option value="24" selected>24</option>
-	  <option value="20">20</option>
-	  <option value="18">18</option>
-	  <option value="16">16</option>
-	  <option value="14">14</option>
-	  <option value="12">12</option>
-	</select>&nbsp;&nbsp;<span class="label">px (default = 24)</span><br><br>
-
-	<span class="label">Truncate display strings to:&nbsp;&nbsp;
-	<input name="firstname" type="text" id="valTruncate" style="width: 30px; text-align: center;" value="30"> characters (default = 30)<br><br>
-	Font Style:&nbsp;
-	<select name="valFontStyle" id="valFontStyle" style="width: 70px;">
-	  <option value="normal">Normal</option>
-	  <option value="bold" selected>Bold</option>
-	</select>
-	</span>
-	<br><br>
-	
-<!-- 
-	<span class="label">UI Update Interval:&nbsp;&nbsp;</span>
-	<select name="update_int" id="update_int" style="width: 85px;" onchange="update_interval()">
-	  <option value="500">500</option>
-	  <option value="750">750</option>
-	  <option value="1000" selected>1000</option>
-	</select>&nbsp;&nbsp;<span class="label">ms (default = 1000)</span>&nbsp;&nbsp;<button onclick="ui()">Update</button><br><br>	
- -->
-
-</div>
-
-<!-- End Main Display Settings -->
-
-
-
-
-<form method="post" action="#" id="form_settings">
-<p>
-<div id="cfg_list_area" class="cfg_list">
-</div>
-<p>
-<input type="button" class="plain-button" name="load" value="Edit" onclick="javascript:f_load();"></input><span class="label"> - Open configuration editor (any previous unsaved work will be lost)</span><br>
-<input type="button" class="plain-button" name="list" value="Refresh" onclick="javascript:f_list();"></input><span class="label"> - Reload selection list</span>
-<input type=checkbox id="include_tsv" name="include_tsv"> <span class="label">Include old-style trunking TSV files</span>
-<br>
-<input type="button" class="plain-button" name="start" value="Start" onclick="javascript:f_start();"></input><span class="label"> - Run flowgraph using selected configuration</span><br>
-<input type="button" class="plain-button" name="stop" value="Stop" onclick="javascript:f_stop();"></input><span class="label"> - End running flowgraph</span><br>
-<br>
-<div id="answer_area">
-</div>
-<div id="edit_settings" style="display: none">
-<hr><br>
-<input type="button" name="save" value="Save" onclick="javascript:f_save();"></input>
- - Store configuration.  Name: 
-<input type="text" id="config_name" name="config_name" value="">
-<br>
-<div id="div_rx_opts">
-<table border=1 id="rxopt-table" style="display: none">
-<tr>
-<th colspan=2 class="boxtitle-th"><span class="boxtitle">Backend Options [rx.py]</span></th>
-<th colspan=2>
-<input type="button" name="show" value="Show" onclick="javascript:show_advanced(this)">advanced options
-</th>
-</tr>
-<tr>
-<th>enable built-in udp audio player</th>
-<th>voice codec</th>
-<th>fine tuning</th>
-<th>Wireshark host</th>
-</tr>
-<tr id="rxrow" class="rxrow">
-<td><input type=checkbox name="udp-player" ></input></td>
-<td><input type=checkbox name="vocoder" ></input></td>
-<td><input type=text name="fine-tune"  value="0"></input></td>
-<td><input type=text name="wireshark-host"  value="127.0.0.1"></input></td>
-</tr>
-<tr id="advrow" class="advrow" style="display: none">
-<td colspan=5>
-<table border=1>
-<tr><th>Costas alpha</th><td><input type=text name="costas-alpha"  value="0.04"></input></td></tr>
-<tr><th>number of demods</th><td><input type=text name="logfile-workers"  value="None"></input></td></tr>
-<tr><th>spectrum decimation</th><td><input type=text name="decim-amt"  value="1"></input></td></tr>
-<tr><th>Gardner gain</th><td><input type=text name="gain-mu"  value="0.025"></input></td></tr>
-<tr><th>ifile seek</th><td><input type=text name="seek"  value="0"></input></td></tr>
-<tr><th>complex file input</th><td><input type=text name="ifile"  value="None"></input></td></tr>
-<tr><th>antenna</th><td><input type=text name="antenna"  value=""></input></td></tr>
-<tr><th>USRP offset / audio IF</th><td><input type=text name="calibration"  value="0.0"></input></td></tr>
-<tr><th>symbol dump file</th><td><input type=text name="raw-symbols"  value="None"></input></td></tr>
-<tr><th>audio output dev</th><td><input type=text name="audio-output"  value="default"></input></td></tr>
-<tr><th>input file</th><td><input type=text name="input"  value="None"></input></td></tr>
-<tr><th>Wireshark output</th><td><input type=checkbox name="wireshark" ></input></td></tr>
-<tr><th>gain settings</th><td><input type=text name="gains"  value="None"></input></td></tr>
-<tr><th>USRP / audio gain</th><td><input type=text name="gain"  value="None"></input></td></tr>
-<tr><th>excess BW</th><td><input type=text name="excess-bw"  value="0.2"></input></td></tr>
-<tr><th>pcm inp device</th><td><input type=text name="audio-input"  value=""></input></td></tr>
-<tr><th>soundcard IF</th><td><input type=checkbox name="audio-if" ></input></td></tr>
-<tr><th>tone detect algo</th><td><input type=checkbox name="tone-detect" ></input></td></tr>
-<tr><th>hamlib model</th><td><input type=text name="hamlib-model"  value="None"></input></td></tr>
-<tr><th>direct audio inp</th><td><input type=checkbox name="audio" ></input></td></tr>
-<tr><th>startup pause</th><td><input type=checkbox name="pause" ></input></td></tr>
-</table>
-</td></tr>
-</table>
-</div>
-<p>
-<table id="devtable" border=1>
-<tr><th colspan=8 class="boxtitle-th"><span class="boxtitle">Devices</span></th>
-<th colspan=2>
-<input type="button" name="new" value="Add New" onclick="javascript:f_command(this, &quot;new&quot;);"></input>
-</th>
-</tr>
-<tr>
-<th>Active</th>
-<th>Name</th>
-<th>Device Args</th>
-<th>Frequency (MHz)</th>
-<th>Gains</th>
-<th>Offset</th>
-<th>PPM</th>
-<th>Sample Rate</th>
-<th>&nbsp;</th>
-</tr>
-<tr id="devrow" class="dynrow" style="display: none">
-<td><input type="checkbox" name="active" checked></input></td>
-<td><input type="text" name="name" value="Device1"></td>
-<td><input type="text" name="args" value="rtl"></td>
-<td><input type="text" name="frequency" value="500.0"></td>
-<td><input type="text" name="gains" value="lna:45"></td>
-<td><input type="text" name="offset" value="0"></td>
-<td><input type="text" name="ppm" value="0"></td>
-<td><input type="text" name="rate" value="1000000"></td>
-<td>
-<input type="button" name="clone" value="CLONE" onclick="javascript:f_command(this, &quot;clone&quot;);"></input>
-<br>
-<input type="button" name="delete" value="DELETE" onclick="javascript:f_command(this, &quot;delete&quot;);"></input>
-</td>
-</tr>
-</table>
-<p>
-<table id="chtable" border=1>
-<tr><th colspan=7 class="boxtitle-th"><span class="boxtitle">Channel Details</span></th>
-<th colspan=3>
-<input type="button" name="new" value="Add New" onclick="javascript:f_command(this, &quot;new&quot;);"></input>
-</th>
-</tr>
-<tr>
-<th>Active</th>
-<th>Trunked</th>
-<th>Name</th>
-<th>Frequency (MHz)</th>
-<th>Demod Type</th>
-<th>Filter Type</th>
-<th>Plot Type(s)</th>
-<th>Destination</th>
-<th>IF Rate</th>
-<th>&alpha;</th>
-<th>&nbsp;</th>
-</tr>
-<tr id="chrow" class="dynrow" style="display: none">
-<td><input type="checkbox" name="active" checked></input></td>
-<td><input type="checkbox" name="trunked" onchange="javascript:f_trunked(this)"></input></td>
-<td><input type="text" name="name" value="Channel1"></td>
-<td><input type="text" name="frequency" value="500.0"></td>
-<td><select name="demod_type">
-<option value="cqpsk">CQPSK</option>
-<option value="fsk4">FSK4</option>
-</select></td>
-<td><select name="filter_type">
-<option value="rc">RC (P25)</option>
-<option value="rrc">RRC (YSF/DMR)</option>
-<option value="gmsk">GMSK</option>
-</select></td>
-<td><select name="plot" multiple size=1>
-<option value="None" selected>None</option>
-<option value="constellation">Constellation</option>
-<option value="symbol">Symbol</option>
-<option value="fft">FFT</option>
-<option value="datascope">Datascope</option>
-</select></td>
-<td><input type="text" name="destination" value="udp://127.0.0.1:23456"></td>
-<td><input type="text" name="if_rate" value="24000"></td>
-<td><input type="text" name="excess_bw" value="0"></td>
-<td>
-<input type="button" name="clone" value="CLONE" onclick="javascript:f_command(this, &quot;clone&quot;);"></input>
-<br>
-<input type="button" name="delete" value="DELETE" onclick="javascript:f_command(this, &quot;delete&quot;);"></input>
-</td>
-</tr>
-<tr id="trrow" class="dynrow" style="display: none">
-<td colspan=3>&nbsp;</td>
-<td colspan=6>
-	<div>
-	<table class="trtable" border=1>
-	<tr>
-	<th colspan=2 class="boxtitle-th"><span class="boxtitle">Trunking Info</span></th>
-	<th>NAC</th>
-	<th>P2 TDMA</th>
-	<th>CC Freq's</th>
-	<th>White List</th>
-	<th>Black List</th>
-	<th>TGID Tags</th>
-	</tr>
-	<tr class="trunk-info">
-	<td colspan=2>&nbsp;</td>
-	<td><input type="text" name="nac" value="None"></td>
-	<td><input type="checkbox" name="phase2_tdma"></td>
-	<td><input type="text" name="cclist" value="0"></td>
-	<td><input type="text" name="whitelist" value="None"></td>
-	<td><input type="text" name="blacklist" value="None"></td>
-	<td><input type="button" name="tgid-tags" value="Show" onclick="javascript:f_tags(this);"></input></td>
-	</tr>
-	</table>
-	<table class="tgtable" border=1 style="display: none">
-	<tr>
-	<th colspan=2 class="boxtitle-th"><span class="boxtitle">Tags</span></th>
-	<th>TG ID</th>
-	<th>TG Text</th>
-	<th colspan=2>&nbsp</th>
-	<th><input type=button name="add_tag" value="New" onclick="javascript:f_command(this, &quot;new&quot;);"</th>
-	</tr>
-	<tr class="tgrow" style="display: none">
-	<td colspan=2>&nbsp;</td>
-	<td><input type="text" name="tg_id" value="None"></input></td>
-	<td><input type="text" name="tg_tag" value=""> </td>
-	<td colspan=3>&nbsp</td>
-	</tr>
-	</table>
-	</div>
-</td>
-<td>&nbsp;</td>
-</tr>
-</table>
-</div>
-</form>
-</div>
-<br>
-<div id="div_rx" style="display: none">
-</div>
-</body>
+               </td>
+               <td> <input type="text" id="oplogUrl" title="OP25 Logs URL - Requires the OP25 Flask App"> <button id="btnLogs" onclick="this.blur(); navOplog();">Go</button></td>
+            </tr>
+            <tr>
+               <td colspan="3" style="text-align:center;">
+                  <button style = "width: 170px; height: 36px;" id="saveSettings" onclick="this.blur(); saveDisplaySettings();">Save Display Settings</button>
+                  &nbsp;&nbsp;
+                  <button style = "width: 170px; height: 36px;" id="loadSettings" onclick="this.blur(); beginJsonSettings();">Load Saved Display Settings</button>
+               </td>
+         </table>
+         <!-- End Main Display Settings -->
+         
+         
+<!--  Hide config settings stuff until we figure out what to do with it.         -->
+ <div style="display: none;">        
+ 
+ 
+         <form method="post" action="#" id="form_settings">
+            <p>
+            <div id="cfg_list_area" class="cfg_list"></div>
+            <p>
+               <input type="button" class="plain-button" name="load" value="Edit" onclick="javascript:f_load();"><span class="label"> - Open configuration editor (any previous unsaved work will be lost)</span><br>
+               <input type="button" class="plain-button" name="list" value="Refresh" onclick="javascript:f_list();"><span class="label"> - Reload selection list</span>
+               <input type=checkbox id="include_tsv" name="include_tsv"> <span class="label">Include old-style trunking TSV files</span>
+               <br>
+               <input type="button" class="plain-button" name="start" value="Start" onclick="javascript:f_start();"><span class="label"> - Run flowgraph using selected configuration</span><br>
+               <input type="button" class="plain-button" name="stop" value="Stop" onclick="javascript:f_stop();"><span class="label"> - End running flowgraph</span><br>
+               <br>
+            <div id="answer_area"></div>
+            <div id="edit_settings" style="display: none">
+               <hr>
+               <br>
+               <input type="button" name="save" value="Save" onclick="javascript:f_save();">
+               - Store configuration.  Name: 
+               <input type="text" id="config_name" name="config_name" value="">
+               <br>
+               <div id="div_rx_opts">
+                  <table border=1 id="rxopt-table" style="display: none">
+                     <tr>
+                        <th colspan=2 class="boxtitle-th"><span class="boxtitle">Backend Options [rx.py]</span></th>
+                        <th colspan=2>
+                           <input type="button" name="show" value="Show" onclick="javascript:show_advanced(this)">advanced options
+                        </th>
+                     </tr>
+                     <tr>
+                        <th>enable built-in udp audio player</th>
+                        <th>voice codec</th>
+                        <th>fine tuning</th>
+                        <th>Wireshark host</th>
+                     </tr>
+                     <tr id="rxrow" class="rxrow">
+                        <td><input type=checkbox name="udp-player" ></td>
+                        <td><input type=checkbox name="vocoder" ></td>
+                        <td><input type=text name="fine-tune"  value="0"></td>
+                        <td><input type=text name="wireshark-host"  value="127.0.0.1"></td>
+                     </tr>
+                     <tr id="advrow" class="advrow" style="display: none">
+                        <td colspan=5>
+                           <table border=1>
+                              <tr>
+                                 <th>Costas alpha</th>
+                                 <td><input type=text name="costas-alpha"  value="0.04"></td>
+                              </tr>
+                              <tr>
+                                 <th>number of demods</th>
+                                 <td><input type=text name="logfile-workers"  value="None"></td>
+                              </tr>
+                              <tr>
+                                 <th>spectrum decimation</th>
+                                 <td><input type=text name="decim-amt"  value="1"></td>
+                              </tr>
+                              <tr>
+                                 <th>Gardner gain</th>
+                                 <td><input type=text name="gain-mu"  value="0.025"></td>
+                              </tr>
+                              <tr>
+                                 <th>ifile seek</th>
+                                 <td><input type=text name="seek"  value="0"></td>
+                              </tr>
+                              <tr>
+                                 <th>complex file input</th>
+                                 <td><input type=text name="ifile"  value="None"></td>
+                              </tr>
+                              <tr>
+                                 <th>antenna</th>
+                                 <td><input type=text name="antenna"  value=""></td>
+                              </tr>
+                              <tr>
+                                 <th>USRP offset / audio IF</th>
+                                 <td><input type=text name="calibration"  value="0.0"></td>
+                              </tr>
+                              <tr>
+                                 <th>symbol dump file</th>
+                                 <td><input type=text name="raw-symbols"  value="None"></td>
+                              </tr>
+                              <tr>
+                                 <th>audio output dev</th>
+                                 <td><input type=text name="audio-output"  value="default"></td>
+                              </tr>
+                              <tr>
+                                 <th>input file</th>
+                                 <td><input type=text name="input"  value="None"></td>
+                              </tr>
+                              <tr>
+                                 <th>Wireshark output</th>
+                                 <td><input type=checkbox name="wireshark" ></td>
+                              </tr>
+                              <tr>
+                                 <th>gain settings</th>
+                                 <td><input type=text name="gains"  value="None"></td>
+                              </tr>
+                              <tr>
+                                 <th>USRP / audio gain</th>
+                                 <td><input type=text name="gain"  value="None"></td>
+                              </tr>
+                              <tr>
+                                 <th>excess BW</th>
+                                 <td><input type=text name="excess-bw"  value="0.2"></td>
+                              </tr>
+                              <tr>
+                                 <th>pcm inp device</th>
+                                 <td><input type=text name="audio-input"  value=""></td>
+                              </tr>
+                              <tr>
+                                 <th>soundcard IF</th>
+                                 <td><input type=checkbox name="audio-if" ></td>
+                              </tr>
+                              <tr>
+                                 <th>tone detect algo</th>
+                                 <td><input type=checkbox name="tone-detect" ></td>
+                              </tr>
+                              <tr>
+                                 <th>hamlib model</th>
+                                 <td><input type=text name="hamlib-model"  value="None"></td>
+                              </tr>
+                              <tr>
+                                 <th>direct audio inp</th>
+                                 <td><input type=checkbox name="audio" ></td>
+                              </tr>
+                              <tr>
+                                 <th>startup pause</th>
+                                 <td><input type=checkbox name="pause" ></td>
+                              </tr>
+                           </table>
+                        </td>
+                     </tr>
+                  </table>
+               </div>
+               <p>
+               <table id="devtable" border=1>
+                  <tr>
+                     <th colspan=8 class="boxtitle-th"><span class="boxtitle">Devices</span></th>
+                     <th colspan=2>
+                        <input type="button" name="new" value="Add New" onclick="javascript:f_command(this, &quot;new&quot;);">
+                     </th>
+                  </tr>
+                  <tr>
+                     <th>Active</th>
+                     <th>Name</th>
+                     <th>Device Args</th>
+                     <th>Frequency (MHz)</th>
+                     <th>Gains</th>
+                     <th>Offset</th>
+                     <th>PPM</th>
+                     <th>Sample Rate</th>
+                     <th>&nbsp;</th>
+                  </tr>
+                  <tr id="devrow" class="dynrow" style="display: none">
+                     <td><input type="checkbox" name="active" checked></td>
+                     <td><input type="text" name="name" value="Device1"></td>
+                     <td><input type="text" name="args" value="rtl"></td>
+                     <td><input type="text" name="frequency" value="500.0"></td>
+                     <td><input type="text" name="gains" value="lna:45"></td>
+                     <td><input type="text" name="offset" value="0"></td>
+                     <td><input type="text" name="ppm" value="0"></td>
+                     <td><input type="text" name="rate" value="1000000"></td>
+                     <td>
+                        <input type="button" name="clone" value="CLONE" onclick="javascript:f_command(this, &quot;clone&quot;);">
+                        <br>
+                        <input type="button" name="delete" value="DELETE" onclick="javascript:f_command(this, &quot;delete&quot;);">
+                     </td>
+                  </tr>
+               </table>
+               <p>
+               <table id="chtable" border=1>
+                  <tr>
+                     <th colspan=7 class="boxtitle-th"><span class="boxtitle">Channel Details</span></th>
+                     <th colspan=3>
+                        <input type="button" name="new" value="Add New" onclick="javascript:f_command(this, &quot;new&quot;);">
+                     </th>
+                  </tr>
+                  <tr>
+                     <th>Active</th>
+                     <th>Trunked</th>
+                     <th>Name</th>
+                     <th>Frequency (MHz)</th>
+                     <th>Demod Type</th>
+                     <th>Filter Type</th>
+                     <th>Plot Type(s)</th>
+                     <th>Destination</th>
+                     <th>IF Rate</th>
+                     <th>&alpha;</th>
+                     <th>&nbsp;</th>
+                  </tr>
+                  <tr id="chrow" class="dynrow" style="display: none">
+                     <td><input type="checkbox" name="active" checked></td>
+                     <td><input type="checkbox" name="trunked" onchange="javascript:f_trunked(this)"></td>
+                     <td><input type="text" name="name" value="Channel1"></td>
+                     <td><input type="text" name="frequency" value="500.0"></td>
+                     <td>
+                        <select name="demod_type">
+                           <option value="cqpsk">CQPSK</option>
+                           <option value="fsk4">FSK4</option>
+                        </select>
+                     </td>
+                     <td>
+                        <select name="filter_type">
+                           <option value="rc">RC (P25)</option>
+                           <option value="rrc">RRC (YSF/DMR)</option>
+                           <option value="gmsk">GMSK</option>
+                        </select>
+                     </td>
+                     <td>
+                        <select name="plot" multiple size=1>
+                           <option value="None" selected>None</option>
+                           <option value="constellation">Constellation</option>
+                           <option value="symbol">Symbol</option>
+                           <option value="fft">FFT</option>
+                           <option value="datascope">Datascope</option>
+                        </select>
+                     </td>
+                     <td><input type="text" name="destination" value="udp://127.0.0.1:23456"></td>
+                     <td><input type="text" name="if_rate" value="24000"></td>
+                     <td><input type="text" name="excess_bw" value="0"></td>
+                     <td>
+                        <input type="button" name="clone" value="CLONE" onclick="javascript:f_command(this, &quot;clone&quot;);">
+                        <br>
+                        <input type="button" name="delete" value="DELETE" onclick="javascript:f_command(this, &quot;delete&quot;);">
+                     </td>
+                  </tr>
+                  <tr id="trrow" class="dynrow" style="display: none">
+                     <td colspan=3>&nbsp;</td>
+                     <td colspan=6>
+                        <div>
+                           <table class="trtable" border=1>
+                              <tr>
+                                 <th colspan=2 class="boxtitle-th"><span class="boxtitle">Trunking Info</span></th>
+                                 <th>NAC</th>
+                                 <th>P2 TDMA</th>
+                                 <th>CC Freq's</th>
+                                 <th>White List</th>
+                                 <th>Black List</th>
+                                 <th>TGID Tags</th>
+                              </tr>
+                              <tr class="trunk-info">
+                                 <td colspan=2>&nbsp;</td>
+                                 <td><input type="text" name="nac" value="None"></td>
+                                 <td><input type="checkbox" name="phase2_tdma"></td>
+                                 <td><input type="text" name="cclist" value="0"></td>
+                                 <td><input type="text" name="whitelist" value="None"></td>
+                                 <td><input type="text" name="blacklist" value="None"></td>
+                                 <td><input type="button" name="tgid-tags" value="Show" onclick="javascript:f_tags(this);"></td>
+                              </tr>
+                           </table>
+                           <table class="tgtable" border=1 style="display: none">
+                              <tr>
+                                 <th colspan=2 class="boxtitle-th"><span class="boxtitle">Tags</span></th>
+                                 <th>TG ID</th>
+                                 <th>TG Text</th>
+                                 <th colspan=2>&nbsp;</th>
+                                 <th>
+                                    <input type=button name="add_tag" value="New" onclick="javascript:f_command(this, &quot;new&quot;);"
+                                 </th>
+                              </tr>
+                              <tr class="tgrow" style="display: none">
+                                 <td colspan=2>&nbsp;</td>
+                                 <td><input type="text" name="tg_id" value="None"></td>
+                                 <td><input type="text" name="tg_tag" value=""> </td>
+                                 <td colspan=3>&nbsp;</td>
+                              </tr>
+                           </table>
+                        </div>
+                     </td>
+                     <td>&nbsp;</td>
+                  </tr>
+               </table>
+            </div>
+         </form>
+      </div>
+      
+      
+      
+      </div> <!-- end hide settings -->
+      
+      
+      
+      <!-- end div_settings -->
+      <div id="div_rx" style="display: none; border: 0px solid black;">&nbsp; </div>
+      <!-- end div_rx -->
+      <div id="div_logs" style="display: none;">
+         <div id="log_container_1">
+            <div class="historyLabel">
+               <a href="#" onclick="this.blur(); openTable('callHistory', this)" id="Call&nbsp;History" class="label" style="text-decoration: none;"> Call History &nbsp;&nbsp;&nbsp;<img src="search.png" width="13" height="13" title="Search"></a>
+               <span title="Expand / Retract" class="btnExp hlabel" onclick="this.blur(); divExpand('div_callHistory')"> &#x25BC; </span>          
+            </div>
+            <div id="div_callHistory" class="log" style="border: 1px solid black; display: block; width:730px; height:301px; overflow-y: scroll;">
+               <table id="callHistory" class="history">
+                  <thead>
+                     <tr>
+                        <th>Time</th>
+                        <th>Sys</th>
+                        <th>Svc</th>
+                        <th colspan="2">Talkgroup</th>
+                        <th colspan="2">Source</th>
+                     </tr>
+                  </thead>
+                  <tbody>
+                     <tr>
+                        <td>&nbsp; </td>
+                        <td>&nbsp; </td>
+                        <td>&nbsp; </td>
+                        <td>&nbsp; </td>
+                        <td>&nbsp; </td>
+                        <td>&nbsp; </td>
+                        <td>&nbsp; </td>
+                     </tr>
+                  </tbody>
+               </table>
+            </div>
+            <br>
+         </div>
+         <!-- end div log container 1 -->
+         <!--          <br> -->
+         <div id="log_container_2">
+            <!--  Search icon: &#x1F50E; can use this instead of an image for the search box -->
+            <div class="historyLabel">
+               <a href="#" onclick="this.blur(); openTable('history', this)" id="Events" class="label" style="text-decoration: none;">Events &nbsp;&nbsp;&nbsp;<img src="search.png" width="13" height="13" title="Search"></a>
+               <span title="Expand / Retract" class="btnExp hlabel" onclick="this.blur(); divExpand('div_history')"> &#x25BC; </span>
+            </div>
+            <div id="div_history" class="log" style="border: 1px solid black; display: block; width:730px; height:301px; overflow-y: scroll;">
+               <table id="history" class="history">
+                  <thead>
+                     <tr>
+                        <th>Time </th>
+                        <th>Type</th>
+                        <th colspan="2">Source</th>
+                        <th colspan="2">Event</th>
+                        <th colspan="2">Target</th>
+                     </tr>
+                  </thead>
+                  <tbody>
+                     <tr>
+                        <td>&nbsp; </td>
+                        <td>&nbsp; </td>
+                        <td>&nbsp; </td>
+                        <td>&nbsp; </td>
+                        <td>&nbsp; </td>
+                        <td>&nbsp; </td>
+                        <td>&nbsp; </td>
+                        <td>&nbsp; </td>
+                     </tr>
+                  </tbody>
+               </table>
+            </div>
+         </div>
+         <br>
+         <div id="error_tracking"  style="display: none;">
+            <div class="historyLabel">         
+               <a href="#" onclick="this.blur(); openTable('errors', this)" id="Errors" class="label" style="text-decoration: none;">Error Tracking &nbsp;&nbsp;&nbsp;<img src="search.png" width="13" height="13" title="Search"></a>
+               <span title="Expand / Retract" class="btnExp hlabel" onclick="this.blur(); divExpand('div_errors')"> &#x25BC; </span>
+            </div>
+            <div id="div_errors" class="log" style="border: 1px solid black; display: block; width:730px; height:301px; overflow-y: scroll;">
+               <table id="errors" class="history">
+                  <thead>
+                     <tr>
+                        <th>Time </th>
+                        <th>Device</th>
+                        <th>Name</th>
+                        <th>Error Band</th>
+                        <th>Freq Corr </th>
+                        <th>Freq Error</th>
+                        <th>Tune Error</th>
+                     </tr>
+                  </thead>
+                  <tbody>
+                     <tr>
+                        <td>&nbsp; </td>
+                        <td>&nbsp; </td>
+                        <td>&nbsp; </td>
+                        <td>&nbsp; </td>
+                        <td>&nbsp; </td>
+                        <td>&nbsp; </td>
+                        <td>&nbsp; </td>
+                     </tr>
+                  </tbody>
+               </table>
+            </div>
+         </div>
+         <!-- end div log container 2 -->
+      </div>
+      <!-- end div_logs -->
+   </body>
 </html>

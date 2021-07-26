@@ -1,0 +1,125 @@
+
+<h2 class='nac'>Keyboard Shortcuts</h2>
+
+<p>These keyboard shortcuts are used throughout the UI on any tab and allow available information to be displayed in a variety of ways.</p>
+G - Go To<br>
+L - Lockout<br>
+H - Hold<br>
+S - Skip/Scan<br>
+V - View (light/dark toggle)<br>
+R - RX Screen<br>
+J - Home Screen<br>
+M - Minify<br>
+P - Show / Hide Plots<br>
+A - Show / Hide Adjacent Sites<br>
+B - Set display text BOLD<br>
+N - Set display text NORMAL<br>
+1 - Show / Hide Call History<br>
+2 - Show / Hide Events<br>
+3 - Show / Hide Logs Block<br>
+4 - Show / Hide Channel ID Band Plan<br>
+0 - Show / Hide Main Display<br><br>
+
+<div align="center"><h2 class='nac'>Home Tab</h2></div>
+The Home tab contains:
+
+<h3>Main Display</h3>
+<p>
+<b>List of systems included in the trunk.tsv file.</b> Each of these may be enabled or disabled. The last time a 
+TSBK was received and total TSBKs received since OP25 was started is also displayed. Under the Alias column 
+there can be as many as 3 links shown, TA, SRC, SA, for Talkgroup Alias, Source ID Alias, and Site Alias, 
+respectively. See the Editors section below.
+</p>
+<p><b>Plots</b> - Plots are displayed if defined in the config files.</p>
+<p>Blocks from the RX Tab may be added to this display using the keyboard shortcuts.</p>
+
+
+<div align="center"><h2 class='nac'>Config Tab</h2></div>
+        
+<p><span class="value">UI Display Mode Toggle:</span> Set the theme to light or dark. Default is dark.</p>
+<p><span class="value">System Font Size: </span> The front size of the System Name in the Main Display.</p>
+<p><span class="value">Talkgroup Font Size: </span> The font size of the Talkgroup Name in the Main Display.</p>
+<p><span class="value">Main Display Font Style (Normal / Bold): </span> System and Talkgroup Name normal or bold selection in the Main Display.</p>      
+<p><span class="value">Animation Speed:</span>  UI animation of transitions between tabs. Set to 0 to turn off.</p>
+<p><span class="value">Color Code for Unknown Talkgroups:</span>  Talkgroups which do not appear in the talkgroup tag id list will be assigned this color code.</p>
+<p><span class="value">Max Display String Length:</span>  Talkgroup names will be truncated beyond this number of characters.</p>
+<p><span class="value">Show Adjacent Sites on RX Tab:</span>  Adjacent Sites will be shown on the RX tab.</p>
+<p><span class="value">Show Trailing Zeros on Frequencies:</span>  Zeros will be appended so all frequencies appear with 5 characters after the decimal.</p>
+<p><span class="value">Use TG Colors on Main Display - System / Talkgroup:</span>  When selected, the color code for the talkgroup will be applied to the system and/or talkgroup elements in the Main Display.</p>
+<p><span class="value">Show Band Plan on RX Screen: </span> The band plan advertised by the control channel will be displayed on the RX tab for each active system.</p>
+<p><span class="value">Exclude Encrypted Calls from Call History: </span> Encrypted calls will be excluded from the Call History log.</p>
+<p><span class="value">Show Timeslots in Call History Log: </span> When selected TDMA timeslots will be shown in the Call History Log, “Svc” column. See RX Tab, below.</p>
+<p><span class="value">Use SmartColors: </span> SmartColors searches the Talkgroup Tag string for each item in the list and applies the color on a match. Colors defined in the Talkgroup tag config file take priority over SmartColors. Entries in these fields are case-insensitive.</p>
+<p><span class="value">UI Colors:</span>  colors of the UI elements may be changed as follows:</p>
+
+<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Tag Colors Editor - Access the Tag Colors Editor</p>
+<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Accent 1 and 2 - the “fade” effect behind the Main Display</p>
+<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Values - Values presented in the Main Display, System Information Table, and elsewhere</p>
+<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;System / Talkgroup - The color of the System Name text and Talkgroup Tag text when “Use TG in Main Display” options are unchecked.</p>
+<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Buttons - Button text color (all)</p>
+
+<p><span class="value">Log Events in Browser:</span>  Selected events will be logged in the browser. These options do not affect server-side logging. The available options are:</p>
+
+<p><span class="value">Control Channel Events (CC)</p>
+<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Joins - subscriber joins the talkgroup</p>
+<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Login / Logout - subscriber logs into or out of the system</p>
+<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Calls - a voice chanel grant</p>
+<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Denials - a voice channel request was denied</p>
+<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Change Frequency (CF) - these events are used to update the Main Display</p>
+<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Trunk Update (TU) - these events are used to update Active Frequencies table and system information displays</p>
+<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;RX Update (RX) - these events update the plot images, fine tune, and error data (if present, rx.py only)</p>
+<p>Some Control Channel Event opcodes are received and displayed by the UI but cannot be logged (e.g. Adjacent Sites or Identifier Update). The last three of these are mostly useful for debugging and troubleshooting and typically should remain off.</p>
+
+<p><span class="value">Number of Rows in Log Tables</span>  - The maximum number of rows allowed for each of the Call History, Events, and Error Tracking (if enabled) tables. Default is 2,500. This setting does not apply to the server-side OP25 SQL logging -- only the browser logs.</p>
+<p><span class="value">Save and Load Display Settings</span>  - Changes made on the Config tab should be saved by clicking Save Display Settings. These saved settings will be applied next time OP25 Web UI is started. Load Display Settings will reload the settings on the server, overwriting the current contents of the Config tab. Changes made with keyboard shortcuts will not persist beyond the session.</p>
+
+
+<h2 class='nac'>RX Tab</h2>
+        
+<p><span class="value">Main Display</span>Display showing active system, talkgroup, frequency, source ID, encryption status.</p>
+<p><span class="value">Site Information</span> - Each active system</p>
+<p><span class="value">Active Frequency Table</span> - Double click elements in these tables to access the editors.</p>
+<p><span class="value">Call History</span> - Logs channel grants as seen on the control channel. Click the Call History Magnifying Glass to pop open a searchable table. FIlter by any column. Export the table as CSV by clicking the CSV icon. The “Svc” column displays timeslot, encrypted status, and the priority when that information is pertinent. Example: “S1 Ø 4” = Slot 1, Encrypted, Pri 4. “XP” in this column means patched talkgroup, or crosspatch.</p>
+Events - Logs Control Channel events, and application events as selected in the Config tab. Click the Events Magnifying Glass to pop open a searchable table. FIlter by any column. Export the table as CSV by clicking the CSV icon.</p>
+Error Tracking (if enabled in command line option -X): Logs the error tracking data when enabled in the command line used to start OP25. The same filter and export options are available.</p>
+Click the triangles to the right of each table to expand, retract and hide that table.</p>
+        
+<div align="center"><h2 class='nac'>View tab</h2></div>
+<p>Toggle  Dark / Light Display</p>
+
+
+<div align="center"><h2 class='nac'>Popout</h2></div>
+<p>Pops open the app in a new window with minimal browser UI.</p>
+
+
+<div align="center"><h2 class='nac'>About</h2></div>
+<p>Well, information about the app is here.</p>
+
+<div align="center"><h2 class='nac'>Talkgroup Editor, Source ID Editor, Site Alias Editor <br> and Colors Editor</h2></div>
+
+<h3>Talkgroup and Source ID Editors</h3>
+
+<p>These editors allow changes and additions to the talkgroup tags tsv file and the source ID tags tsv files. These files are specified in the trunk.tsv configuration file in the “TGID Tags File” field. Both files are supplied in the same field, separated by a comma. For example: “talkgroups.tsv,sources.tsv”</p>
+<p>To access the Talkgroup Editor or Source ID Editor, double click on the talkgroup ID, talkgroup tag, source ID, or source ID tag in the Active Frequency Table or the Call History Table. Alternatively, click the TG or SRC link on the Home tab for the desired active system.</p>
+<p>The talkgroup and source ID editors have an import and export as CSV or TSV function. The import function accepts a 3 column comma-separated values or tab separated values file:</p>
+<p>ID&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;TAG&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;PRI/COLOR</p>
+<p>Any columns beyond the third are ignored.</p>
+<p>ID is a decimal value.</p>
+<p>TAG is an alphanumeric tag.</p>
+<p>PRI/COLOR is:</p>
+<p>For Talkgroups IDs: a 3 digit decimal value 0 through 999 where the first digit represents the priority and the last two represent the color code (see Colors Editor, below).</p>
+<p>For Source IDs: a 2 digit decimal value 0-99 matching the color map (see Color Editor).</p>
+<p>The Export function may be used to bring the file out to a text or spreadsheet editor, save, and import back into OP25.</p>
+<p>Use the Filter box to search/filter the data.</p>
+<p>To create a new entry, complete the required 3 fields and click Add New. The new entry will appear in the table. Click Save to commit or the Red X to Delete.</p>
+<p>To Delete an entry, click the red X to the right. Confirm the delete. Click Save to commit.</p>
+<p>Click on Help in the editors for information on using wildcard matching.</p>
+
+<h3>Site Alias Editor</h3>
+<p>The Site Alias editor allows a friendly name to be supplied for each site in a system. This is currently used in the System Information table on the RX Tab and in the Adjacent Sites table. The Site Alias editor is accessed by clicking on the SA link on the Home tab. The Site Alias editor allows editing of the site names for the active system, or any other system in the file. New lists can be created by clicking Change > Add New…</p>
+
+
+<h3>Color Editor</h3>
+<p>Talkgroups Tags and Source IDs can be assigned a color value 0-99 in the Talkgorup Editor and Source ID Editor. The Colors Editor allows you to change/modify those 100 colors. The Colors Editor is accessed on the Config tab, Tag Colors Editor. The “blink” function can be squarely blamed on Max.</p>
+---
+<p>Changes made in the editors take a few seconds to apply in the UI. Click Save when finished or the changes will be abandoned. Click Load to reload the saved values and overwrite all edits in the table. Additional information for the editors is available by clicking Help in the editor.</p>
