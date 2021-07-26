@@ -1,0 +1,123 @@
+<!--  
+   Copyright 2017, 2018 Max H. Parke KA1RBI
+   Copyright 2020, 2021 Michael Rose
+   
+   This file is part of OP25
+   
+   OP25 is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 3, or (at your option)
+   any later version.
+   
+   OP25 is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
+   License for more details.
+   
+   You should have received a copy of the GNU General Public License
+   along with OP25; see the file COPYING. If not, write to the Free
+   Software Foundation, Inc., 51 Franklin Street, Boston, MA
+   02110-1301, USA.
+   
+   -->
+
+{% include 'base.html' %}
+
+{% block content %}
+
+<div id="loading">
+  <img id="loading-image" src="static/loading.gif" height="35px" alt="Loading..." />
+  <br>Processing...
+</div>
+
+
+
+<div class="row-main">
+  <div class="side">
+	  &nbsp;
+  </div> <!-- end side -->
+  
+  <div class="main">
+
+	{% include "dbstats.html" %}
+
+   
+   <div class="card mb-3 border-primary">
+      <h4 class="card-header bg-danger">Purge Database</h4>
+      <div class="card-body">
+      {% if successMessage == 1 %}
+		<div class="alert alert-dismissible alert-primary">
+		  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+		  <strong>Operation completed.</strong> <span id="recCount">{{ recCount }}</span> records have been deleted.<br><br>Executed query:<br><br> {{ dispQuery }}</a>
+		{% if params['bu'] == 'true' %}
+		<br><br>Backup file created: {{ destfile }}
+		{% endif %}		  
+		</div>
+      {% endif %}
+      {% if successMessage == 2 %}
+		<div class="alert alert-dismissible alert-info">
+		  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+		  <strong>Simulated operation completed.</strong> <span id="recCount">{{ recCount }}</span> records will be deleted.<br><br>Simulated query:<br><br> {{ dispQuery }}</a>
+		{% if params['bu'] == 'true' %}
+		<br><br>Simulated backup file created: {{ destfile }}
+		{% endif %}
+		</div>		
+      {% endif %}      
+		To purge records from the database, select the system, start date and end date above, then click Purge Database. Talkgroup and subscriber tags are not affected.
+		<Br><Br>
+		To prevent accidental data loss, a start date and end date are required.
+		<Br><Br>
+	 	<div class="form-check form-switch">
+			<input class="form-check-input" type="checkbox" id="keepVoice" checked="checked">
+			<label class="form-check-label" for="keepVoice"><b>Keep Voice Channel Grant Data</b></label>&nbsp;&nbsp;
+			When selected, all voice channel grant data will be saved.
+			<br>
+			<input class="form-check-input" type="checkbox" id="createBackup">
+			<label class="form-check-label" for="createBackup"><b>Create Database Backup File</b></label>&nbsp;&nbsp;
+			Create a backup of the database before purging.
+        </div>
+        <br>     
+		<span class="text-danger"><b>FINAL WARNING:</b></span> Once you click "Purge Database", the action cannot be undone.</span></b><br><br>
+		<div align="center">
+        <button id="btnPurge" class="btnMain btn btn-danger" onclick="$('#processing').show(); purgeBtn(); this.blur; doPurge(false);">Purge<br>Database</button>
+        <button class="btnMain btn btn-warning" onclick="this.blur; doPurge(true);">Simulate Purge and<br>Display Query</button>        
+        <button class="btnMain btn btn-success" onclick="this.blur; window.location.href='/'">Cancel<br>Purge</button>        
+        </div><br>
+   	    <div align="center" id="processing" style="display: none;">
+   	    <img src="static/loading.gif" style="height: 20px;" alt="loading">
+   	    <br>Processing...<br>
+   	    </div>
+      </div>
+   </div>
+   
+{% include 'footer-links.html' %}
+</div> <!-- end main -->
+
+    <div class="side">
+    &nbsp;
+    </div>
+</div> <!-- end row -->
+
+{% endblock %}
+
+<!-- js moved to op25.js -->
+
+<script>
+
+function purgeBtn() {
+	// full page modal while loading, or the little Processing icon below the buttons??
+	// 	$('#loading').show();
+}
+
+</script>
+
+
+
+
+{% block extra_javascripts %}
+
+<script>
+	x = $('#recCount').html();
+	$('#recCount').html(comma(x));
+</script>
+{% endblock %}

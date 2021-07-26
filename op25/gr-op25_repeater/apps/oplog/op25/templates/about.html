@@ -1,0 +1,143 @@
+<!--  
+   Copyright 2017, 2018 Max H. Parke KA1RBI
+   Copyright 2020, 2021 Michael Rose
+   
+   This file is part of OP25
+   
+   OP25 is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 3, or (at your option)
+   any later version.
+   
+   OP25 is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
+   License for more details.
+   
+   You should have received a copy of the GNU General Public License
+   along with OP25; see the file COPYING. If not, write to the Free
+   Software Foundation, Inc., 51 Franklin Street, Boston, MA
+   02110-1301, USA.
+   
+   -->
+
+{% include 'base.html' %}
+{% block extra_stylesheets %}
+<link href="static/css/datatables/jquery.dataTables-dark.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+
+<div class="row-main">
+  <div class="side">
+	  &nbsp;
+  </div> <!-- end side -->
+  
+  <div class="main">
+  
+      <div class="card mb-3 border-primary">
+         <h4 class="card-header">About OP25 Logs</h4>
+         <div class="card-body">
+            <p class="card-text">
+            
+				<div align="center">
+				<div class="card border-secondary mb-3" style="max-width: 40rem; text-align: left;">            
+				  <div class="card-body">
+				<p class="card-text">	
+				OP25 Logs (aka Oplog) is the OP25 sqlite3 logs database viewer.
+				</p>
+				<p class="card-text">
+				Copyright &copy;  2020, 2021 Max H. Parke KA1RBI<br>
+				Copyright &copy;  2020, 2021 Michael Rose
+				</p>
+				<p class="card-text">        
+				OP25 Logs is free software; you can redistribute it and/or modify it
+				under the terms of the GNU General Public License as published by
+				the Free Software Foundation; either version 3, or (at your option)
+				any later version.
+				</p>
+				<p class="card-text">  
+				OP25 Logs is distributed in the hope that it will be useful, but WITHOUT
+				ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+				or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
+				License for more details.
+				</p>
+				</div>
+				</div>
+				</div>
+ </div>
+</div>
+{% include 'footer-links.html' %}
+</div> <!-- end main -->
+
+    <div class="side">
+    &nbsp;
+    </div>
+</div> <!-- end row -->
+
+<!-- end secondary  -->
+</div>
+<!-- end content -->
+
+
+</div>
+<br>
+
+{% endblock %}
+
+<!-- js moved to op25.js -->
+
+{% block extra_javascripts %}
+<script src="static/js/datatables/jquery.dataTables.js"></script>
+<script>
+    $(document).ready(function () {
+    $('#startDate').prop('disabled', true );
+    $('#endDate').prop('disabled', true );       
+    $('#op25_esd').DataTable({
+       "processing": true,
+       "serverSide": true,
+       'bFilter': false,
+       'paging': false,
+       "ajax": '/esd',
+       "columns": [
+	   null,
+	   	   		  { 
+			 "data": [1],
+			 "render": function(data, type, row, meta){
+				if(type === 'display'){
+				    data = data + ' - ' + hex(data).toUpperCase();
+				}
+				return data;
+			 }
+		  },
+		  null,
+		  
+		  { 
+			 "data": [3],
+			 "render": function(data, type, row, meta){
+				if(type === 'display'){
+				    data = '<button type="button" class="btn btn-primary btn-sm" onclick="this.blur(); editTagName(' + data + ', \'' + row[2] + '\')">Edit Tag</button>&nbsp;\
+				    <button type="button" class="btn btn-primary btn-sm" onclick="window.location.href=\'\/dsd?id=' + data + '\'">Delete</button>';
+
+				}
+				return data;
+			 },
+			 "width": "150px" 
+		  } 
+	   ]
+	   
+     });
+   });
+
+function editTagName(id, t) {
+	var tag = prompt("Enter new system tag:", t);
+	if (tag == null || tag == '') {
+		return;
+	}
+	window.location.href='/usd?id=' + id + '&tag=' + tag;
+	
+}
+</script>
+
+
+{% endblock %}

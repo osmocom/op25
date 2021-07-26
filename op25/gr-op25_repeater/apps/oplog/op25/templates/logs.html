@@ -1,0 +1,212 @@
+<!--  
+   Copyright 2017, 2018 Max H. Parke KA1RBI
+   Copyright 2020, 2021 Michael Rose
+   
+   This file is part of OP25
+   
+   OP25 is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 3, or (at your option)
+   any later version.
+   
+   OP25 is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
+   License for more details.
+   
+   You should have received a copy of the GNU General Public License
+   along with OP25; see the file COPYING. If not, write to the Free
+   Software Foundation, Inc., 51 Franklin Street, Boston, MA
+   02110-1301, USA.
+   
+   -->
+{% include 'base.html' %}
+{% block extra_stylesheets %}
+<link href="static/css/datatables/jquery.dataTables-dark.css" rel="stylesheet">
+{% endblock %}
+{% block content %}
+<div class="row-main">
+  <div class="main">	  
+<br>
+
+<br>
+      {% if params['r'] == 'su' %}
+      <h3>Count by Unit for SU ID {{ params['q'] }} {{ tag }}</h3>
+      {% elif params['r'] == 'joins' %}
+      <h3>Group Join Detail</h3>
+      {% elif params['r'] == 'cc_event' %}
+      <h3>CC Event Type: {{ params['cc_desc'][ params['p']] }}</h3>
+		{% if params['tgid'] != '0' or params['suid'] != '0' %}
+		  Filtered by: 
+		{% endif %}
+		
+		{% if params['tgid'] != '0' %}
+ 		  Talkgroup ID = {{ params['tgid'] }} &nbsp;&nbsp;
+		{% endif %}
+		
+		{% if params['suid'] != '0' %}
+ 		  Source ID = {{ params['suid'] }}
+		{% endif %}		
+      {% elif params['r'] == 'total_tgid' %}
+      <h3>Total Talkgroup Voice Activity</h3>
+      {% elif params['r'] == 'call_detail' %}
+      <h3>Call Detail</h3>
+      Includes opcodes 0x00 and 0x02
+      {% else %}
+      <h3>Count by Unit for Talkgroup ID {{ params['q'] }} {{ tag }}</h3>
+      {% endif %}
+ <hr>
+      <table id="op25_logs" class="display" cellspacing="0" width="100%">
+         <thead>
+            <tr>
+               {% if params['r'] == 'tgid' %}
+               <th>Subscriber ID</th>
+               <th>Subscriber Tag</th>
+               <th>Count</th>
+               <th>Last Seen</th>
+               {% elif params['r'] == 'total_tgid' %}
+               <th>System ID</th>
+               <th>System</th>
+               <th>Talkgroup ID</th>
+               <th>Talkgroup</th>
+               <th>Count</th>
+               {% elif params['r'] == 'call_detail' %}
+               <th>Time</th>
+               <th>Opcode</th>
+               <th>System ID</th>
+               <th>System</th>
+               <th>Talkgrou ID</th>
+               <th>Talkgroup</th>
+               <th>Source ID</th>
+               <th>Source</th>
+               <th>Frequency</th>
+               {% elif params['r'] == 'joins' %}
+               <th>Time</th>
+               <th>Opcode</th>        
+               <th>System ID</th>                      
+               <th>System</th>
+               <th>RV</th>
+               <th>Talkgrou ID</th>               
+               <th>Talkgroup</th>
+               <th>Source ID</th>
+               <th>Source</th>
+               {% elif params['r'] == 'calls' %}
+               <th>Time</th>
+               <th>Sysid</th>
+               <th>Tgid</th>
+               <th>Talkgroup</th>
+               <th>Frequency</th>
+               <th>SU ID</th>
+               
+               {% elif params['r'] == 'cc_event' %}
+               {% for i in params['ckeys'] %}
+               <th> {{ i }} </th>
+               {% endfor %}
+               
+               {% else %}
+               <th>Talkgroup</th>
+               <th>TGID</th>
+               <th>Count</th>
+               {% endif %}
+            </tr>
+         </thead>
+         <tbody></tbody>
+      </table>
+
+<button onclick="this.blur(); csvTable('op25_logs')" class="btn btn-light btn-sm" title="Export current view to CSV.">Export CSV</button>
+
+</div>
+</div>
+
+{% endblock %}
+{% block extra_javascripts %}
+<!--   <script src="https://cdn.datatables.net/1.10.10/js/jquery.dataTables.min.js"></script> -->
+<script src="static/js/datatables/jquery.dataTables.js"></script>
+<script type="text/javascript" charset="utf-8">
+   $(document).ready(function () {
+     var sd = sdate();
+     var ed = edate();
+     var sysid = $('#systemSelect').val();
+     
+     var filter_tgid = 	{%+ if params['tgid'] is defined %}
+     					{{ params['tgid'] }};
+     					{%+ else %}
+     					0;
+     					{%+ endif %}
+     var filter_suid = 	{%+ if params['suid'] is defined %}
+     					{{ params['suid'] }};
+     					{%+ else %}
+     					0;
+     					{%+ endif %}     					
+     
+     console.log('filter_tgid=' + filter_tgid);
+     console.log(typeof filter_tgid);
+     console.log('filter_suid=' + filter_suid);
+     console.log(typeof filter_suid);
+     
+     var table = $('#op25_logs').DataTable({
+       "lengthMenu": [[10, 25, 50, 100, 500, 1000, 2500], [10, 25, 50, 100, 500, '1,000', '2,500']],
+       "processing": true,
+       "serverSide": true,
+       
+       {% if params['p'] == 'grp_v_ch_grant' %}
+		   "columns": [
+		   null,
+		   null,
+		   null,
+		   null,
+		   { render: function(data){ return data / 1000000; }},
+		   null,
+		   null,
+		   null,
+		   null
+			 ],
+	   {% endif %}
+
+       {% if params['p'] == 'mot_grg_cn_grant' %}
+		   "columns": [
+		   null,
+		   null,
+		   null,
+		   { render: function(data){ return data / 1000000; }},
+		   null,
+		   null,
+		   null,
+		   null
+			 ],
+	   {% endif %}
+
+       {% if params['r'] == 'call_detail' %}
+	   "columns": [
+	   null,
+	   null,
+	   null,
+	   null,
+	   null,
+	   null,
+	   null,
+	   null,
+	   { render: function(data){ return data / 1000000; }},
+		 ],
+	   {% endif %}		
+       
+       
+       "ajax": {
+           "url": "{{ url_for('data') }}",
+           "data": {
+               "host_rid": "{{ params['q'] }}",
+               "host_function_type": "{{ params['r'] }}",
+               "host_function_param": "{{ params['p'] }}",
+               "sdate": sd,
+               "edate": ed,
+               "sysid": sysid,
+               "tgid": filter_tgid,
+               "suid": filter_suid
+           } 
+       }   
+     });
+   });
+</script>
+{% endblock %}
+<br><br><br>
+{% include 'footer-links.html' %}

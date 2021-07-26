@@ -1,0 +1,167 @@
+<!--  
+   Copyright 2017, 2018 Max H. Parke KA1RBI
+   Copyright 2020, 2021 Michael Rose
+   
+   This file is part of OP25
+   
+   OP25 is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 3, or (at your option)
+   any later version.
+   
+   OP25 is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
+   License for more details.
+   
+   You should have received a copy of the GNU General Public License
+   along with OP25; see the file COPYING. If not, write to the Free
+   Software Foundation, Inc., 51 Franklin Street, Boston, MA
+   02110-1301, USA.
+   
+-->
+   
+<!DOCTYPE html>
+<html lang="{{ request.locale_name }}">
+   <head>
+      <meta charset="utf-8">
+      <meta http-equiv="X-UA-Compatible" content="IE=edge">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="description" content="pyramid web application">
+      <meta name="author" content="Pylons Project">
+      <title>OP25 - Logs</title>
+      <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+      <link rel="stylesheet" type="text/css" href="static/css/op25.css">
+      <link href="static/css/bootstrap/bootstrap-darkly.css" rel="stylesheet">
+      <link rel="stylesheet" type="text/css" href="static/dtpick/jquery.datetimepicker.css">
+      <style> 
+      </style>
+      {% block extra_stylesheets %} {% endblock %}
+      <script src="static/jquery/jquery-2.2.4.min.js"></script>        
+      <script src="static/js/bootstrap/bootstrap.bundle.min.js"></script>
+      <script src="static/dtpick/dtpick2.js"></script>
+      <script src="static/js/op25.js"></script>
+   </head>
+
+<body>
+	<div class="card text-white bg-primary mb-3">
+	   <div class="card-body">
+		  <table style="width: 100%;">
+			 <tr>
+				<td>
+				   <a style="width: 200px;" class="nav-link dropdown-toggle navbar-brand text-white" data-bs-toggle="dropdown" href="#" role="button" aria-haspopup="true" aria-expanded="false"><b>OP25 - Logs</b></a>
+				   <div class="dropdown-menu">
+					  <a class="dropdown-item" href="{{ url_for('home') }}">Home</a>
+					  <div class="dropdown-divider"></div>
+					  <a class="dropdown-item" href="{{ url_for('logs') }}?r=total_tgid">Total Talkgroup Voice Activity</a>
+					  <a class="dropdown-item" href="{{ url_for('logs') }}?r=call_detail">Call Detail</a>
+					  <a class="dropdown-item" href="{{ url_for('logs') }}?r=joins">Join Activity</a>
+					  <div class="dropdown-divider"></div>
+					  {% for s in params['ekeys'] %}
+					  <a class="dropdown-item" href="#" onclick="javascript:load_new_page1('cc_event', '{{ s }}');"> {{ s|replace("_", " ") }}</a> {% endfor %}
+					  <div class="dropdown-divider"></div>
+					  <a class="dropdown-item" href="{{ url_for('editsys') }}">Edit System Tags</a>
+					  <a class="dropdown-item" href="{{ url_for('edit_tags') }}?cmd=tgid">Update Talkgroup Tags</a>
+					  <a class="dropdown-item" href="{{ url_for('edit_tags') }}?cmd=unit">Update Subscriber Tags</a>
+					  <a class="dropdown-item" href="{{ url_for('switch_db') }}">Backup & Switch Database</a>					  
+					  <a class="dropdown-item text-danger" href="{{ url_for('purge') }}">Purge Database</a>
+					  <div class="dropdown-divider"></div>
+					  <a class="dropdown-item" href="{{ url_for('about') }}">About</a>					  
+				   </div>
+				</td>
+				<td>
+				   <div style="float: right;">
+					  <b>System</b>
+					  <select id="systemSelect" style="">
+						 <option value="0" selected>All</option>
+					  </select>
+					  &nbsp;&nbsp;&nbsp;&nbsp;
+					  <span>Start <input class="sel-date" type="text" id="startDate"></span>
+					  <span>End <input class="sel-date" type="text" id="endDate">&nbsp;&nbsp;&nbsp;</span>
+					  <button style="width: 75px;" class="btn btn-info btn-sm" id="btnReset" onclick="location.reload();">Refresh</button>&nbsp;&nbsp;
+					  <button style="width: 75px;" class="btn btn-info btn-sm" id="btnClear" onclick="resetDates();">Clear</button>
+				   </div>
+				</td>
+			 </tr>
+		  </table>
+	   </div>
+	</div>
+
+	<div class="container" style="margin-top: 0px; margin-bottom: 15px;">
+	   <div align="center">
+		  <a href="/"><img src="static/op25-dark-h.png" title="OP25"></a>
+	   </div>
+	   {% block content %} {% endblock %}
+	</div>
+
+    {% block extra_javascripts %}       
+
+	<script>
+	 $('#startDate').datetimepicker({
+	 inline:false,
+	 });
+
+	 $('#endDate').datetimepicker({
+	 inline:false,
+	 });			
+
+	 $('#startDate').change( function(){ 
+		localStorage.logStart = $('#startDate').val();
+	  });
+
+	  $('#endDate').change( function(){ 
+		localStorage.logEnd = $('#endDate').val();
+	  });
+
+	  {% if sysList is not none %}
+		  {% for i in sysList %}
+			  {% if i.tag is not none %}
+			  $('#systemSelect').append(new Option('{{ i.tag }} - {{ i.sysid }} - 0x{{ ( '%0x' % i.sysid ).upper() }}', '{{ i.sysid }}'));
+			  {% else %}
+			  $('#systemSelect').append(new Option('{{ i.sysid }} - 0x{{ ( '%0x' % i.sysid ).upper() }}', '{{ i.sysid }}'));
+			  {% endif %}
+		  {% endfor %}
+	  {% endif %}
+
+	 $('#systemSelect').change( function(){ 
+		localStorage.systemSelect = $('#systemSelect').val();
+	  });      
+
+	$('#navSelect').append(new Option('Home', '4'));
+	$('#navSelect').append(new Option('Total Talkgroup Voice Activity', '1'));
+	$('#navSelect').append(new Option('Call Detail', '2'));
+	$('#navSelect').append(new Option('Join Activity', '3'));
+
+	{% for s in params['ekeys'] %}
+	$('#navSelect').append(new Option( '{{ s }}', '{{ s }}' ));	
+	{% endfor %}
+
+	// pretty sure this is not used anymore  7/2
+	$('#navSelect').change(function(){
+		var ns = $('#navSelect').val();
+		if (ns == '0')
+			return;
+		if (ns == '1') {
+			window.location.href='/logs?r=total_tgid';
+			return;
+			}
+		if (ns == '2'){
+			window.location.href='/logs?r=call_detail';
+			return;
+			}
+		if (ns == '3'){
+			window.location.href='/logs?r=joins';								
+			return;
+		}
+		if (ns == '4'){
+			window.location.href='/';								
+			return;
+		}			
+		load_new_page1('cc_event', ns);		
+	});
+	</script>
+
+    {% endblock %}
+
+   </body>
+</html>

@@ -1,0 +1,129 @@
+<!--  
+   Copyright 2017, 2018 Max H. Parke KA1RBI
+   Copyright 2020, 2021 Michael Rose
+   
+   This file is part of OP25
+   
+   OP25 is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 3, or (at your option)
+   any later version.
+   
+   OP25 is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
+   License for more details.
+   
+   You should have received a copy of the GNU General Public License
+   along with OP25; see the file COPYING. If not, write to the Free
+   Software Foundation, Inc., 51 Franklin Street, Boston, MA
+   02110-1301, USA.
+   
+   -->
+
+{% include 'base.html' %}
+
+{% block content %}
+
+<div class="row-main">
+  <div class="side">
+	  &nbsp;
+  </div> <!-- end side -->
+  
+  <div class="main">
+
+	{% include "dbstats.html" %}
+
+
+   <div class="card mb-3 border-primary">
+      <h4 class="card-header">Activity and Counts by Subscriber or Talkgroup</h4>
+      <div class="card-body">
+         <p class="card-text">
+            <button class="btnMain btn btn-outline-info" onclick="window.location.href='/logs?r=total_tgid'">Total Talkgroup<br>Voice Activity</button>
+            &nbsp;&nbsp;    
+            <button class="btnMain btn btn-outline-info" onclick="window.location.href='/logs?r=call_detail'">Call<br>Detail</button>    
+            &nbsp;&nbsp;    
+            <button class="btnMain btn btn-outline-info" onclick="window.location.href='/logs?r=joins'">Join<br>Activity</button>
+         <hr style="height: 2px;">
+<!--             <input class="op-input" style="height: 62px; text-align: center; width: 210px; border: 1px solid orange; background-color: #333; color:#ccc;" placeholder="Enter SU or Talkgroup ID" type="text" id="resource_id"</input> -->
+
+		<div class="form-floating mb-3 primary" style="width: 215px;">
+		<input type="text" width="10" class="form-control" style="height: 62px;" id="resource_id" placeholder="">
+		<label for="floatingInput">TGID or SUID</label>
+		</div>
+        
+            <button class="btnMain btn btn-outline-warning" onclick="this.blur(); load_new_page0('tgid');">SU ID Activity for Specified TGID</button>
+            &nbsp;&nbsp;
+            <button class="btnMain btn btn-outline-warning" onclick="this.blur(); load_new_page0('su');">Count of Calls by TGID for Specified SU ID</button>
+         <p><br>Note: The ID you enter can define a range of IDs to search, for example:
+            <br>
+         <ul>
+            <li>1234000-1234599 to search specified range</li>
+            </li>
+            <li>1234??? Search for matches between 1234000 and 1234999</li>
+         </ul>
+         </p>
+      </div>
+   </div>
+   <div class="card mb-3 border-primary">
+      <h4 class="card-header">Control Channel Events</h4>
+      <div class="card-body">
+      Filter by talkgroup ID, subscriber ID, or both (optional):
+    <table style="width: 400px; padding: 0px;">
+    <tr>
+    <td style="vertical-align: top;">
+		<div class="form-floating mb-3 primary">
+		<input type="text" width="10" class="form-control" id="cc_filter_tgid" style="width: 150px;" placeholder="">
+		<label for="floatingInput">Talkgroup ID</label>
+		</div>
+    </td>
+    <td>
+		<div class="form-floating mb-3">
+		<input type="text" class="form-control" size="25" id="cc_filter_suid" style="width: 150px;" placeholder="">
+		<label for="floatingInput">Subscriber ID</label>
+		</div>
+    </td>
+    <td>&nbsp;&nbsp;
+    <button class="btn btn-primary" onclick="this.blur(); clrcc();">Clear</button>   
+    </td>
+    </tr>    
+    </table>
+<br>
+         <table>
+            {% for i in params['ekeys'] %}
+            <tr>
+             <td><button class="btnMain btn btn-outline-info" style="height: 38px;" onclick="this.blur(); load_new_page1('cc_event', '{{ i }}');">{{ i|replace("_", " ") }}</button></td> 
+             <td>&nbsp;{{ params['cc_desc'][i] }} </td>
+             </tr>
+            {% endfor %}
+        </table>
+      </div>
+   </div>
+   {% include 'footer-links.html' %}
+</div> <!-- end main -->
+
+    <div class="side">
+    &nbsp;
+    </div>
+</div> <!-- end row -->
+
+
+
+
+<br>
+
+{% endblock %}
+
+<!-- js moved to op25.js -->
+
+{% block extra_javascripts %}
+
+<script>
+
+function clrcc() {
+	$('#cc_filter_tgid').val(''); 
+	$('#cc_filter_suid').val('');
+}
+</script>
+
+{% endblock %}

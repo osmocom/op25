@@ -1,0 +1,293 @@
+<!--  
+   Copyright 2017, 2018 Max H. Parke KA1RBI
+   Copyright 2020, 2021 Michael Rose
+   
+   This file is part of OP25
+   
+   OP25 is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 3, or (at your option)
+   any later version.
+   
+   OP25 is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
+   License for more details.
+   
+   You should have received a copy of the GNU General Public License
+   along with OP25; see the file COPYING. If not, write to the Free
+   Software Foundation, Inc., 51 Franklin Street, Boston, MA
+   02110-1301, USA.
+   
+   -->
+
+{% include 'base.html' %}
+{% block extra_stylesheets %}
+<link href="static/css/datatables/jquery.dataTables-dark.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+
+<div class="row-main">
+  <div class="side">
+	  &nbsp;
+  </div> <!-- end side -->
+  
+  <div class="main">
+      <div class="card mb-3 border-primary">
+      	{% if cmd == 'tgid' %}
+         <h4 class="card-header">Talkgroup Tags</h4>
+        {% elif cmd == 'unit' %}
+         <h4 class="card-header">Subscriber Tags</h4>        
+        {% endif %}
+         <div class="card-body">
+         
+      <div class="card mb-3 border-secondary">
+         <h5 class="card-header">Import Tool</h4>
+         <div class="card-body">         
+            <p class="card-text">            
+            This tool imports tags from the selected TSV and associates them with the
+            selected system. Existing System ID and Talkgroup or Subscriber ID combinations will be overwritten by the tag values in the TSV file.
+            To add new tags: Add in OP25 Web UI, then import them here. Wildcard entries are not imported.
+            </p>
+<label for="selTsv">Choose TSV file:</label>
+	<select name="selTsv" id="selTsv">
+	<option value='0' >Select...</option>
+		{% for i in tsvs %}
+		{% if '.tsv' in i and '._' not in i %}
+		<option value="{{ i.split('/../')[-1] }}">{{ i.split('/../')[-1] }}</option>
+		{% endif %}
+		{% endfor %}
+	</select>
+&nbsp;&nbsp;&nbsp;
+<label for="systemSelect2">Choose System: </label>
+<select id="systemSelect2">
+<option value="0" selected>Select...</option>
+</select>
+<br><br>
+
+<button class="btn btn-primary" onclick="this.blur(); inspectTsv();">Inspect TSV</button>
+<br>
+<div id="inspect" style="display: none;">
+	<br>
+	<div id="inspectText" style="width: 100%; height: 225px; overflow: auto;"></div>
+	<br>
+	<button class="btn btn-primary" onclick="this.blur(); importTalkgroupTsv('{{ cmd }}');">Import TSV</button>
+	&nbsp;&nbsp;<img id="impProc" src="static/loading.gif" style="height: 20px; display: none;" alt="loading">
+</div>
+
+  {% if session['sm'] == 3 %}
+	<br>
+	<div class="alert alert-dismissible alert-success">
+	<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+	<strong>Import completed.</strong><br><br>
+	Existing records updated:<b> {{ session['imp_results'][0] }}</b> &nbsp;&nbsp;&nbsp;&nbsp;
+	New records added:<b> {{ session['imp_results'][1] }} </b>	&nbsp;&nbsp;&nbsp;&nbsp;
+	Duplicate records corrected:<b> {{ session['imp_results'][2] }} </b>
+	</div>
+  {{ clear_sm() }}	
+  {% endif %}
+
+  {% if session['sm'] == 4 %}
+	<br>
+	<div class="alert alert-dismissible alert-primary">
+	<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+	<strong>Tags deleted.</strong><br><br>
+	</div>
+  {{ clear_sm() }}
+  {% endif %}   
+  
+</div>
+</div>
+<hr>
+
+<div class="card mb-3 border-secondary">
+	<h5 class="card-header">Editor</h4>
+	<div class="card-body">
+<div align="right">
+	<label for="systemSelect4">Filter by system: </label>
+<select id="systemSelect4">
+<option value="0" selected>All</option>
+</select><br><br>
+<button style="width: 75px;" class="btn btn-primary btn-sm" id="applyFilter" onclick="location.reload();">Apply</button>  
+<br><br></div>
+
+	  {% if session['sm'] == 1 %}
+		<div class="alert alert-dismissible alert-success">
+		  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+		  <strong>Edit completed.</strong>
+		</div>
+	  {{ clear_sm() }}
+	  {% endif %}
+  
+	  {% if session['sm'] == 2 %}
+		<div class="alert alert-dismissible alert-warning">
+		  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+		  <strong>Record deleted.</strong>
+		</div>
+	  {{ clear_sm() }}
+	  {% endif %}
+
+	 <table id="op25_esd" class="display" cellspacing="0" width="100%">
+		 <thead>
+			<tr>
+		{% if cmd == 'tgid' %}
+			<th>Record ID</th>
+			<th>System ID</th>
+			<th>Talkgroup ID</th>
+			<th>Talkgroup Tag</th>
+			<th>Actions</th>
+		{% elif cmd == 'unit' %}
+			<th>Record ID</th>
+			<th>System ID</th>
+			<th>Subscriber ID</th>
+			<th>Subscriber Tag</th>
+			<th>Actions</th>    
+		{% endif %}
+		 </thead>
+		 <tbody></tbody>
+	  </table>            
+	  </div>
+   </div>
+</div>
+</div>
+
+<div class="card mb-3 border-danger">
+<h5 class="card-header">Delete Tags</h4>
+ 	<div class="card-body">
+ 	Delete all 
+      	{% if cmd == 'tgid' %}
+         talkgroup
+        {% elif cmd == 'unit' %}
+         subscriber        
+        {% endif %}
+ 	tags associated with a system. You cannot undo this action!
+ 	<br><br>
+<label for="systemSelect3">Choose System: </label>
+<select id="systemSelect3">
+<option value="0" selected>Select...</option>
+</select>
+<br><br>
+ <div align="center">
+        <button id="btnPurge" class="btn btn-danger" onclick="this.blur(); deleteTags('{{ cmd }}');">Delete
+        {% if cmd == 'tgid' %}
+         Talkgroup
+        {% elif cmd == 'unit' %}
+         Subscriber        
+        {% endif %}
+         Tags
+         </button>
+ </div>
+ </div>
+ </div>
+{% include 'footer-links.html' %}
+</div> <!-- end main -->
+
+    <div class="side">
+    &nbsp;
+    </div>
+</div> <!-- end row -->
+<br>
+
+{% endblock %}
+
+{% block extra_javascripts %}
+
+<script src="static/js/datatables/jquery.dataTables.js"></script>
+
+<script>
+    $(document).ready(function () {
+    $('#startDate').prop('disabled', true );
+    $('#endDate').prop('disabled', true );    
+    var sysid = $('#systemSelect4').val();
+    $('#op25_esd').DataTable({
+       "processing": true,
+       "serverSide": true,
+       'bFilter': true,
+       'paging': true,
+       
+       "ajax": {
+		   "url": '/edittg',
+		   "data": { "sysid": sysid,
+		   			"cmd": '{{ cmd }}',
+		   		   }
+       },
+       
+       "columns": [
+	   	   { "visible": false },
+	   	   { 
+			 "data": [1],
+			 "render": function(data, type, row, meta){
+				if(type === 'display'){
+				    data = data + ' - ' + hex(data).toUpperCase();
+				}
+				return data;
+			 }
+		  },
+		  null,
+		  null,
+		  { 
+			 "data": [3],
+			 "render": function(data, type, row, meta){
+				if(type === 'display'){
+				    data = '<button type="button" class="btn btn-primary btn-sm" onclick="this.blur(); editTagName(' + row[0] + ', \'' + row[3] + '\')">Edit Tag</button>&nbsp;\
+				    <button type="button" class="btn btn-primary btn-sm" onclick="window.location.href=\'\/dtd?cmd={{ cmd }}&id=' + row[0] + '\'">Delete</button>';
+				}
+				return data;
+			},
+			 "width": "150px" 
+		  }
+	   ]
+	   
+     });
+   });
+
+function editTagName(id, t) {
+	var tag = prompt("Enter new tag:", t);
+	if (tag == null || tag == '')
+		return;
+	window.location.href='/utd?id=' + id + '&tag=' + tag + '&cmd={{ cmd }}';
+}
+
+function inspectTsv() {
+	var file = $('#selTsv').val();
+	if (file == '0')
+		return;
+
+	f = '/inspect?file=' + file;
+	$.ajax({
+		url     : f,
+		type    : 'GET',
+		success : popInsp,
+		error   : function(XMLHttpRequest, textStatus, errorThrown) {alert('Error: \n\nFile:' + f + '\n\n' + errorThrown + '\n\n');} 
+	});	
+}
+
+function popInsp(h) {
+	$('#inspect').show();
+	$('#inspectText').html(h).scrollTop(0);
+}
+
+  {% if systems is not none %}
+	  {% for i in systems %}
+		  {% if i.tag is not none %}
+		  $('#systemSelect2').append(new Option('{{ i.sysid }} - 0x{{ ( '%0x' % i.sysid ).upper() }} - {{ i.tag }}', '{{ i.sysid }}'));
+		  $('#systemSelect3').append(new Option('{{ i.sysid }} - 0x{{ ( '%0x' % i.sysid ).upper() }} - {{ i.tag }}', '{{ i.sysid }}'));
+		  $('#systemSelect4').append(new Option('{{ i.sysid }} - 0x{{ ( '%0x' % i.sysid ).upper() }} - {{ i.tag }}', '{{ i.sysid }}'));				  	  
+		  {% else %}
+		  $('#systemSelect2').append(new Option('{{ i.sysid }} - 0x{{ ( '%0x' % i.sysid ).upper() }}', '{{ i.sysid }}'));
+		  $('#systemSelect3').append(new Option('{{ i.sysid }} - 0x{{ ( '%0x' % i.sysid ).upper() }}', '{{ i.sysid }}'));
+		  $('#systemSelect4').append(new Option('{{ i.sysid }} - 0x{{ ( '%0x' % i.sysid ).upper() }}', '{{ i.sysid }}'));			  		  
+		  {% endif %}
+	  {% endfor %}
+  {% endif %}
+  
+	 $('#systemSelect4').change( function(){ 
+		localStorage.systemSelect4 = $('#systemSelect4').val();
+	  });     
+  
+</script>
+
+
+{% endblock %}
+

@@ -1,0 +1,184 @@
+<!--  
+   Copyright 2017, 2018 Max H. Parke KA1RBI
+   Copyright 2020, 2021 Michael Rose
+   
+   This file is part of OP25
+   
+   OP25 is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 3, or (at your option)
+   any later version.
+   
+   OP25 is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
+   License for more details.
+   
+   You should have received a copy of the GNU General Public License
+   along with OP25; see the file COPYING. If not, write to the Free
+   Software Foundation, Inc., 51 Franklin Street, Boston, MA
+   02110-1301, USA.
+   
+   -->
+
+
+{% block content %}
+
+<html lang="{{ request.locale_name }}">
+   <head>
+      <meta charset="utf-8">
+      <meta http-equiv="X-UA-Compatible" content="IE=edge">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <meta name="description" content="pyramid web application">
+      <meta name="author" content="Pylons Project">
+      <title>OP25 - Logs</title>
+      <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+      <link rel="stylesheet" type="text/css" href="static/css/op25.css">
+      <link href="static/css/bootstrap/bootstrap-darkly.css" rel="stylesheet">
+      <link rel="stylesheet" type="text/css" href="static/dtpick/jquery.datetimepicker.css">
+      <style> 
+      </style>
+      {% block extra_stylesheets %} {% endblock %}
+      <script src="static/jquery/jquery-2.2.4.min.js"></script>        
+      <script src="static/js/bootstrap/bootstrap.bundle.min.js"></script>
+      <script src="static/dtpick/dtpick2.js"></script>
+      <script src="static/js/op25.js"></script>
+   </head>
+<div id="container">
+   <div id="header">
+      <p>&nbsp;</p>
+   </div>
+   <div id="primary">
+		&nbsp;
+   </div>
+<div id="content" align="center">  
+   <div class="card mb-3 border-primary" style="max-width: 60rem; text-align: left;">
+      <h4 class="card-header bg-danger">OP25 Logs - Database Error (Code {{ code }})</h4>
+      <div class="card-body">
+      {% if code == 1 %}
+		<div class="alert alert-dismissible">
+		  <strong>Database file does not exist.</strong> <br><br> {{ file }}</span> <Br><Br>File not found.<br><br>
+		</div>
+      {% endif %}
+      {% if code == 2 %}
+		<div class="alert alert-dismissible">
+		  <strong>Database file is too small. </strong> <br><Br> {{ file }} <br><br>Attributes do not conform.
+		</div>
+      {% endif %}    
+      {% if code == 4 %}
+		<div class="alert alert-dismissible">
+		  <strong>Database contains no data. </strong> <br><Br> {{ file }} <br><br> Database structure is good, but no data was found. <br><br>0 rows in table 'data_store'.
+		</div>
+      {% endif %}       
+        </div><br>
+
+      {% if code == 5 %}
+		<div class="alert alert-dismissible">
+		  <strong>Database access error. </strong> <br><Br> {{ file }} <br><br> Database might be locked or in use by another process (OP25). <br><br>
+		  Source: {{ source }}
+		</div>
+      {% endif %}       
+        </div><br>
+        
+    <div align="center">
+    	<button class="btnMain btn btn-outline-info" onclick="window.location.href='/'">Try Again</button>    
+    <br><br>
+    </div>
+    
+   {% if code == 5 %}
+   <div class="card mb-3 border-primary" style="max-width: 60rem; text-align: left;">
+      <h4 class="card-header bg-secondary">Traceback</h4>
+      <div class="card-body">
+
+ 		  	{{ e }} <br><br>
+ 		  	{{ err }}
+ 		  	</div></div>
+   {% endif %}    
+    
+   {% if code != 5 %} 
+   <div class="card mb-3 border-primary">
+      <h4 class="card-header bg-primary">../op25/gr-op25_repeater/apps/README</h4>
+      <div class="card-body">
+
+		<h4>Setup SQL Log Database (Optional)</h4>
+		<p>
+
+		This addition provides a permanent server-side log of control channel 
+		activity via logging to an SQL database.  See the next section for details
+		on installing and using the log viewer.
+		</p>
+		<p>
+		1. Make sure that sqlite3 is installed in python
+		</p>
+		<p>
+		2. Initialize DB (any existing DB data will be destroyed)
+		</p>
+		<p>
+		WARNING: OP25 MUST NOT BE RUNNING DURING THIS STEP
+		</p>
+		<p>
+		op25/.../apps$ python sql_dbi.py reset_db
+		</p>
+		<p>
+		3. Import talkgroups tags file
+		</p>
+		<p>
+		op25/.../apps$ python sql_dbi.py import_tgid tags.tsv
+		</p>
+		<p>  
+		   also, import the radio ID tags file (optional)
+		</p>
+		<p>   
+		op25/.../apps$ python sql_dbi.py import_unit radio-tags.tsv
+		</p>
+		<p>
+		   import the System ID tags file (see below)
+		</p>
+		<p>
+		op25/.../apps$ python sql_dbi.py import_sysid sysid-tags.tsv
+		</p>
+		<p>
+		The sysid tags must be a TSV file containing two columns
+		column 1 is the P25 trunked sysid (int, decimal)
+		colunn 2 is the System Name (text)
+		(Note: there is no header row line in this TSV file).
+		</p>
+		<p>
+		4. Run op25 as usual.  Logfile data should be inserted into DB in real time
+		   and you should be able to view activity via the OP25 http console (once 
+		   the flask/datatables app has been set up; see next section).
+		  </p>
+		</div>
+		</div>
+
+      {% endif %}  
+  </div>
+</div>
+   
+
+</div>
+
+<div id="secondary">
+	&nbsp;
+   </div>
+</div>
+</div>
+<!-- end secondary  -->
+
+</div>
+<!-- end content -->
+
+</div>
+<br>
+
+
+
+
+
+
+
+{% endblock %}
+
+{% block extra_javascripts %}
+
+{% endblock %}

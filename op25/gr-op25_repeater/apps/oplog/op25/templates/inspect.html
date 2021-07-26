@@ -1,0 +1,18 @@
+<!-- Import TSV inspection -->
+{% if i|length == 0 %}
+<div class="alert alert-dismissible alert-danger" id="invtsv">
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  <strong>Invalid TSV</strong><br><br>  The TSV is not valid for import.
+</div>
+{% else %}
+<div class="text-warning">Records: <b> {{ i|length }} </b></div><br>
+<table class="table table-hover">
+<th>ID</th>
+<th>Tag</th>
+<th>Priority/Color</th>
+{% for s in i %}
+<tr><td style="padding 2px; width: 150px;"> {{ s[0] }} </td><td style="padding 2px;  width: 350px;"> {{ s[1] }} </td><td style="padding 2px;"> {{ s[2] }}</td></tr>
+{% endfor %}
+</table>
+<br>
+{% endif %}

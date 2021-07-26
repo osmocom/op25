@@ -1,0 +1,16 @@
+<!-- footer links -->
+<div class="card border-primary mb-3">
+  <div class="card-body">
+  <div align="center">
+    <a href="{{ url_for('home') }}">Home</a>&nbsp;&nbsp;&nbsp;
+    <a href="{{ url_for('editsys') }}">System Tags</a>&nbsp;&nbsp;&nbsp;
+    <a href="{{ url_for('edit_tags') }}?cmd=tgid">Talkgroup Tags</a>&nbsp;&nbsp;&nbsp;
+    <a href="{{ url_for('edit_tags') }}?cmd=unit">Unit Tags</a>&nbsp;&nbsp;&nbsp;
+    <a href="{{ url_for('purge') }}">Purge Database</a>&nbsp;&nbsp;&nbsp;
+    <a href="{{ url_for('about') }}">About</a>
+    <br>
+    Server time: {{ t_loc() }} <br>
+    07.23.2021
+    </div>
+  </div>
+</div>

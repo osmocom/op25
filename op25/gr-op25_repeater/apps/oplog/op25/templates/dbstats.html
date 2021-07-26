@@ -1,0 +1,53 @@
+      <div class="card mb-3 border-primary">
+         <h4 class="card-header">Database Statistics</h4>
+         <div class="card-body">
+            <div class="card mb-3 bg-dark border-primary">
+            <table border="0" style="width: 100%;" class="border-primary">
+            <tr>
+            <td style="vertical-align: top; padding: 0px;">
+				<div class="card mb-3 bg-dark border-dark">
+				<span class="card-header">Records</span>
+				<div class="card-body">
+			   <table style="padding: 5px; width: 100%; border="0">         
+               <tr><td>Total Records: <b><span id="records">{{ dbstats[0] }}</span></b>
+			   &nbsp;&nbsp;&nbsp;&nbsp;
+               Talkgroups: <b><span id="talkgroups">{{ dbstats[2] }}</span></b>			   
+			   &nbsp;&nbsp;&nbsp;&nbsp;
+			   Subscribers: <b><span id="subs">{{ dbstats[3] }}</span></b>
+			   </td></tr>
+			   <tr>
+	           <td>First: <b><span id="firstDate"> {{ dbstats[4] }} </b></span></td>
+			   </tr><tr>
+               <td>Last: <b><span id="lastDate"> {{ dbstats[5] }} </b></span></td>
+               </tr><tr>
+               <td>Database Size: <b><span id="dbSize"> {{ dbstats[6] }} </b></span></td>
+               </tr><tr>
+               {% set fn = dbstats[7].split('/') %}
+               <td>Database File: <b><span id="dbFile"> {{ fn|last }}   </b>   <a href="#" title=" {{ dbstats[7] }}">?</a></span></td>
+               </tr>
+               </table>
+			   </div>
+			   </div>
+			   </td>
+			   <td style="vertical-align: top; padding: 0px;">
+				   <div class="card mb-3 bg-dark border-dark">
+				   <span class="card-header">Logged Systems: <b><span id="systems">{{ dbstats[1] }}</span></b><br></span>
+				   <div class="card-body">
+				   <table style="padding: 5px; width: 100%;" class="table table-hover">
+				   {% for i in sysList %}
+				   <tr>
+					   {% if i.tag is not none %}
+					   <td style="padding: 2px;"> {{ i.sysid }} </td><td style="padding: 2px;"> 0x{{ ( '%0x' % i.sysid ).upper() }} </td><td style="padding: 2px;"> {{ i.tag }} </td>
+					   {% else %}
+					   <td style="padding: 2px;"> {{ i.sysid }}</td><td style="padding: 2px;"> 0x{{ ( '%0x' % i.sysid ).upper() }} </td><td style="padding: 2px;"> &mdash; </td>
+				   {% endif %}
+				   </tr>
+				   {% endfor %} 
+				   </table>
+				   </div>
+			       </div>
+               </td></tr></table>
+               </div>
+         </div>
+      </div>
+      

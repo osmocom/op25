@@ -1,0 +1,129 @@
+<!--  
+   Copyright 2017, 2018 Max H. Parke KA1RBI
+   Copyright 2020, 2021 Michael Rose
+   
+   This file is part of OP25
+   
+   OP25 is free software; you can redistribute it and/or modify it
+   under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 3, or (at your option)
+   any later version.
+   
+   OP25 is distributed in the hope that it will be useful, but WITHOUT
+   ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
+   or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public
+   License for more details.
+   
+   You should have received a copy of the GNU General Public License
+   along with OP25; see the file COPYING. If not, write to the Free
+   Software Foundation, Inc., 51 Franklin Street, Boston, MA
+   02110-1301, USA.
+   
+   -->
+
+{% include 'base.html' %}
+{% block extra_stylesheets %}
+<link href="static/css/datatables/jquery.dataTables-dark.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+
+<div class="row-main">
+  <div class="side">
+	  &nbsp;
+  </div> <!-- end side -->
+  
+  <div class="main">
+      <div class="card mb-3 border-primary">
+         <div class="card-body">
+         
+      <div class="card mb-3 border-secondary">
+         <h5 class="card-header">Switch Database</h4>
+         <div class="card-body">         
+            <p class="card-text">
+			Switch OP25 Logs database. This does not affect live sql logging in OP25. Database selection will persist with Flask session.<br>
+            </p>
+<br><div align="center">
+            
+        Current database: {{ curr_file }}<br><br>
+        
+<label for="selTsv">Choose db file:</label>
+	<select name="seldb" id="seldb">
+	<option value='0' >Select...</option>
+		{% for i in files %}
+		{% if '.db' in i and '._' not in i %}
+		<option value="{{ i }}">{{ i }}</option>
+		{% endif %}
+		{% endfor %}
+	</select>
+<br><br>
+<Br>
+<button class="btn btn-primary" onclick="this.blur(); switch_database();">Swtich Database</button>
+<button class="btn btn-primary" onclick="this.blur(); window.location.href='/'">Cancel</button>
+</div>
+  
+</div>
+</div>
+      <div class="card mb-3 border-secondary">
+         <h5 class="card-header">Create Backup of Current Database</h4>
+         <div class="card-body">         
+            <p class="card-text">
+            <div align="center">
+                    Current database: {{ curr_file }}<br><br>
+		<button class="btn btn-primary" onclick="this.blur(); create_backup();">Create Backup Now</button>
+		</div>
+		<br>
+  {% if sm == 1 %}
+	<br>
+	<div class="alert alert-dismissible alert-success">
+	<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+	<strong>Backup Created.</strong><br><br>
+	New backup: <b> {{ destfile }}</b>
+	</div>
+  {{ clear_sm() }}	
+  {% endif %}
+
+</div>
+</div>
+
+</div>
+</div>
+
+{% include 'footer-links.html' %}
+</div> <!-- end main -->
+
+    <div class="side">
+    &nbsp;
+    </div>
+</div> <!-- end row -->
+
+
+
+<script>
+
+    $(document).ready(function () {
+		$('#startDate').prop('disabled', true );
+		$('#endDate').prop('disabled', true );
+		$('#systemSelect').prop('disabled', true );        
+		var sysid = $('#systemSelect4').val();
+	});
+	
+	function switch_database() {
+		var file = $('#seldb').val();
+		if (file == '0')
+			return;	
+		window.location.href='/switch_db?cmd=switch&file=' + file;
+	}
+
+
+	function create_backup() {
+		window.location.href='/switch_db?cmd=backup';
+	}
+
+</script>
+
+{% endblock %}
+
+{% block extra_javascripts %}
+{% endblock %}
+
