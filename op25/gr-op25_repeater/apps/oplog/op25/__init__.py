@@ -64,10 +64,8 @@ class MyDateType(types.TypeDecorator):
         return datetime.datetime.fromtimestamp(value).strftime('%Y-%m-%d %H:%M:%S')
 
 class column_helper(object):
-    """
-    convenience class - enables columns to be referenced as
-    for example, Foo.bar instead of Foo['bar']
-    """
+    # convenience class - enables columns to be referenced as
+    # for example, Foo.bar instead of Foo['bar']
     def __init__(self, table):
         self.table_ = db.metadata.tables[table]
         cols = self.table_.columns
@@ -248,7 +246,7 @@ def about():
 def error_page():
     params = request.args.to_dict()
     params['file'] = app.config['SQLALCHEMY_DATABASE_URI'][10:]
-    return render_template("error.html", params=params)
+    return render_template("error.html", params=params, file=params['file'], code=int(params['code']))
 
 # Inspect TSV (import) - returns a table of the tsv for display in a div, accessed by ajax
 @app.route("/inspect")
