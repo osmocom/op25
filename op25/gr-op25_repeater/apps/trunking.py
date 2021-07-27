@@ -1018,6 +1018,8 @@ class trunked_system (object):
         #    return False
         if self.last_tsbk + HUNT_HOLD_TIME > time.time():
             return False
+        if self.last_voice_time + HUNT_HOLD_TIME > time.time():
+            return False
         if time.time() < self.next_hunt_cc:
             return False
         self.next_hunt_cc = time.time() + HUNT_HOLD_TIME
@@ -1026,7 +1028,7 @@ class trunked_system (object):
         if self.cc_list_index >= len(self.cc_list):
             self.cc_list_index = 0
         self.trunk_cc = self.cc_list[self.cc_list_index]
-        sys.stderr.write('%f %s: set trunk_cc to %s\n' % (curr_time, self.sysname, self.trunk_cc))
+        sys.stderr.write('%f %s: cycling to next trunk_cc: %s\n' % (curr_time, self.sysname, self.trunk_cc))
         if self.trunk_cc != self.last_trunk_cc:
             self.last_trunk_cc = self.trunk_cc
             if self.debug >=5:
@@ -1329,6 +1331,8 @@ class rx_ctl (object):
             if nac not in self.trunked_systems.keys():
                 return
             tsys = self.trunked_systems[nac]
+            if self.current_state != self.states.CC:
+                tsys.last_voice_time = curr_time
             if 'srcaddr' in js.keys():
                 tsys.current_srcaddr = js['srcaddr']
             if 'grpaddr' in js.keys():
@@ -1391,7 +1395,8 @@ class rx_ctl (object):
             return
         tsys = self.trunked_systems[nac]
         if mtype == 0 or mtype == 5 or mtype == 10:	# HDU or LDU1 or LDU2 i.e. voice
-            tsys.last_voice_time = curr_time
+            if self.current_state != self.states.CC:
+                tsys.last_voice_time = curr_time
         elif mtype == 7:	# trunk: TSBK
             t = get_ordinals(s)
             updated += tsys.decode_tsbk(t)
@@ -1557,10 +1562,10 @@ class rx_ctl (object):
         if command == 'timeout':
             if self.current_state == self.states.CC:
                 if self.debug > 0:
-                    sys.stderr.write("%f control channel timeout\n" % time.time())
+                    sys.stderr.write("%f control channel timeout, current CC %d\n" % (time.time(), tsys.trunk_cc))
                 tsys.cc_timeouts += 1
             elif self.current_state != self.states.CC and tsys.last_voice_time + 1.0 < curr_time:
-                if self.debug > 1:
+                if self.debug > 0:
                     sys.stderr.write("%f voice timeout\n" % time.time())
                 if self.hold_mode is False:
                     self.current_tgid = None
