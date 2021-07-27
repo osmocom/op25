@@ -70,6 +70,8 @@ from gr_gnuplot import setup_correlation
 from terminal import op25_terminal
 from sockaudio  import audio_thread
 
+from sql_dbi import sql_dbi
+
 #speeds = [300, 600, 900, 1200, 1440, 1800, 1920, 2400, 2880, 3200, 3600, 3840, 4000, 4800, 6000, 6400, 7200, 8000, 9600, 14400, 19200]
 speeds = [4800, 6000]
 
@@ -132,6 +134,7 @@ class p25_rx_block (gr.top_block):
         self.last_freq_params = {'freq' : 0.0, 'tgid' : None, 'tag' : "", 'tdma' : None}
         self.next_status_png = time.time()
         self.last_process_update = 0
+        self.sql_db = sql_dbi()
 
         self.src = None
         if (not options.input) and (not options.audio) and (not options.audio_if) and (not options.args.startswith('udp:')):
@@ -695,6 +698,8 @@ class p25_rx_block (gr.top_block):
         self.process_ajax()
 
     def send_event(self, d):	## called from trunking module to send json msgs / updates to client
+        if d is not None:
+            self.sql_db.event(d)
         if d and not self.input_q.full_p():
             msg = gr.message().make_from_string(json.dumps(d), -4, 0, 0)
             self.input_q.insert_tail(msg)
