@@ -9,8 +9,8 @@ sudo apt-get install python3-pip
 #pip3 install --user pip==10.0.1
 #PIP3=$USERDIR/pip3
 
-echo PIP3 now set to $PIP3, checking version...
-$PIP3 --version
+echo PIP3 now set to $PIP3
+# # # $PIP3 --version  # # # generates errors -- (?)
 
 $PIP3 install --user sqlalchemy 
 $PIP3 install --user flask
