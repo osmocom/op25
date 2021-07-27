@@ -55,31 +55,37 @@
    <div class="card mb-3 border-primary" style="max-width: 60rem; text-align: left;">
       <h4 class="card-header bg-danger">OP25 Logs - Database Error (Code {{ code }})</h4>
       <div class="card-body">
-      {% if code == 1 %}
+
+		{% if code == 1 %}
 		<div class="alert alert-dismissible">
-		  <strong>Database file does not exist.</strong> <br><br> {{ file }}</span> <Br><Br>File not found.<br><br>
+		  <strong>Database file does not exist.</strong> <br><br> {{ file }}</span> <Br><Br>File not found.
 		</div>
-      {% endif %}
-      {% if code == 2 %}
+		{% endif %}
+
+		{% if code == 2 %}
 		<div class="alert alert-dismissible">
 		  <strong>Database file is too small. </strong> <br><Br> {{ file }} <br><br>Attributes do not conform.
 		</div>
-      {% endif %}    
-      {% if code == 4 %}
+		{% endif %}    
+
+		{% if code == 4 %}
 		<div class="alert alert-dismissible">
 		  <strong>Database contains no data. </strong> <br><Br> {{ file }} <br><br> Database structure is good, but no data was found. <br><br>0 rows in table 'data_store'.
 		</div>
-      {% endif %}       
-        </div><br>
+		{% endif %}       
 
-      {% if code == 5 %}
+		{% if code == 5 %}
 		<div class="alert alert-dismissible">
 		  <strong>Database access error. </strong> <br><Br> {{ file }} <br><br> Database might be locked or in use by another process (OP25). <br><br>
 		  Source: {{ source }}
 		</div>
-      {% endif %}       
-        </div><br>
+		{% endif %}       
+      
+     </div>
+  </div>
         
+
+		        
     <div align="center">
     	<button class="btnMain btn btn-outline-info" onclick="window.location.href='/'">Try Again</button>    
     <br><br>
@@ -96,9 +102,10 @@
    {% endif %}    
     
    {% if code != 5 %} 
-   <div class="card mb-3 border-primary">
+   
+   <div class="card mb-3 border-primary" style="max-width: 60rem;">
       <h4 class="card-header bg-primary">../op25/gr-op25_repeater/apps/README</h4>
-      <div class="card-body">
+      <div class="card-body" style="text-align: left;">
 
 		<h4>Setup SQL Log Database (Optional)</h4>
 		<p>
