@@ -5,6 +5,8 @@ USERDIR=~/.local/bin
 
 sudo apt-get install python3-pip
 
+PIP3=`which pip3`
+
 # # # # # # un-comment the following two lines for ubuntu 16.04 # # # # # # 
 #pip3 install --user pip==10.0.1
 #PIP3=$USERDIR/pip3
