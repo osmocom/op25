@@ -484,14 +484,17 @@ function trunk_detail(d) { // d json_type = trunk_update
         html += '</td>';
         
         // 2, 3, 4
-        html += '<td colspan="3" align="center">';   
+        scc = '';
+		for (i = 0; i < d[nac]['secondary'].length; i++) {
+			scc += freqDisplay(d[nac]['secondary'][i] / 1000000);
+			scc += '&nbsp;&nbsp;&nbsp;';
+		}        
+         
+        html += '<td title="' + scc + '" colspan="3" align="center" style="max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">';   
         
 		if (d[nac]['secondary'].length) {
 			html += 'Secondary Control Channels</span><br><span class="value"> ';
-			for (i = 0; i < d[nac]['secondary'].length; i++) {
-				html += freqDisplay(d[nac]['secondary'][i] / 1000000);
-				html += '&nbsp;&nbsp;&nbsp;';
-			}	
+			html += scc;
 		} else {
 			html += '<span class="value">None';			
 		}
