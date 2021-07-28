@@ -353,6 +353,8 @@ class stdout_wrapper(object):
 
     def write(self, pcm_data):
         try:
+            if sys.version[0] != '2' and type(pcm_data) is str:
+                pcm_data = pcm_data.encode('latin1')	# python3 strikes again
             sys.stdout.write(pcm_data)
         except IOError: # IOError means listener has terminated
             return -1
@@ -380,7 +382,7 @@ class socket_audio(object):
         self.silent_flag = silent_flag
         if dest_stdout:
             pcm_device = "stdout"
-            sys.stdout = os.fdopen(sys.stdout.fileno(), 'w', 0) # reopen stdout with buffering disabled
+            sys.stdout = os.fdopen(sys.stdout.fileno(), 'wb', 0) # reopen stdout with buffering disabled
             self.pcm = stdout_wrapper()
         else:
             if pcm_device.lower() == "pulse":
