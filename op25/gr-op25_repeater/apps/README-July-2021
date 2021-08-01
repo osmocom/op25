@@ -15,7 +15,6 @@ New features in this release (June, 2021)
     * smart colors
     * user settings (colors, preferences) may be edited and saved via a
       convenient set of web forms and applications
-    * Experimental TDMA Control Channel support
 
 2. The multi_rx app adds extensions to include trunked P25 call following 
    concurrent with full-time tracking of one or more P25 control channels.
@@ -27,6 +26,8 @@ New features in this release (June, 2021)
 
 3. Control channel logging to SQL database is added.  For details see the
    section on the Flask Datatables App, below.
+
+4. Experimental TDMA Control Channel support
 
 Installation
 ============
@@ -263,3 +264,28 @@ version of flask in a directory such as:
 If install of the apt version of flask is attempted, it may result in an 
 obsolete and/or incompatible flask version being installed.
 
+NOTE: The following command example can be used when starting the oplog
+process as a system service:
+    /home/<user>/op25/op25/gr-op25_repeater/apps/oplog/oplog.sh 
+ * Change <user> to match the username
+ * Make appropriate corrections if the git repo is cloned into a different
+   directory than in the command shown
+ * Verify the resulting path and filename is correct.
+============ oplog.sh ============
+#! /bin/sh
+
+export FLASK_APP=op25
+FLASK_DEBUG=1 flask run --host=0.0.0.0
+==================================
+
+In lieu of setting the flask PATH (as per step 2, above) you could also
+specify it explicitly.  In that case, replace the last line of oplog.sh as
+follows:
+FLASK_DEBUG=1 /home/<user>/.local/bin/flask run --host=0.0.0.0
+ * Change <user> to match the username
+ * Confirm the "flask" file is present in ..../bin/ and is executable
+ * Set "host" to "127.0.0.1" to restrict HTTP connections to the local 
+   machine.
+ * WARNING The web server is not security-hardened.   It is not
+   designed for exposure to public web-facing applications.
+   
