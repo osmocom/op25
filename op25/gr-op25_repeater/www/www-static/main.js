@@ -17,7 +17,7 @@
 // Software Foundation, Inc., 51 Franklin Street, Boston, MA
 // 02110-1301, USA.
 
-var lastUpdated = "15-Jul-2021";
+var lastUpdated = "01-Aug-2021";
 
 var d_debug = 0;
 var http_req = new XMLHttpRequest();
@@ -1538,12 +1538,12 @@ document.onkeydown = function(evt) {
         case 76:
             // 'l' key - LOCKOUT
         	$('#lastCommand').html('L - LOCKOUT<br><br>').show();               
-            f_goto_button('lockout');
+            f_scan_button('lockout');
             break;
         case 72:
             // 'h' key - HOLD
         	$('#lastCommand').html('H - HOLD<br><br>').show();                 
-            f_goto_button('hold');
+            f_scan_button('hold');
             break;
         case 80:
             // 'p' show/hide plots
@@ -1553,7 +1553,7 @@ document.onkeydown = function(evt) {
         case 83:
             //  's' key - SKIP
         	$('#lastCommand').html('S - Skip<br><br>').show();                   
-            f_goto_button('skip');
+            f_scan_button('skip');
             break;
         case 86:
             //  'v' key - VIEW (light/dark)
@@ -1577,9 +1577,8 @@ document.onkeydown = function(evt) {
         case 48: // '0' key - show/hide Main Display
         	minify('controlsDisplay');
         	break;
-        case 49:
+        case 49:  //  '1' key - show/hide callHistory
         	$('#lastCommand').html('1 - Calls<br><br>').show();             
-            //  '1' key - show/hide callHistory
             minify('log_container_1');
             break;
         case 50:
