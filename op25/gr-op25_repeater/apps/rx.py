@@ -420,18 +420,24 @@ class p25_rx_block (gr.top_block):
         if band:
             self.error_band += band
         self.freq_correction += freq_error * 0.15
+        self.freq_correction = int(self.freq_correction)
         if self.freq_correction > 600:
             self.freq_correction -= 1200
             self.error_band += 1
         elif self.freq_correction < -600:
             self.freq_correction += 1200
             self.error_band -= 1
-        self.tuning_error = self.error_band * 1200 + self.freq_correction
+        self.tuning_error = int(self.error_band * 1200 + self.freq_correction)
         e = 0
         if self.last_change_freq > 0:
             e = (self.tuning_error*1e6) / float(self.last_change_freq)
         if self.options.verbosity >= 10:
             sys.stderr.write('frequency_tracking\t%d\t%d\t%d\t%d\t%f\n' % (freq_error, self.error_band, self.tuning_error, self.freq_correction, e))
+        if self.input_q.full_p():
+            return
+        d = {'time':   time.time(), 'json_type': 'freq_error_tracking', 'name': 'rx.py', 'device': self.options.args, 'freq_error': freq_error, 'band': band, 'error_band': self.error_band, 'tuning_error': self.tuning_error, 'freq_correction': self.freq_correction}
+        msg = gr.message().make_from_string(json.dumps(d), -4, 0, 0)
+        self.input_q.insert_tail(msg)
 
     def change_freq(self, params):
         self.last_freq_params = params
