@@ -436,8 +436,11 @@ class p25_rx_block (gr.top_block):
         if self.input_q.full_p():
             return
         d = {'time':   time.time(), 'json_type': 'freq_error_tracking', 'name': 'rx.py', 'device': self.options.args, 'freq_error': freq_error, 'band': band, 'error_band': self.error_band, 'tuning_error': self.tuning_error, 'freq_correction': self.freq_correction}
-        msg = gr.message().make_from_string(json.dumps(d), -4, 0, 0)
+        js = json.dumps(d)
+        msg = gr.message().make_from_string(js, -4, 0, 0)
         self.input_q.insert_tail(msg)
+        if self.options.verbosity >= 0:
+            sys.stderr.write('%f error tracking: %s\n' % (time.time(), js))
 
     def change_freq(self, params):
         self.last_freq_params = params
@@ -692,6 +695,8 @@ class p25_rx_block (gr.top_block):
     def process_update(self):
         UPDATE_INTERVAL = 1.0	# sec.
         now = time.time()
+        if self.options.freq_error_tracking:
+            self.error_tracking()
         if now < self.last_process_update + UPDATE_INTERVAL:
             return
         self.last_process_update = now
