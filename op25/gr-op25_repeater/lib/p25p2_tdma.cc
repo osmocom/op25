@@ -544,7 +544,7 @@ int p25p2_tdma::handle_packet(const uint8_t dibits[])
 	const uint8_t* burstp = &dibits[10];
 	uint8_t xored_burst[BURST_SIZE - 10];
 	int burst_type = duid.duid_lookup(duid.extract_duid(burstp));
-	if (which_slot[sync.tdma_slotid()] != d_slotid) // active slot?
+	if (which_slot[sync.tdma_slotid()] != d_slotid && burst_type != 13) // ignore if on oppo. slot and not CC
 		return -1;
 	for (int i=0; i<BURST_SIZE - 10; i++) {
 		xored_burst[i] = burstp[i] ^ tdma_xormask[sync.tdma_slotid() * BURST_SIZE + i];
