@@ -1,4 +1,5 @@
 // Copyright 2017, 2018, 2019, 2020, 2021 Max H. Parke KA1RBI
+// Copyright 2020, 2021 Michael Rose
 // 
 // This file is part of OP25
 //
@@ -17,7 +18,7 @@
 // Software Foundation, Inc., 51 Franklin Street, Boston, MA
 // 02110-1301, USA.
 
-var lastUpdated = "01-Aug-2021";
+var lastUpdated = "08-Aug-2021";
 
 var d_debug = 0;
 var http_req = new XMLHttpRequest();
@@ -85,7 +86,6 @@ function do_onload() {
 // vars set when saving things...
 // 	localStorage.AliasTableUpdated == true;
 //  localStorage.ColorsTableUpdated == true;
-
 
 $(document).ready(function() {
 	// populate url into oplog url field
@@ -487,19 +487,21 @@ function trunk_detail(d) { // d json_type = trunk_update
         scc = '';
 		for (i = 0; i < d[nac]['secondary'].length; i++) {
 			scc += freqDisplay(d[nac]['secondary'][i] / 1000000);
-			scc += '&nbsp;&nbsp;&nbsp;';
+			if ( (i+1) != d[nac]['secondary'].length)
+				scc += '&nbsp;&nbsp;&nbsp;';  // space between freqs
 		}        
          
         html += '<td title="' + scc + '" colspan="3" align="center" style="max-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">';   
         
-		if (d[nac]['secondary'].length) {
-			html += 'Secondary Control Channels</span><br><span class="value"> ';
+		html += 'Secondary Control Channels</span><br><span class="value"> ';
+		
+		if (d[nac]['secondary'].length) {		
 			html += scc;
 		} else {
 			html += '<span class="value">None';			
 		}
 		
-			html += '</td></span>';
+		html += '</td></span>';
         
         // 5
         html += '<td align="center">';
@@ -1039,7 +1041,7 @@ function dispatch_commands(txt) {
                 
                 // TODO - cb not defined keeps coming up a couple times in the console, right at start up.
                 if (cb && d.tgid) {
-	                appendJsonTable(time, j_type, sysid, tag, tgid, freq, '--', '--', 'history');
+	                appendJsonTable(time, j_type, sysid, tag, tgid, 'OP25', freq, '--', 'history');
                 }
                 
                 if (d.tgid) {
@@ -1090,11 +1092,11 @@ function dispatch_commands(txt) {
 		                    
 		                    var sr = "Site: " + site + "  &nbsp;&nbsp;&nbsp; RFID: " + rfid;
 		                    
-		                    var col_f = "&mdash;"; // empty for now
+		                    var col_f = "OP25"; // empty for now
                     
            				if (cb) {
 		                    if (grpaddr) {  // do not append the table if no grpaddr is present - TU into Events table is pretty much useless anyway
-					        	appendJsonTable(time, j_type, sysid, sr, c_grpaddr,  col_f, "--", "--", "history");
+					        	appendJsonTable(time, j_type, sysid, sr, c_grpaddr,  col_f, "Update", "--", "history");
 							}
 						} //end if cb
 				      } // end if nac is number	
@@ -1106,12 +1108,18 @@ function dispatch_commands(txt) {
             case 'rx_update':
                 cb = cbState('log_rx');
 				if (d['files'][0]) {
-                	var ps = "Plots present";            	
+                	var ps = "Plots: True";            	
                 	} else {
-						// do nothing
-                	}                
+					var ps = "Plots: False"
+                	}
+                if (d['fine_tune']) {
+                    var ft = d['fine_tune'];
+                } else {
+                	var ft = "n/a";
+                }
+            	
                 if (cb) {       
-                    appendJsonTable(time, j_type, ps, 'Fine Tune: ' + d['fine_tune'], 'Error: ' + d['error'], '-', '-', '--', 'history');
+                    appendJsonTable(time, j_type, ps, 'Fine Tune: ' + ft, 'Tune Err: ' + d['error'], 'OP25', 'RX Update', '--', 'history');
                 }  // this Events table entry doesn't add much value either.
 
 //                 window.g_rx_update = d;
@@ -1421,14 +1429,26 @@ function dispatch_commands(txt) {
 				
 				tag = "<span class=\"c" + c + "\">" + tag;
 				target = "<span class=\"c" + c + "\">" + target;              
+			
 				
-				if (d['srcaddr']) 
-					src_c = (d['srcaddr']['color']) ? d['srcaddr']['color'] : src_c;               	
-
+				if (d['group']) {
+					src_c = d['group']['color'];
+				}
+				
+				if (d['source']) {
+					src_c = d['source']['color'];
+				}					
+				
+				if (d['srcaddr']) { // present for voice calls, not present for other cc_events
+					src_c = (d['srcaddr']['color']) ? d['srcaddr']['color'] : src_c;
+				}
+				
+			
+				
 				source = "<span class=\"c" + src_c + "\">" + source;                
-				srctag = "<span class=\"c" + src_c + "\">" + srctag;                     		
+				srctag = "<span class=\"c" + src_c + "\">" + srctag;      
 
-				if (cb && noLog == 0) {            	                	
+				if (cb && noLog == 0) {
 					appendJsonTable(time, j_type, n_opcode, tag, target, source, srctag, opcode, 'history');
 				}
 
@@ -1477,8 +1497,19 @@ function f_goto_button(command) {
         if (current_tgid != null)
             _tgid = current_tgid;
         _tgid = parseInt(prompt('Enter TGID to hold.', _tgid));
-        if (isNaN(_tgid) || _tgid < 0 || _tgid > 65535)
-            _tgid = 0;
+        console.log(_tgid)
+        if (isNaN(_tgid) || _tgid < 0 || _tgid > 65535) {
+            return;  // Cancel was pressed or invalid entry
+        }
+		
+	// it's necessary to release current hold before trying to hold on a new tg	
+	if ($('#holdIndicator').is(':visible') ){
+		send_command('skip', -1);
+		setTimeout(function() {
+			send_command(command, _tgid);
+		}, 500);
+		return;
+	}	
         send_command(command, _tgid);
     }
 }
@@ -1622,10 +1653,11 @@ function minify(div) {
 
 function appendJsonTable(a, b, c, d, e, f, srctag, opcode, target) {
     var numRows = document.getElementById(target).rows.length;
-    var size = document.getElementById('log_len').value;
-    if (!Number.isInteger(size))
+    var size = parseInt($('#log_len').val());
+    if (!Number.isInteger(size)) {
         // entry in Config / Display Options must be a number
         size = 1500;
+    }
     
 	// shorter friendly view
     var fv = {
@@ -1639,6 +1671,7 @@ function appendJsonTable(a, b, c, d, e, f, srctag, opcode, target) {
         document.getElementById(target).deleteRow(-1);
     var table = document.getElementById(target);
     var lastRowIndex = table.rows.length - 1;
+//     $('#eh-count').html('&nbsp;&nbsp;Rows: ' + table.rows.length);    
     var skip = 0;
 
     var prevTime = nohtml(table.rows[1].cells[0].innerHTML);	// time
@@ -1712,13 +1745,15 @@ function appendJsonTable(a, b, c, d, e, f, srctag, opcode, target) {
 function appendCallHistory(a, b, c, d, e, f, target, options, xp, sysid, nac, tdma_slot) {
     var numRows = document.getElementById(target).rows.length;
 //     var size = document.getElementById('log_len').value;
-    var size = $('#log_len').val();
-    if (!Number.isInteger(size))
+    var size = parseInt($('#log_len').val());
+    if (!Number.isInteger(size)) {
         // entry in Config / Display Options must be a number
         size = 1500;
+    }
     if (numRows > size)
         $('#' + target + ' tr:last').remove();
     var table = document.getElementById(target);
+//     $('#ch-count').html('&nbsp;&nbsp;Rows: ' + table.rows.length);
     var lastRowIndex = table.rows.length - 1;
     var skip = 0;
     var pri, enc, xpatch, x, y;
@@ -1793,13 +1828,12 @@ function appendCallHistory(a, b, c, d, e, f, target, options, xp, sysid, nac, td
 } // end appendCallHistory
 
 function appendErrorTable(ax, bx, cx, dx, ex, fx, gx, target) {
-
     var numRows = document.getElementById(target).rows.length;
-    var size = document.getElementById('log_len').value;
-    if (!Number.isInteger(size))
+    var size = parseInt($('#log_len').val());
+    if (!Number.isInteger(size)) {
         // entry in Config / Display Options must be a number
-        size = 500;
-    
+        size = 1500;
+    }
     if (numRows > size)
         document.getElementById(target).deleteRow(-1);
     var table = document.getElementById(target);
