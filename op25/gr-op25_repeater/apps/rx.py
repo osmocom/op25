@@ -684,6 +684,8 @@ class p25_rx_block (gr.top_block):
     def process_ajax(self):
         if not self.is_http_term():
             return
+        if self.input_q.full_p():
+            return
         filenames = [sink.gnuplot.filename for sink in self.plot_sinks if sink.gnuplot.filename]
         error = None
         if self.options.demod_type == 'cqpsk':
@@ -697,12 +699,16 @@ class p25_rx_block (gr.top_block):
         now = time.time()
         if self.options.freq_error_tracking:
             self.error_tracking()
+        if self.input_q.full_p():
+            return
         if now < self.last_process_update + UPDATE_INTERVAL:
             return
         self.last_process_update = now
         self.freq_update()
         if self.trunk_rx is None:
             return ## possible race cond - just ignore
+        if self.input_q.full_p():
+            return
         js = self.trunk_rx.to_json()
         msg = gr.message().make_from_string(js, -4, 0, 0)
         self.input_q.insert_tail(msg)
