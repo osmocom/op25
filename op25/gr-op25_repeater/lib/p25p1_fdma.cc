@@ -750,8 +750,8 @@ p25p1_fdma::rx_sym (const uint8_t *syms, int nsyms)
     }
     diff_usec += diff_sec * 1000000;
     if (diff_usec >= TIMEOUT_THRESHOLD) {
-      if (d_debug > 10)
-        fprintf(stderr, "%010lu.%06lu p25p1_fdma::rx_sym() timeout\n", currtime.tv_sec, currtime.tv_usec);
+      if (d_debug > 0)
+        fprintf(stderr, "%010lu.%06lu p25p1_fdma::rx_sym() timeout, channel %d\n", currtime.tv_sec, currtime.tv_usec, d_msgq_id);
 
       if (d_do_audio_output) {
         op25audio.send_audio_flag(op25_audio::DRAIN);

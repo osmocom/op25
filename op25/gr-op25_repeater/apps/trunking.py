@@ -1351,8 +1351,8 @@ class rx_ctl (object):
             self.update_state(cmd, curr_time, int(msg.arg1()))   # self.update_state(cmd, curr_time)
             return
         elif mtype == -1:	# timeout
-            if self.debug > 10:
-                sys.stderr.write('%f process_data_unit timeout\n' % time.time())
+            if self.debug > 0:
+                sys.stderr.write('%f process_data_unit timeout, channel %s\n' % (time.time(), msgq_id))
             self.update_state('timeout', curr_time)
             if self.logfile_workers:
                 self.logging_scheduler(curr_time)
