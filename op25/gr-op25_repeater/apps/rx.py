@@ -439,7 +439,7 @@ class p25_rx_block (gr.top_block):
         js = json.dumps(d)
         msg = gr.message().make_from_string(js, -4, 0, 0)
         self.input_q.insert_tail(msg)
-        if self.options.verbosity >= 0:
+        if self.options.verbosity > 0:
             sys.stderr.write('%f error tracking: %s\n' % (time.time(), js))
 
     def change_freq(self, params):
