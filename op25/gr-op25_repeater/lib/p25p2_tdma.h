@@ -80,7 +80,7 @@ private:
         std::vector<uint8_t> ESS_A; // ESS_A and ESS_B are hexbits vectors
         std::vector<uint8_t> ESS_B;
 
-        uint8_t ess_keyid;
+        uint16_t ess_keyid;
         uint16_t ess_algid;
 	uint8_t ess_mi[9] = {0};
 	int d_msgq_id;
