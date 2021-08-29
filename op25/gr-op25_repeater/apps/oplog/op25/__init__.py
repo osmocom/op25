@@ -460,8 +460,10 @@ def purge():
     params['ekeys'] = sorted(oplog_map.keys())
     DataStore  = column_helper('data_store')
     destfile = ''
+    b = False
     if 'bu' in params.keys():
         if params['bu'] == 'true':
+            b = True
             t = strftime("%Y%m%d_%H%M%S")
             destfile = 'op25-backup-%s.db' % t
             src = app.config['SQLALCHEMY_DATABASE_URI'][10:]
@@ -487,7 +489,8 @@ def purge():
             recCount = recCount.count()
             dispQuery = delRec.compile(compile_kwargs={"literal_binds": True})
             if simulate == 'false':
-                copyfile(src, dst)
+                if b == True:
+                    copyfile(src, dst)
                 db.session.execute(delRec)
                 db.session.commit()
                 db.session.execute("VACUUM") # sqlite3 clean up -- reduces file size
@@ -554,6 +557,7 @@ def data():
     
     start_time = None if 'sdate' not in params.keys() else datetime.datetime.utcfromtimestamp(float(params['sdate']))
     end_time = None if 'edate' not in params.keys() else datetime.datetime.utcfromtimestamp(float(params['edate']))
+    print(params)
     sysid = None if 'sysid' not in params.keys() else int(params['sysid'])
     
     stime = int(params['sdate']) #used in the queries

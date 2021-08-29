@@ -128,16 +128,16 @@
      var ed = edate();
      var sysid = $('#systemSelect').val();
      
-     var filter_tgid = 	{%+ if params['tgid'] is defined %}
+     var filter_tgid = 	{% if params['tgid'] is defined %}
      					{{ params['tgid'] }};
-     					{%+ else %}
+     					{% else %}
      					0;
-     					{%+ endif %}
-     var filter_suid = 	{%+ if params['suid'] is defined %}
+     					{% endif %}
+     var filter_suid = 	{% if params['suid'] is defined %}
      					{{ params['suid'] }};
-     					{%+ else %}
+     					{% else %}
      					0;
-     					{%+ endif %}     					
+     					{% endif %}     					
      
      console.log('filter_tgid=' + filter_tgid);
      console.log(typeof filter_tgid);
@@ -186,7 +186,7 @@
 	   null,
 	   null,
 	   null,
-	   { render: function(data){ return data / 1000000; }},
+	   { render: function(data){ return data / 1000000; } },
 		 ],
 	   {% endif %}		
        
