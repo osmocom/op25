@@ -417,13 +417,23 @@
                   </select>  
 
                </td>
-               <td> <input type="text" id="oplogUrl" title="OP25 Logs URL - Requires the OP25 Flask App"> <button id="btnLogs" onclick="this.blur(); navOplog();">Go</button></td>
+               <td> </td>
+            </tr>
+            <tr>
+            <td colspan="3">
+            OP25 Logs IP: <input type="text" id="oplogip" style="width: 150px;">
+			&nbsp;&nbsp;&nbsp;
+        	Port: <input type="text" id="oplogport" style="width: 50px;">
+			&nbsp;&nbsp;&nbsp;
+            <input type="text" id="oplogUrl" style="width: 200px;" title="OP25 Logs URL - Requires the OP25 Flask App"> <button id="btnLogs" onclick="this.blur(); navOplog();">Go</button>
+            
+            </td>
             </tr>
             <tr>
                <td colspan="3" style="text-align:center;">
-                  <button style = "width: 170px; height: 36px;" id="saveSettings" onclick="this.blur(); saveDisplaySettings();">Save Display Settings</button>
+                  <button style = "width: 170px; height: 36px;" id="saveSettings" onclick="this.blur(); saveDisplaySettings();">Save Settings</button>
                   &nbsp;&nbsp;
-                  <button style = "width: 170px; height: 36px;" id="loadSettings" onclick="this.blur(); beginJsonSettings();">Load Saved Display Settings</button>
+                  <button style = "width: 170px; height: 36px;" id="loadSettings" onclick="this.blur(); beginJsonSettings();">Load Saved Settings</button>
                </td>
          </table>
          <!-- End Main Display Settings -->
@@ -719,6 +729,7 @@
          <div id="log_container_1">
             <div class="historyLabel">
                <a href="#" onclick="this.blur(); openTable('callHistory', this)" id="Call&nbsp;History" class="label" style="text-decoration: none;"> Call History &nbsp;&nbsp;&nbsp;<img src="search.png" width="13" height="13" title="Search"></a>
+               &nbsp;<span id="ch-count">-</span>
                <span title="Expand / Retract" class="btnExp hlabel" onclick="this.blur(); divExpand('div_callHistory')"> &#x25BC; </span>          
             </div>
             <div id="div_callHistory" class="log" style="border: 1px solid black; display: block; width:730px; height:301px; overflow-y: scroll;">
@@ -753,6 +764,7 @@
             <!--  Search icon: &#x1F50E; can use this instead of an image for the search box -->
             <div class="historyLabel">
                <a href="#" onclick="this.blur(); openTable('history', this)" id="Events" class="label" style="text-decoration: none;">Events &nbsp;&nbsp;&nbsp;<img src="search.png" width="13" height="13" title="Search"></a>
+               &nbsp;<span id="eh-count">-</span>
                <span title="Expand / Retract" class="btnExp hlabel" onclick="this.blur(); divExpand('div_history')"> &#x25BC; </span>
             </div>
             <div id="div_history" class="log" style="border: 1px solid black; display: block; width:730px; height:301px; overflow-y: scroll;">

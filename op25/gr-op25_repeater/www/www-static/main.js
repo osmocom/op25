@@ -18,7 +18,7 @@
 // Software Foundation, Inc., 51 Franklin Street, Boston, MA
 // 02110-1301, USA.
 
-var lastUpdated = "08-Aug-2021";
+var lastUpdated = "29-Aug-2021";
 
 var d_debug = 0;
 var http_req = new XMLHttpRequest();
@@ -69,13 +69,16 @@ function do_onload() {
     $('#uiupdated').html(lastUpdated);
     document.documentElement.setAttribute('data-theme', 'dark');
     window.siteAlias = null;
-    getSiteAlias();
+
     intvAlias = setInterval(getSiteAlias, 5000);
-	beginJsonSettings(); 
-	generateCSS();
     intvCss = setInterval(generateCSS, 4000);
     resetFileReload = setInterval(rstFileReload, 12000)	
+    
 	connect();
+	generateCSS();
+    getSiteAlias();	
+	beginJsonSettings();     
+    
 	accColorSel();
 	for (i = 1; i < 100; i ++) {
 		$('#unk_default').append(new Option(i, i));
@@ -88,10 +91,10 @@ function do_onload() {
 //  localStorage.ColorsTableUpdated == true;
 
 $(document).ready(function() {
-	// populate url into oplog url field
-		var x = window.location.origin.split( ':' ); 
-		var y = x[0] + ':' + x[1] + ':5000';
-		$('#oplogUrl').val(y);
+// 	// populate url into oplog url field
+// 		var x = window.location.origin.split( ':' ); 
+// 		var y = x[0] + ':' + x[1] + ':5000';
+// 		$('#oplogUrl').val(y);
 		loadHelp();
 });
 
@@ -100,9 +103,6 @@ function connect() {
     event_source.addEventListener('message', eventsource_listener);
     event_source.onerror = function() {
     	event_source.close();
-    	clearInterval(intvAlias);
-    	clearInterval(intvCss);
-    	clearInterval(resetFileReload);
     }
 	setReconnect();
 }
@@ -115,6 +115,9 @@ function eventsource_listener(event) {
 function setReconnect() {
 	// readyState values: 0 = connecting, 1 = open, 2 = closed
 	var reconnecting = false;
+	
+	// do we need to setInterval with a var here since we call setReconnect again?
+	
 	setInterval(() => {
 		if (event_source.readyState == 2) {
 			reconnecting = true;
@@ -127,15 +130,14 @@ function setReconnect() {
 			if (!event_source.readyState == 0)
 				$('#estat').html('OK');
 				$('#babysitter').hide();
-			    intvCss = setInterval(generateCSS, 4000);
-		        intvAlias = setInterval(getSiteAlias, 5000);
-		        resetFileReload = setInterval(rstFileReload, 12000)
 		}
 	}, 3000);
 }
 
 
 function rstFileReload() {
+	if (event_source == null || event_source.readyState != 1)
+		return;
 	// forces the alias and colors info to reload in case user
 	// makes changes to them from another browser.
 	localStorage.AliasTableUpdated == true;
@@ -262,7 +264,7 @@ function change_freq(d) {    // d json_type = change_freq
         display_alg = d['alg'];
 
         if (d['algid'] != 128) {
-            display_keyid = d['keyid'];
+            display_keyid = hex(d['keyid']);            
             e_class = 'red_value';
         }
     }
@@ -1497,7 +1499,6 @@ function f_goto_button(command) {
         if (current_tgid != null)
             _tgid = current_tgid;
         _tgid = parseInt(prompt('Enter TGID to hold.', _tgid));
-        console.log(_tgid)
         if (isNaN(_tgid) || _tgid < 0 || _tgid > 65535) {
             return;  // Cancel was pressed or invalid entry
         }
@@ -1671,7 +1672,10 @@ function appendJsonTable(a, b, c, d, e, f, srctag, opcode, target) {
         document.getElementById(target).deleteRow(-1);
     var table = document.getElementById(target);
     var lastRowIndex = table.rows.length - 1;
-//     $('#eh-count').html('&nbsp;&nbsp;Rows: ' + table.rows.length);    
+    
+	$('#eh-count').html('&nbsp');
+	if (d_debug == 1)
+	    $('#eh-count').html('&nbsp;&nbsp ' + comma(table.rows.length));    
     var skip = 0;
 
     var prevTime = nohtml(table.rows[1].cells[0].innerHTML);	// time
@@ -1753,7 +1757,11 @@ function appendCallHistory(a, b, c, d, e, f, target, options, xp, sysid, nac, td
     if (numRows > size)
         $('#' + target + ' tr:last').remove();
     var table = document.getElementById(target);
-//     $('#ch-count').html('&nbsp;&nbsp;Rows: ' + table.rows.length);
+    
+    $('#ch-count').html('&nbsp');
+    if (d_debug == 1)
+	    $('#ch-count').html('&nbsp;&nbsp ' + comma((table.rows.length)));    
+	    
     var lastRowIndex = table.rows.length - 1;
     var skip = 0;
     var pri, enc, xpatch, x, y;
@@ -1930,7 +1938,7 @@ function openTable(div, ref) {
     doc.write('<script src="editor.js"></script>');    
     doc.write('<script>window.tgid_files = window.opener.tgid_files;</script>');
     doc.write('<script>window.srcid_files = window.opener.srcid_files;</script>');
-    doc.write('<script>generateCSS();</script>');
+    doc.write('<script>generateCSS(true);</script>');
     // search icon &#x1F50E
     doc.write('<span class="nac">' + ref.id + '</span><br><br>');
     doc.write('<input type="text" id="searchInput" onkeyup="searchTable()" placeholder="Search" title="Search">');
@@ -2240,7 +2248,9 @@ function saveDisplaySettings() {
 		"unk_default",
 		"ani_speed",
 		"showBandPlan",
-		"showSlot" ];
+		"showSlot",
+		"oplogip",
+		"oplogport" ];
 	
 	for (r in s) {
 		if ($('#' + s[r]).attr('type') == "checkbox") {				
@@ -2272,7 +2282,6 @@ function popHelp(h){
 
 
 function beginJsonSettings(){  // this is also called from editor.js
-
 	f = 'ui-settings.json';
 	$.ajax({
 		url     : f,
@@ -2284,7 +2293,7 @@ function beginJsonSettings(){  // this is also called from editor.js
 
 function loadJsonDisplaySettings(settings) { 
 	$('#loadSettings').html('Loaded');	
-	setTimeout(() => { $('#loadSettings').html('Load Display Settings'); }, 2000);
+	setTimeout(() => { $('#loadSettings').html('Load Settings'); }, 2000);
 
 	var ele, m;
 	for (item in settings) {
@@ -2308,7 +2317,25 @@ function loadJsonDisplaySettings(settings) {
 	       document.documentElement.setAttribute('data-theme', m);
 	       sdmode();
 		}
+		
+	// populate url into oplog url field
+		var x = window.location.origin.split( ':' ); 
+// 		var y = x[0] + ':' + x[1] + ':5000';
+// 		$('#oplogUrl').val(y);
+		$('#oplogip').val(x[1].substring(2));
+		$('#oplogport').val('5000');		
+		
 	
+		if (item == "oplogip") {
+			$('#oplogip').val(settings[item]);
+		}
+
+		if (item == "oplogport") {
+			$('#oplogport').val(settings[item]);
+		}		
+		
+		$('#oplogUrl').val('http://' + $('#oplogip').val() + ':'  + $('#oplogport').val());
+			
 	} // end for item	
 	
 	uiColorRefresh();
@@ -2345,15 +2372,20 @@ function changeCss(className, classValue) {
 }
 
 function getSiteAlias() {
+
 		if (localStorage.AliasTableUpdated == false)
+			return;
+		if (event_source == null || event_source.readyState != 1) // the server has gone out to lunch 
 			return;
 	    $.ajax({
         url     : 'site-alias.json',
         type    : 'GET',
         success : loadSiteAlias,
-        error   : function(XMLHttpRequest, textStatus, errorThrown) {console.log('site_alias.json file not found. \n\nFile:' + f + '\n\n' + errorThrown + '\n\n');} 
+        error   : function(XMLHttpRequest, textStatus, errorThrown) {console.log('site-alias.json file not found. \n\nFile:' + url + '\n\n' + errorThrown + '\n\n');} 
 	    });
 }
+
+
 
 function loadSiteAlias(json) {
 	window.siteAlias = json;
