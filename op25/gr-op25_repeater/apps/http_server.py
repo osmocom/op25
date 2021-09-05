@@ -219,6 +219,7 @@ def do_request(d):
 def post_req(environ, start_response, postdata):
     global my_input_q, my_output_q, my_recv_q, my_port
     resp_msg = []
+    data = []
     try:
         data = json.loads(postdata)
     except:
