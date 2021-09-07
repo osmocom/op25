@@ -671,7 +671,7 @@ class trunked_system (object):
             target = target & 0xffff
             d['target_group'] = self.mk_tg_dict(target)
         else: # target is a subscriber unit id
-            algid = 0
+            algid = 128
             d['target_unit'] = self.mk_src_dict(target)
         d['algid'] = algid
         if opt_act and opt_group:	# only group id type supported
