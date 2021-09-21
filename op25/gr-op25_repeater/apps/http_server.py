@@ -227,6 +227,12 @@ def post_req(environ, start_response, postdata):
         traceback.print_exc(limit=None, file=sys.stderr)
         sys.stderr.write('*** end traceback ***\n')
     for d in data:
+        if type(d) is str:
+            sys.stderr.write('%f possible json sequence error: len %d type %s value %s\n' % (time.time(), len(d), type(d), d))
+            continue
+        elif type(d) is not dict:
+            sys.stderr.write('%f possible json sequence error: type %s value %s\n' % (time.time(), type(d), d))
+            continue
         if d['command'].startswith('config-') or d['command'].startswith('rx-'):
             resp = do_request(d)
             if resp:
@@ -283,7 +289,16 @@ def application(environ, start_response):
     except:
         failed = True
         sys.stderr.write('application: request failed:\n%s\n' % traceback.format_exc())
-        sys.exit(1)
+    if failed:
+        status = '500 Internal Server Error'
+        response_headers = [ ('Access-Control-Allow-Origin', '*') ]
+        start_response(status, response_headers)
+        output = status
+        if sys.version[0] != '2':
+            if isinstance(output, str):
+                output = output.encode()
+        return [output]
+
     return result
 
 def process_qmsg(msg):
