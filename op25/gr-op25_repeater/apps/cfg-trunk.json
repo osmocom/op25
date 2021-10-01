@@ -1,0 +1,40 @@
+{
+    "channels": [
+        {
+            "demod_type": "cqpsk", 
+            "destination": "udp://127.0.0.1:56124", 
+            "excess_bw": 0.2, 
+            "filter_type": "rc", 
+            "frequency": 0, 
+            "if_rate": 24000, 
+            "name": "p25 control channel", 
+            "plot": "symbol", 
+            "decode": "p25_decoder:cc", 
+            "symbol_rate": 4800
+        },
+        {
+            "demod_type": "cqpsk", 
+            "destination": "udp://127.0.0.1:23456", 
+            "excess_bw": 0.2, 
+            "filter_type": "rc", 
+            "frequency": 0, 
+            "if_rate": 24000, 
+            "name": "p25 voice channel", 
+            "plot": "symbol", 
+            "decode": "p25_decoder:vc", 
+            "symbol_rate": 4800
+        }
+    ], 
+    "devices": [
+        {
+            "args": "rtl=1", 
+            "frequency": 454300000, 
+            "gains": "lna:49", 
+            "name": "rtl0", 
+            "offset": 0, 
+            "ppm": 54, 
+            "rate": 1000000, 
+            "tunable": false
+        }
+    ]
+}
