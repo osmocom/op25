@@ -226,7 +226,7 @@ class channel(object):
 
             self.decoder = p25_decoder.p25_decoder_sink_b(dest='audio', do_imbe=True, num_ambe=num_ambe, wireshark_host=wireshark_host, udp_port=udp_port, do_msgq = True, msgq=q, audio_output=self.audio_output, debug=verbosity, msgq_id=self.msgq_id)
         else:
-            self.decoder = op25_repeater.frame_assembler(config['destination'], verbosity, q)
+            self.decoder = op25_repeater.frame_assembler(config['destination'], verbosity, q, self.msgq_id)
 
         if self.symbol_rate == 6000 and role == 'cc':
             sps = config['if_rate'] // self.symbol_rate
