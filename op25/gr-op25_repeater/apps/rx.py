@@ -745,6 +745,9 @@ class p25_rx_block (gr.top_block):
             freq = msg.arg1()
         elif s == 'dump_tgids':
             self.trunk_rx.dump_tgids()
+        elif s == 'reload_tags':
+            nac = msg.arg1()
+            self.trunk_rx.reload_tags(int(nac))
         elif s == 'add_default_config':
             nac = msg.arg1()
             self.trunk_rx.add_default_config(int(nac))
