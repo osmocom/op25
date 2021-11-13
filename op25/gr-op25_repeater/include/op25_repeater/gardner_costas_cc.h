@@ -47,13 +47,13 @@ namespace gr {
        * creating new instances.
        */
       static sptr make(float samples_per_symbol, float gain_mu, float gain_omega, float alpha, float beta, float max_freq, float min_freq);
-      virtual void set_omega(float omega) {}
-      virtual float get_freq_error(void) {}
-      virtual int get_error_band(void) {}
-      virtual void set_muted(bool) {}
-      virtual bool is_muted(void) {}
-      virtual void set_tdma(bool) {}
-      virtual bool is_tdma(void) {}
+      virtual void set_omega(float omega) = 0;
+      virtual float get_freq_error(void) = 0;
+      virtual int get_error_band(void) = 0;
+      virtual void set_muted(bool) = 0;
+      virtual bool is_muted(void) = 0;
+      virtual void set_tdma(bool) = 0;
+      virtual bool is_tdma(void) = 0;
     };
 
   } // namespace op25_repeater
