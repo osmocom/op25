@@ -80,7 +80,7 @@ static bool crc8_ok(const uint8_t bits[], unsigned int len) {
 	return (crc == crc8(bits,len));
 }
 
-static inline int store_i(int reg, uint8_t val[], int len) {
+static inline void store_i(int reg, uint8_t val[], int len) {
 	for (int i=0; i<len; i++){
 		val[i] = (reg >> (len-1-i)) & 1;
 	}
