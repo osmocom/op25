@@ -27,19 +27,6 @@ index 56f95f4..c43483a 100644
  add_subdirectory(op25/gr-op25)
  add_subdirectory(op25/gr-op25_repeater)
  
-diff --git a/cmake/Modules/GrSwig.cmake b/cmake/Modules/GrSwig.cmake
-index 569667b..f175cc5 100644
---- a/cmake/Modules/GrSwig.cmake
-+++ b/cmake/Modules/GrSwig.cmake
-@@ -114,7 +114,7 @@ macro(GR_SWIG_MAKE name)
-     endif()
- 
-     #append additional include directories
--    find_package(PythonLibs 2)
-+    find_package(PythonLibs 3)
-     list(APPEND GR_SWIG_INCLUDE_DIRS ${PYTHON_INCLUDE_PATH}) #deprecated name (now dirs)
-     list(APPEND GR_SWIG_INCLUDE_DIRS ${PYTHON_INCLUDE_DIRS})
-     list(APPEND GR_SWIG_INCLUDE_DIRS ${CMAKE_CURRENT_SOURCE_DIR})
 diff --git a/install.sh b/install.sh
 index 10fbeb5..d04038f 100755
 --- a/install.sh
