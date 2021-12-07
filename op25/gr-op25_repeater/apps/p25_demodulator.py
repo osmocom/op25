@@ -98,6 +98,7 @@ class p25_demod_base(gr.hier_block2):
             if ntaps & 1 == 0:
                 ntaps += 1
             coeffs = filter.firdes.root_raised_cosine(1.0, if_rate, symbol_rate, excess_bw, ntaps)
+            coeffs = [x*1.5 for x in coeffs]
         if filter_type == 'nxdn':
             coeffs = op25_c4fm_mod.c4fm_taps(sample_rate=self.if_rate, span=9, generator=op25_c4fm_mod.transfer_function_nxdn, symbol_rate=self.symbol_rate).generate()
             gain_adj = 1.8	# for nxdn48 6.25 KHz
@@ -221,7 +222,8 @@ class p25_demod_cb(p25_demod_base):
                  if_rate	= _def_if_rate,
                  gain_mu	= _def_gain_mu,
                  costas_alpha	= _def_costas_alpha,
-                 symbol_rate	= _def_symbol_rate):
+                 symbol_rate	= _def_symbol_rate,
+                 use_old_decim	= False):
         """
 	Hierarchical block for P25 demodulation.
 
@@ -252,7 +254,10 @@ class p25_demod_cb(p25_demod_base):
             self.set_baseband_gain(0.61)
 
         self.mixer = blocks.multiply_cc()
-        decimator_values = get_decim(input_rate)
+        if use_old_decim:
+            decimator_values = None	# disable two stage decimator
+        else:
+            decimator_values = get_decim(input_rate)
         if decimator_values:
             self.decim, self.decim2 = decimator_values
             self.if1 = input_rate / self.decim

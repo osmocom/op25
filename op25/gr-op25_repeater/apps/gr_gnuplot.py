@@ -166,6 +166,15 @@ class wrap_gp(object):
 				s += '%f\n' % (b)
 			s += 'e\n'
 			plots.append('"-" with points')
+		elif mode == 'fftf':
+			self.ffts = np.fft.rfft(self.buf * np.blackman(BUFSZ)) / (0.42 * BUFSZ)
+			#self.ffts = np.fft.fftshift(self.ffts)
+			self.ffts = np.abs(self.ffts) ** 2.0
+			self.ffts /= np.max(self.ffts)
+			for i in range(len(self.ffts)):
+				s += '%f\n' % (self.ffts[i])
+			s += 'e\n'
+			plots.append('"-" with lines')
 		elif mode == 'fft' or mode == 'mixer':
 			sum_pwr = 0.0
 			self.ffts = np.fft.fft(self.buf * np.blackman(BUFSZ)) / (0.42 * BUFSZ)
@@ -296,6 +305,9 @@ class wrap_gp(object):
 					arrow_pos = (self.center_freq - self.relative_freq) / 1e6
 					h+= 'set arrow from %f, graph 0 to %f, graph 1 nohead\n' % (arrow_pos, arrow_pos)
 					h+= 'set title "Spectrum: tuned to %f Mhz" %s\n' % (arrow_pos, label_color)
+		elif mode == 'fftf':
+			h+= 'set yrange [-1:1.2]\n'
+			h+= 'set title "fftf"\n'
 		elif mode == 'float':
 			h+= background
 			h+= 'set yrange [-2:2]\n'
@@ -382,6 +394,29 @@ class constellation_sink_c(gr.sync_block):
 
     def set_title(self, title):
         self.gnuplot.set_title(title)
+
+    def kill(self):
+        self.gnuplot.kill()
+
+class fft_sink_f(gr.sync_block):
+    """
+    """
+    def __init__(self, debug = _def_debug):
+        gr.sync_block.__init__(self,
+            name="fft_sink_f",
+            in_sig=[np.float32],
+            out_sig=None)
+        self.debug = debug
+        self.gnuplot = wrap_gp()
+        self.skip = 0
+
+    def work(self, input_items, output_items):
+        self.skip += 1
+        if self.skip >= 50:
+            self.skip = 0
+            in0 = input_items[0]
+            self.gnuplot.plot(in0, FFT_BINS, mode='fftf')
+        return len(input_items[0])
 
     def kill(self):
         self.gnuplot.kill()

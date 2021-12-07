@@ -273,7 +273,7 @@ class p25_rx_block (gr.top_block):
         else:	# complex input
             # local osc
             self.lo_freq = self.options.offset
-            if self.options.audio_if or self.options.ifile or self.options.input:
+            if self.options.ifile or self.options.input:
                 self.lo_freq += self.options.calibration
             self.demod = p25_demodulator.p25_demod_cb( input_rate = capture_rate,
                                                        demod_type = self.options.demod_type,
@@ -283,7 +283,8 @@ class p25_rx_block (gr.top_block):
                                                        gain_mu = self.options.gain_mu,
                                                        costas_alpha = self.options.costas_alpha,
                                                        excess_bw = self.options.excess_bw,
-                                                       symbol_rate = self.symbol_rate)
+                                                       symbol_rate = self.symbol_rate,
+                                                       use_old_decim = True if self.options.audio_if else False)
 
         num_ambe = 0
         if self.options.phase2_tdma:
@@ -639,12 +640,16 @@ class p25_rx_block (gr.top_block):
                 "source-dev": "AUDIO",
                 "source-decim": 1 }
         self.audio_source = audio.source(capture_rate, audio_input_filename)
+        self.null_source = blocks.null_source (gr.sizeof_float)
         self.audio_cvt = blocks.float_to_complex()
-        self.connect((self.audio_source, 0), (self.audio_cvt, 0))
-        self.connect((self.audio_source, 1), (self.audio_cvt, 1))
+        self.connect(self.audio_source, (self.audio_cvt, 0))
+        self.connect(self.null_source, (self.audio_cvt, 1))
         self.source = blocks.multiply_const_cc(gain)
         self.connect(self.audio_cvt, self.source)
         self.__set_rx_from_audio(capture_rate)
+
+        rc = self.demod.set_relative_frequency(self.options.calibration)
+        sys.stderr.write('open_audio_c: set_relative_frequency %d: %s\n' % (self.options.calibration, rc))
 
     def open_audio(self, capture_rate, gain, audio_input_filename):
             self.info = {

@@ -90,7 +90,9 @@ class device(object):
         self.tb = tb
         self.frequency = 0
 
-        if config['args'].startswith('audio:'):
+        if config['args'].startswith('audio-if:'):
+            self.init_audio_if(config)
+        elif config['args'].startswith('audio:'):
             self.init_audio(config)
         elif config['args'].startswith('file:'):
             self.init_file(config)
@@ -105,6 +107,17 @@ class device(object):
         throttle = blocks.throttle(gr.sizeof_gr_complex, config['rate'])
         self.tb.connect(src, throttle)
         self.src = throttle
+        self.frequency = config['frequency']
+        self.offset = config['offset']
+
+    def init_audio_if(self, config):
+        filename = config['args'].replace('audio-if:', '')
+        self.audio_source = audio.source(config['rate'], filename)
+        self.null_source = blocks.null_source (gr.sizeof_float)
+        self.audio_cvt = blocks.float_to_complex()
+        self.tb.connect(self.audio_source, (self.audio_cvt, 0))
+        self.tb.connect(self.null_source, (self.audio_cvt, 1))
+        self.src = self.audio_cvt
         self.frequency = config['frequency']
         self.offset = config['offset']
 
@@ -208,7 +221,8 @@ class channel(object):
                          relative_freq = dev.frequency + dev.offset - config['frequency'],
                          offset = dev.offset,
                          if_rate = config['if_rate'],
-                         symbol_rate = self.symbol_rate)
+                         symbol_rate = self.symbol_rate,
+                         use_old_decim = True if self.device.args.startswith('audio-if') else False)
         if msgq is not None:
             q = msgq
         else:
