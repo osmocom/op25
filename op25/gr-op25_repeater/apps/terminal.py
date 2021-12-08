@@ -263,7 +263,7 @@ class curses_terminal(threading.Thread):
             self.stdscr.refresh()
         elif msg['json_type'] == 'change_freq':
             s = 'Frequency %f' % (msg['freq'] / 1000000.0)
-            if msg['fine_tune'] is not None:
+            if 'fine_tune' in msg and msg['fine_tune'] is not None:
                 s +='(%d)' % msg['fine_tune']
             if msg['tgid'] is not None:
                 s += ' Talkgroup ID %s' % (msg['tgid'])
