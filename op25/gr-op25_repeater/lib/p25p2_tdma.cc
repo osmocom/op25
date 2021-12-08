@@ -109,6 +109,7 @@ p25p2_tdma::p25p2_tdma(const op25_audio& udp, int slotid, int debug, bool do_msg
         d_msgq_id(msgq_id),
 	p2framer()
 {
+	memset(tdma_xormask, 0, SUPERFRAME_SIZE);
 	assert (slotid == 0 || slotid == 1);
 	mbe_initMbeParms (&cur_mp, &prev_mp, &enh_mp);
 }
