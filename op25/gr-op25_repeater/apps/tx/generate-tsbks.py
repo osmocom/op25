@@ -8,8 +8,8 @@ if __name__ == '__main__':
 	params = {
 		'wacn' : 0xbee00,
 		'system_id': 0x290,
-		'cc_freq': 925000000,
-		'vc_freq': 924900000,
+		'cc_freq': 924975000,
+		'vc_freq': 924925000,
 		'nac': 0x293,
 		'subsystem_id': 1,
 		'site_id': 1,
