@@ -105,7 +105,6 @@ bool p25p2_tdma::rx_sym(uint8_t sym)
 
 void p25p2_tdma::set_slotid(int slotid)
 {
-	memset(tdma_xormask, 0, SUPERFRAME_SIZE);
 	assert (slotid == 0 || slotid == 1);
 	d_slotid = slotid;
 }
