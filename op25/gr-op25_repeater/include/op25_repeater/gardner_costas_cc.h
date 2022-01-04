@@ -54,6 +54,7 @@ namespace gr {
       virtual bool is_muted(void) = 0;
       virtual void set_tdma(bool) = 0;
       virtual bool is_tdma(void) = 0;
+      virtual void enable_sync_plot(bool) = 0;
     };
 
   } // namespace op25_repeater

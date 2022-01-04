@@ -49,6 +49,7 @@ from gr_gnuplot import mixer_sink_c
 from gr_gnuplot import symbol_sink_f
 from gr_gnuplot import eye_sink_f
 from gr_gnuplot import setup_correlation
+from gr_gnuplot import sync_plot
 
 from nxdn_trunking import cac_message
 
@@ -311,6 +312,14 @@ class channel(object):
                 sinks = setup_correlation(sps, self.name, self.demod.connect_bb)
                 self.kill_sink += sinks
                 self.sinks += sinks
+            elif plot == 'sync':
+                assert config['demod_type'] == 'cqpsk'   ## sync plot requires cqpsk demod type
+                i = len(self.sinks)
+                sink = sync_plot(block = self.demod.clock)
+                sink.set_title(self.name)
+                self.sinks.append(sink)
+                self.kill_sink.append(self.sinks[i])
+                # does not issue self.connect()
             else:
                 sys.stderr.write('unrecognized plot type %s\n' % plot)
                 return

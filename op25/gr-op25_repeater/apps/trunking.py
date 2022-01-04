@@ -524,11 +524,70 @@ class trunked_system (object):
 
     def decode_tdma_blk(self, blk):
         self.stats['tsbks'] += 1
-        op = (blk[0] >> 6) & 3
-        moc = blk[0] & 0x3f
+        msg0 = get_ordinals(blk[:1])
+        op = (msg0 >> 6) & 3
+        moc = msg0 & 0x3f
         if self.debug > 1:
-            sys.stderr.write('tdma_cc: decode_blk: op %x moc %x\n' % (op, moc))
-        if op == 1 and moc == 0x3c:	# adjacent
+            sys.stderr.write('tdma_cc: decode_blk: op %x moc %x len %d msg0 0x%x\n' % (op, moc, len(blk), msg0))
+        if op == 0 and moc == 0:	# null msg
+            if self.debug > 10:
+                sys.stderr.write('tdma_cc: null block\n')
+            return -1;
+        if op == 0 and moc == 8:	# null msg zero bias
+            if self.debug > 10:
+                sys.stderr.write('tdma_cc: null block zero bias\n')
+            return -1;
+
+        if op == 1 and moc == 0x38:	# system service broadcast
+            if self.debug > 10:
+                sys.stderr.write('tdma_cc: system service broadcast\n')
+            msglen = 9
+        elif op == 3 and moc == 0x16:	# SNDCP data ch
+            if self.debug > 10:
+                sys.stderr.write('tdma_cc: SNDCP data channel announce\n')
+            msglen = 9
+        elif op == 0 and moc == 1:	# group voice channel user
+            msglen = 7
+            msg = get_ordinals(blk[:msglen])
+            options = (msg >> 40) & 0xff
+            ga1 = (msg >> 24) & 0xffff
+            sa1 = (msg      ) & 0xffffff
+            if self.debug > 1:
+                sys.stderr.write('decode_blk: group voice channel user opts %x ga %x sa %x\n' % (options, ga1, sa1))
+        elif op == 0 and moc == 0x30:	# power control sq
+            msglen = 5
+            if self.debug > 1:
+                sys.stderr.write('decode_blk: power control sq\n')
+        elif op == 1 and moc == 0x30:	# sync broadcast
+            msglen = 9
+            msg = get_ordinals(blk[:msglen])
+            year = (msg >> 33) & 0x7f
+            month = (msg >> 29) & 0xf
+            day = (msg >> 24) & 0x1f
+            if self.debug > 1:
+                sys.stderr.write('decode_blk: synchronization broadcast %d %d %d\n' % (year, month, day))
+        elif op == 1 and moc == 2:	# group voice channel grant update
+            msglen = 9
+            msg = get_ordinals(blk[:msglen])
+            ch1 = (msg >> 48) & 0xffff
+            ga1 = (msg >> 32) & 0xffff
+            ch2 = (msg >> 16) & 0xffff
+            ga2 = (msg      ) & 0xffff
+            f1 = self.channel_id_to_frequency(ch1)
+            f2 = self.channel_id_to_frequency(ch2)
+            if self.debug > 1:
+                sys.stderr.write('decode_blk: group voice channel grant update ga1 %d ch1 %s ga2 %d ch2 %s\n' % (ga1, f1, ga2, f2))
+            opcode = 2	# (p25p1 opcode)
+            d = {'cc_event': 'grp_v_ch_grant_updt', 'mfrid': 0, 'frequency1': f1, 'group1': self.mk_tg_dict(ga1), 'opcode': opcode, 'tdma_slot': self.get_tdma_slot(ch1) }
+            self.update_voice_frequency(f1, tgid=ga1, tdma_slot=self.get_tdma_slot(ch1))
+            if f1 != f2:
+                self.update_voice_frequency(f2, tgid=ga2, tdma_slot=self.get_tdma_slot(ch2))
+                d['frequency2'] = f2
+                d['group2'] = self.mk_tg_dict(ga2)
+            self.post_event(d)
+            if self.debug > 10:
+                sys.stderr.write('phase 2 tsbk02 grant update: chan %s %d %s %d\n' %(self.channel_id_to_string(ch1), ga1, self.channel_id_to_string(ch2), ga2))
+        elif op == 1 and moc == 0x3c:	# adjacent
             msglen = 9
             msg = get_ordinals(blk[:msglen])
             syid = (msg >> 40) & 0xfff
@@ -644,12 +703,17 @@ class trunked_system (object):
         else:
             msglen = -1
             if self.debug > 0:
-                sys.stderr.write ('tdma_cc unknown request: %x %x %02x %02x %02x\n' % (op, moc, blk[0], blk[1], blk[2] ))
+                sys.stderr.write ('tdma_cc unknown request: %x %x %x\n' % (op, moc, get_ordinals(blk)))
         return msglen
 
     def decode_tdma_cc(self, blk):
-        rc = self.decode_tdma_blk(blk)
-        # TODO: Attempt to decode remaining half? 
+        while True:
+            rc = self.decode_tdma_blk(blk)
+            if rc < 1:
+                break
+            if rc >= len(blk):
+                break
+            blk = blk[rc:]
 
     def decode_tsbk_harris(self, tsbk, opcode, mfrid):
         HARRIS_SGS_EXPIRES = 5.0	# sec.
@@ -1361,14 +1425,12 @@ class rx_ctl (object):
             # nac is always 1st two bytes
             nac = get_ordinals(msgtext[:2])
             msgtext = msgtext[2:]
+            if self.debug > 1:
+                sys.stderr.write('tdma_cc message nac 0x%x text 0x%x len %d\n' % (nac, get_ordinals(msgtext), len(msgtext)))
             if nac not in self.trunked_systems.keys():
                 sys.stderr.write('tdma_cc received from unexpected NAC 0x%x\n' % nac)
                 return
             tsys = self.trunked_systems[nac]
-            m1 = msgtext[1]
-            b1 = (m1 >> 7) & 1
-            b2 = (m1 >> 6) & 1
-            moc = m1 & 0x3f
             tsys.decode_tdma_cc(msgtext[1:])
             return
         elif mtype < 0:

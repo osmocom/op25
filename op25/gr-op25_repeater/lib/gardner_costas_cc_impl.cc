@@ -35,6 +35,7 @@
 #include <stdexcept>
 #include <cstdio>
 #include <string.h>
+#include <sys/time.h>
 
 #include "p25_frame.h"
 #include "p25p2_framer.h"
@@ -49,6 +50,8 @@ static const gr_complex PT_45 = gr_expj( M_PI / 4.0 );
 static const int NUM_COMPLEX=100;
 
 static const int FM_COUNT=500;	// number of samples per measurement frame
+
+static const int N_FILES = 4;	// number of filenames to cycle through
 
 namespace gr {
   namespace op25_repeater {
@@ -65,6 +68,49 @@ static inline std::complex<float> sgn(std::complex<float>c) {
 				d_event_count = 1;	\
 				d_event_type = c;	\
 			}
+
+static inline bool is_future(struct timeval*t) {
+	struct timeval current_t;
+	gettimeofday(&current_t,0);
+	if (t->tv_sec > current_t.tv_sec)
+		return true;
+	else if (t->tv_sec < current_t.tv_sec)
+		return false;
+	else if (t->tv_usec > current_t.tv_usec)
+		return true;
+	else
+		return false;
+}
+
+void gardner_costas_cc_impl::dump_samples(int error_amt) {
+	// TODO = disk I/O from inside a gr flow graph block work function (tsk tsk)
+	char tmp_filename[256];
+	char filename[256];
+	char line[64];
+	FILE *fp1;
+	if (!d_enable_sync_plot)
+		return;
+	if (d_prev_sample == NULL)
+		return;
+	if (is_future(&d_next_sample_time))
+		return;
+	gettimeofday(&d_next_sample_time,0);
+	d_next_sample_time.tv_sec += 5;
+	sprintf(filename, "sample-%ld-%d.dat", unique_id(), d_sample_file_id);
+	d_sample_file_id ++;
+	d_sample_file_id = d_sample_file_id % N_FILES;
+	sprintf(line, "%u %d %d %d\n", d_prev_sample_p, (d_is_tdma) ? 2 : 1, (int) (d_omega + 0.5), error_amt);
+	strcpy(tmp_filename, filename);
+	strcat(tmp_filename, ".tmp");
+	fp1 = fopen(tmp_filename, "wb");
+	if (!fp1)
+		return;
+	fwrite (line, 1, strlen(line), fp1);
+	fwrite (d_prev_sample, 1, d_n_prev_sample * sizeof(gr_complex), fp1);
+	fclose(fp1);
+
+	rename(tmp_filename, filename);
+}
 
 uint8_t gardner_costas_cc_impl::slicer(float sym) {
     uint8_t dibit = 0;
@@ -89,36 +135,44 @@ uint8_t gardner_costas_cc_impl::slicer(float sym) {
 	if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ P25_FRAME_SYNC_MAGIC, 0, 48)) {
 //		fprintf(stderr, "P25P1 Framing detect\n");
 		UPDATE_COUNT(' ')
+		dump_samples(0);
 	}
 	else if(check_frame_sync((nid_accum & P25P2_FRAME_SYNC_MASK) ^ P25P2_FRAME_SYNC_MAGIC, 0, 40)) {
 //		fprintf(stderr, "P25P2 Framing detect\n");
 		UPDATE_COUNT(' ')
+		dump_samples(0);
 	}
     if (d_is_tdma) {
 	if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ 0x000104015155LL, 0, 40)) {
 		fprintf(stderr, "TDMA: channel %d tuning error -1200\n", -1);
 		UPDATE_COUNT('-')
+		dump_samples(-1200);
 	}
 	else if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ 0xfefbfeaeaaLL, 0, 40)) {
 		fprintf(stderr, "TDMA: channel %d tuning error +1200\n", -1);
 		UPDATE_COUNT('+')
+		dump_samples(1200);
 	}
 	else if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ 0xa8a2a80800LL, 0, 40)) {
 		fprintf(stderr, "TDMA: channel %d tuning error +/- 2400\n", -1);
 		UPDATE_COUNT('|')
+		dump_samples(2400);
 	}
     } else {
 	if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ 0x001050551155LL, 0, 48)) {
 //		fprintf(stderr, "tuning error -1200\n");
 		UPDATE_COUNT('-')
+		dump_samples(-1200);
 	}
 	else if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ 0xFFEFAFAAEEAALL, 0, 48)) {
 //		fprintf(stderr, "tuning error +1200\n");
 		UPDATE_COUNT('+')
+		dump_samples(1200);
 	}
 	else if(check_frame_sync((nid_accum & P25_FRAME_SYNC_MASK) ^ 0xAA8A0A008800LL, 0, 48)) {
 //		fprintf(stderr, "tuning error +/- 2400\n");
 		UPDATE_COUNT('|')
+		dump_samples(2400);
 	}
     }
     if (d_event_type == ' ' || d_event_count < 5) {
@@ -165,11 +219,15 @@ uint8_t gardner_costas_cc_impl::slicer(float sym) {
     d_event_count(0), d_event_type(' '),
     d_symbol_seq(samples_per_symbol * 4800),
     d_update_request(0),
-    d_fm(0), d_fm_accum(0), d_fm_count(0), d_muted(false), d_is_tdma(false)
+    d_fm(0), d_fm_accum(0), d_fm_count(0), d_muted(false), d_is_tdma(false),
+    d_enable_sync_plot(false),
+    d_prev_sample(NULL), d_n_prev_sample(0), d_prev_sample_p(0),
+    d_sample_file_id(0)
     {
   set_omega(samples_per_symbol);
   set_relative_rate (1.0 / d_omega);
   set_history(d_twice_sps);			// ensure extra input is available
+  gettimeofday(&d_next_sample_time, 0);
     }
 
     /*
@@ -177,6 +235,10 @@ uint8_t gardner_costas_cc_impl::slicer(float sym) {
      */
     gardner_costas_cc_impl::~gardner_costas_cc_impl()
     {
+  if (d_prev_sample != NULL) {
+      free(d_prev_sample);
+      d_prev_sample = NULL;
+  }
   delete [] d_dl;
   delete d_interp;
     }
@@ -245,21 +307,20 @@ gardner_costas_cc_impl::phase_error_tracking(gr_complex sample)
   phase_error =  phase_error_detector_qpsk(sample);
     
   d_freq += d_beta*phase_error*abs(sample);             // adjust frequency based on error
-  d_phase += d_freq + d_alpha*phase_error*abs(sample);  // adjust phase based on error
+  d_phase += d_alpha*phase_error*abs(sample);  // adjust phase based on error
 
-  // Make sure we stay within +-2pi
-  while(d_phase > M_TWOPI)
+  // Make sure we stay within +-pi
+  while(d_phase > M_PI)
     d_phase -= M_TWOPI;
-  while(d_phase < -M_TWOPI)
+  while(d_phase < -M_PI)
     d_phase += M_TWOPI;
   
   // Limit the frequency range
   d_freq = gr::branchless_clip(d_freq, d_max_freq);
   
 #if VERBOSE_COSTAS
-  printf("cl: phase_error: %f  phase: %f  freq: %f  sample: %f+j%f  constellation: %f+j%f\n",
-	 phase_error, d_phase, d_freq, sample.real(), sample.imag(), 
-	 d_constellation[d_current_const_point].real(), d_constellation[d_current_const_point].imag());
+  fprintf(stderr, "COSTAS\t%f\t%f\t%f\t%f+j%f\n",
+	 phase_error, d_phase, d_freq, sample.real(), sample.imag());
 #endif
 }
 
@@ -277,20 +338,32 @@ gardner_costas_cc_impl::general_work (int noutput_items,
   gr_complex interp_samp, interp_samp_mid, diffdec;
   float error_real, error_imag, symbol_error;
 
+  if (d_enable_sync_plot && d_prev_sample == NULL) {
+      d_n_prev_sample = (int) (d_omega + 0.5);	// sps
+      d_n_prev_sample *= (d_is_tdma) ? 32 : 25;	// enough for p25p1 or p25p2 sync
+      d_prev_sample = (gr_complex *) calloc(d_n_prev_sample, sizeof(gr_complex));
+  }
+
   while((o < noutput_items) && (i < ninput_items[0])) {
     while((d_mu > 1.0) && (i < ninput_items[0]))  {
 	d_mu --;
 
         d_phase += d_freq;
   // Keep phase clamped and not walk to infinity
-  while(d_phase > M_TWOPI)
+  while(d_phase > M_PI)
     d_phase -= M_TWOPI;
-  while(d_phase < -M_TWOPI)
+  while(d_phase < -M_PI)
     d_phase += M_TWOPI;
   
         nco = gr_expj(d_phase+d_theta);   // get the NCO value for derotating the curr
         symbol = in[i];
         sample = nco*symbol;      // get the downconverted symbol
+
+        if (d_enable_sync_plot && d_prev_sample != NULL) {
+            d_prev_sample[d_prev_sample_p] = sample;
+            d_prev_sample_p ++;
+            d_prev_sample_p %= d_n_prev_sample;
+        }
 
 	d_dl[d_dl_index] = sample;
 	d_dl[d_dl_index + d_twice_sps] = sample;
@@ -345,7 +418,7 @@ gardner_costas_cc_impl::general_work (int noutput_items,
 		d_omega = d_omega + d_gain_omega * symbol_error * abs(interp_samp);  // update omega based on loop error
 		d_omega = d_omega_mid + gr::branchless_clip(d_omega-d_omega_mid, d_omega_rel);   // make sure we don't walk away
 #if VERBOSE_GARDNER
-		printf("%f\t%f\t%f\t%f\t%f\n", symbol_error, d_mu, d_omega, error_real, error_imag);
+		fprintf(stderr, "%f\t%f\t%f\t%f\t%f\n", symbol_error, d_mu, d_omega, error_real, error_imag);
 #endif
         } else {
 		symbol_error = 0;

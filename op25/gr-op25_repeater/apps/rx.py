@@ -66,6 +66,7 @@ from gr_gnuplot import symbol_sink_f
 from gr_gnuplot import eye_sink_f
 from gr_gnuplot import mixer_sink_c
 from gr_gnuplot import setup_correlation
+from gr_gnuplot import sync_plot
 
 from terminal import op25_terminal
 from sockaudio  import audio_thread
@@ -328,6 +329,11 @@ class p25_rx_block (gr.top_block):
             elif plot_mode == 'correlation':
                 assert self.options.demod_type == 'fsk4'   ## correlation plot requires fsk4 demod type
                 self.plot_sinks += setup_correlation(sps, "", self.demod.connect_bb)
+            elif plot_mode == 'sync':
+                assert self.options.demod_type == 'cqpsk'  ## sync plot requires cqpsk demod-type
+                sink = sync_plot(block = self.demod.clock)
+                self.plot_sinks.append(sink)
+                # no flowgraph connection in this plot
             else:
                 raise ValueError('unsupported plot type: %s' % plot_mode)
         if self.is_http_term():

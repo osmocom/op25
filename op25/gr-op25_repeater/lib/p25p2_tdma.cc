@@ -1,4 +1,4 @@
-// P25 TDMA Decoder (C) Copyright 2013, 2014 Max H. Parke KA1RBI
+// P25 TDMA Decoder (C) Copyright 2013, 2014, 2021 Max H. Parke KA1RBI
 // Copyright 2017 Graham J. Norbury (modularization rewrite)
 // 
 // This file is part of OP25
@@ -38,6 +38,7 @@
 
 static const int BURST_SIZE = 180;
 static const int SUPERFRAME_SIZE = (12*BURST_SIZE);
+static const int which_slot[] = {0,1,0,1,0,1,0,1,0,1,1,0};
 
 static uint16_t crc12(const uint8_t bits[], unsigned int len) {
 	uint16_t crc=0;
@@ -69,24 +70,6 @@ static bool crc12_ok(const uint8_t bits[], unsigned int len) {
 	}
 	return (crc == crc12(bits,len));
 }
-
-static const uint8_t mac_msg_len[256] = {
-	 0,  7,  8,  7,  0, 16,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 
-	 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 
-	 0, 14, 15,  0,  0, 15,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 
-	 5,  7,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 
-	 9,  7,  9,  0,  9,  8,  9,  0,  0,  0,  9,  0,  0,  0,  0,  0, 
-	 0,  0,  0,  0,  9,  7,  0,  0,  0,  0,  7,  0,  0,  8, 14,  7, 
-	 9,  9,  0,  0,  9,  0,  0,  9,  0,  0,  7,  0,  0,  7,  0,  0, 
-	 0,  0,  0,  9,  9,  9,  0,  0,  9,  9,  9, 11,  9,  9,  0,  0, 
-	 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 
-	 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 
-	 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 
-	 0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 
-	11,  0,  0,  8, 15, 12, 15,  0,  0,  0,  0,  0,  0,  0,  0,  0, 
-	 0,  0,  0,  0,  0,  0,  9,  0,  0,  0, 11,  0,  0,  0,  0, 11, 
-	 0,  0,  0,  0,  0,  0,  0,  0,  0,  8, 11,  0,  0,  0,  0,  0, 
-	 0,  0,  0,  0,  0,  0,  0,  0,  0,  0, 11, 13, 11,  0,  0,  0 };
 
 p25p2_tdma::p25p2_tdma(const op25_audio& udp, int slotid, int debug, bool do_msgq, gr::msg_queue::sptr queue, std::deque<int16_t> &qptr, bool do_audio_output, int msgq_id) :	// constructor
         op25audio(udp),
@@ -122,6 +105,7 @@ bool p25p2_tdma::rx_sym(uint8_t sym)
 
 void p25p2_tdma::set_slotid(int slotid)
 {
+	memset(tdma_xormask, 0, SUPERFRAME_SIZE);
 	assert (slotid == 0 || slotid == 1);
 	d_slotid = slotid;
 }
@@ -141,15 +125,33 @@ int p25p2_tdma::process_mac_pdu(const uint8_t byte_buf[], const unsigned int len
 {
 	unsigned int opcode = (byte_buf[0] >> 5) & 0x7;
 	unsigned int offset = (byte_buf[0] >> 2) & 0x7;
+	bool my_slot = (which_slot[sync.tdma_slotid()] == d_slotid);
 
         if (d_debug >= 10) {
-                fprintf(stderr, "%s process_mac_pdu: opcode %d len %d\n", logts.get(), opcode, len);
+                fprintf(stderr, "%s process_mac_pdu: opcode %d len %d buf %02x %02x %02x\n", logts.get(), opcode, len, byte_buf[0], byte_buf[1], byte_buf[2]);
         }
+
+        if (opcode == 2) {		// MAC_END_PTT
+                uint16_t colorcd = ((byte_buf[1] & 0x0f) << 8) + byte_buf[2];
+                if (colorcd != d_nac && d_debug > 0)
+                        fprintf(stderr, "p25p2_tdma_ process_mac_pdu: MAC_END_PTT color code 0x%x does not match d_nac 0x%x channel %d\n", colorcd, d_nac, d_msgq_id);
+	}
+
+        if (opcode == 3 || opcode == 4 || opcode == 6) {	// send msg for MAC_IDLE, MAC_ACTIVE, MAC_HANGTIME
+                char nac_color[2];
+                nac_color[0] = d_nac >> 8;
+                nac_color[1] = d_nac & 0xff;
+                send_msg(std::string(nac_color, 2) + std::string((const char *)byte_buf, len), -6);
+        }
+
+        if (opcode != 0 && !my_slot)		// for all except MAC_SIGNAL, ignore if on oppo. slot
+                return -1;
 
         switch (opcode)
         {
                 case 0: // MAC_SIGNAL
                         handle_mac_signal(byte_buf, len);
+                        return -1;
                         break;
 
                 case 1: // MAC_PTT
@@ -161,20 +163,22 @@ int p25p2_tdma::process_mac_pdu(const uint8_t byte_buf[], const unsigned int len
                         break;
 
                 case 3: // MAC_IDLE
-                        handle_mac_idle(byte_buf, len);
+                        op25audio.send_audio_flag(op25_audio::DRAIN);
                         break;
 
                 case 4: // MAC_ACTIVE
-                        handle_mac_active(byte_buf, len);
                         break;
 
                 case 6: // MAC_HANGTIME
-                        handle_mac_hangtime(byte_buf, len);
                         op25audio.send_audio_flag(op25_audio::DRAIN);
+                        break;
+                default:
+                        if (d_debug > 0)
+                                fprintf(stderr, "p25p2_tdma_ process_mac_pdu: unrecognized opcode 0x%x channel %d\n", opcode, d_msgq_id);
                         break;
         }
 	// maps sacch opcodes into phase I duid values 
-	static const int opcode_map[8] = {3, 5, 15, 15, 5, 3, 3, 3};
+	static const int opcode_map[8] = {7, 5, 15, 15, 5, 3, 3, 3};
 	return opcode_map[opcode];
 }
 
@@ -231,162 +235,6 @@ void p25p2_tdma::handle_mac_end_ptt(const uint8_t byte_buf[], const unsigned int
         //std::string s = "{\"srcaddr\" : " + std::to_string(srcaddr) + ", \"grpaddr\": " + std::to_string(grpaddr) + "}";
         //send_msg(s, -3);	// can cause data display issues if this message is processed after the DUID15
         op25audio.send_audio_flag(op25_audio::DRAIN);
-}
-
-void p25p2_tdma::handle_mac_idle(const uint8_t byte_buf[], const unsigned int len) 
-{
-        if (d_debug >= 10)
-                fprintf(stderr, "%s MAC_IDLE: ", logts.get());
-
-        decode_mac_msg(byte_buf, len);
-        op25audio.send_audio_flag(op25_audio::DRAIN);
-
-        if (d_debug >= 10)
-                fprintf(stderr, "\n");
-}
-
-void p25p2_tdma::handle_mac_active(const uint8_t byte_buf[], const unsigned int len) 
-{
-        if (d_debug >= 10)
-                fprintf(stderr, "%s MAC_ACTIVE: ", logts.get());
-
-        decode_mac_msg(byte_buf, len);
-
-        if (d_debug >= 10)
-                fprintf(stderr, "\n");
-}
-
-void p25p2_tdma::handle_mac_hangtime(const uint8_t byte_buf[], const unsigned int len) 
-{
-        if (d_debug >= 10)
-                fprintf(stderr, "%s MAC_HANGTIME: ", logts.get());
-
-        decode_mac_msg(byte_buf, len);
-        op25audio.send_audio_flag(op25_audio::DRAIN);
-
-        if (d_debug >= 10)
-                fprintf(stderr, "\n");
-}
-
-
-void p25p2_tdma::decode_mac_msg(const uint8_t byte_buf[], const unsigned int len) 
-{
-	std::string s;
-	uint8_t b1b2, cfva, mco, lra, rfss, site_id, ssc, svcopts[3], msg_ptr, msg_len;
-        uint16_t chan[3], ch_t[2], ch_r[2], colorcd, grpaddr[3], sys_id;
-        uint32_t srcaddr, wacn_id;
-
-	for (msg_ptr = 1; msg_ptr < len; )
-	{
-               	b1b2 = byte_buf[msg_ptr] >> 6;
-               	mco  = byte_buf[msg_ptr] & 0x3f;
-		msg_len = mac_msg_len[(b1b2 << 6) + mco];
-		if (d_debug >= 10)
-               		fprintf(stderr, "mco=%01x/%02x", b1b2, mco);
-
-		switch(byte_buf[msg_ptr])
-                {
-			case 0x00: // Null message
-				break;
-			case 0x40: // Group Voice Channel Grant Abbreviated
-				svcopts[0] = (byte_buf[msg_ptr+1]     )                      ;
-				chan[0]    = (byte_buf[msg_ptr+2] << 8) + byte_buf[msg_ptr+3];
-				grpaddr[0] = (byte_buf[msg_ptr+4] << 8) + byte_buf[msg_ptr+5];
-				srcaddr    = (byte_buf[msg_ptr+6] << 16) + (byte_buf[msg_ptr+7] << 8) + byte_buf[msg_ptr+8];
-				if (d_debug >= 10)
-					fprintf(stderr, ", svcopts=0x%02x, ch=%u, grpaddr=%u, srcaddr=%u", svcopts[0], chan[0], grpaddr[0], srcaddr);
-				break;
-			case 0xc0: // Group Voice Channel Grant Extended
-				svcopts[0] = (byte_buf[msg_ptr+1]     )                      ;
-				ch_t[0]    = (byte_buf[msg_ptr+2] << 8) + byte_buf[msg_ptr+3];
-				ch_r[0]    = (byte_buf[msg_ptr+4] << 8) + byte_buf[msg_ptr+5];
-				grpaddr[0] = (byte_buf[msg_ptr+6] << 8) + byte_buf[msg_ptr+7];
-				srcaddr    = (byte_buf[msg_ptr+8] << 16) + (byte_buf[msg_ptr+9] << 8) + byte_buf[msg_ptr+10];
-				if (d_debug >= 10)
-					fprintf(stderr, ", svcopts=0x%02x, ch_t=%u, ch_t=%u, grpaddr=%u, srcaddr=%u", svcopts[0], ch_t[0], ch_r[0], grpaddr[0], srcaddr);
-				break;
-                        case 0x01: // Group Voice Channel User Message Abbreviated
-                                grpaddr[0] = (byte_buf[msg_ptr+2] << 8) + byte_buf[msg_ptr+3];
-                                srcaddr    = (byte_buf[msg_ptr+4] << 16) + (byte_buf[msg_ptr+5] << 8) + byte_buf[msg_ptr+6];
-                                if (d_debug >= 10)
-                              	        fprintf(stderr, ", grpaddr=%u, srcaddr=%u", grpaddr[0], srcaddr);
-                                s = "{\"srcaddr\" : " + std::to_string(srcaddr) + ", \"grpaddr\": " + std::to_string(grpaddr[0]) + ", \"nac\" : " + std::to_string(d_nac) + "}";
-				send_msg(s, -3);
-                                break;
-			case 0x42: // Group Voice Channel Grant Update
-				chan[0]    = (byte_buf[msg_ptr+1] << 8) + byte_buf[msg_ptr+2];
-				grpaddr[0] = (byte_buf[msg_ptr+3] << 8) + byte_buf[msg_ptr+4];
-				chan[1]    = (byte_buf[msg_ptr+5] << 8) + byte_buf[msg_ptr+6];
-				grpaddr[1] = (byte_buf[msg_ptr+7] << 8) + byte_buf[msg_ptr+8];
-				if (d_debug >= 10)
-					fprintf(stderr, ", ch_1=%u, grpaddr1=%u, ch_2=%u, grpaddr2=%u", chan[0], grpaddr[0], chan[1], grpaddr[1]);
-				break;
-			case 0xc3: // Group Voice Channel Grant Update Explicit
-				svcopts[0] = (byte_buf[msg_ptr+1]     )                      ;
-				ch_t[0]    = (byte_buf[msg_ptr+2] << 8) + byte_buf[msg_ptr+3];
-				ch_r[0]    = (byte_buf[msg_ptr+4] << 8) + byte_buf[msg_ptr+5];
-				grpaddr[0] = (byte_buf[msg_ptr+6] << 8) + byte_buf[msg_ptr+7];
-				if (d_debug >= 10)
-					fprintf(stderr, ", svcopts=0x%02x, ch_t=%u, ch_r=%u, grpaddr=%u", svcopts[0], ch_t[0], ch_r[0], grpaddr[0]);
-				break;
-			case 0x05: // Group Voice Channel Grant Update Multiple
-				svcopts[0] = (byte_buf[msg_ptr+ 1]     )                       ;
-				chan[0]    = (byte_buf[msg_ptr+ 2] << 8) + byte_buf[msg_ptr+ 3];
-				grpaddr[0] = (byte_buf[msg_ptr+ 4] << 8) + byte_buf[msg_ptr+ 5];
-				svcopts[1] = (byte_buf[msg_ptr+ 6]     )                       ;
-				chan[1]    = (byte_buf[msg_ptr+ 7] << 8) + byte_buf[msg_ptr+ 8];
-				grpaddr[1] = (byte_buf[msg_ptr+ 9] << 8) + byte_buf[msg_ptr+10];
-				svcopts[2] = (byte_buf[msg_ptr+11]     )                       ;
-				chan[2]    = (byte_buf[msg_ptr+12] << 8) + byte_buf[msg_ptr+13];
-				grpaddr[2] = (byte_buf[msg_ptr+14] << 8) + byte_buf[msg_ptr+15];
-				if (d_debug >= 10)
-					fprintf(stderr, ", svcopt1=0x%02x, ch_1=%u, grpaddr1=%u, svcopt2=0x%02x, ch_2=%u, grpaddr2=%u, svcopt3=0x%02x, ch_3=%u, grpaddr3=%u", svcopts[0], chan[0], grpaddr[0], svcopts[1], chan[1], grpaddr[1], svcopts[2], chan[2], grpaddr[2]);
-				break;
-			case 0x25: // Group Voice Channel Grant Update Multiple Explicit
-				svcopts[0] = (byte_buf[msg_ptr+ 1]     )                       ;
-				ch_t[0]    = (byte_buf[msg_ptr+ 2] << 8) + byte_buf[msg_ptr+ 3];
-				ch_r[0]    = (byte_buf[msg_ptr+ 4] << 8) + byte_buf[msg_ptr+ 5];
-				grpaddr[0] = (byte_buf[msg_ptr+ 6] << 8) + byte_buf[msg_ptr+ 7];
-				svcopts[1] = (byte_buf[msg_ptr+ 8]     )                       ;
-				ch_t[1]    = (byte_buf[msg_ptr+ 9] << 8) + byte_buf[msg_ptr+10];
-				ch_r[1]    = (byte_buf[msg_ptr+11] << 8) + byte_buf[msg_ptr+12];
-				grpaddr[1] = (byte_buf[msg_ptr+13] << 8) + byte_buf[msg_ptr+14];
-				if (d_debug >= 10)
-					fprintf(stderr, ", svcopt1=0x%02x, ch_t1=%u, ch_r1=%u, grpaddr1=%u, svcopt2=0x%02x, ch_t2=%u, ch_r2=%u, grpaddr2=%u", svcopts[0], ch_t[0], ch_r[0], grpaddr[0], svcopts[1], ch_t[1], ch_r[1], grpaddr[1]);
-				break;
-			case 0x7b: // Network Status Broadcast Abbreviated
-				lra     =   byte_buf[msg_ptr+1];
-				wacn_id =  (byte_buf[msg_ptr+2] << 12) + (byte_buf[msg_ptr+3] << 4) + (byte_buf[msg_ptr+4] >> 4);
-				sys_id  = ((byte_buf[msg_ptr+4] & 0x0f) << 8) + byte_buf[msg_ptr+5];
-				chan[0] =  (byte_buf[msg_ptr+6] << 8) + byte_buf[msg_ptr+7];
-				ssc     =   byte_buf[msg_ptr+8];
-				colorcd = ((byte_buf[msg_ptr+9] & 0x0f) << 8) + byte_buf[msg_ptr+10];
-				if (d_debug >= 10)
-					fprintf(stderr, ", lra=0x%02x, wacn_id=0x%05x, sys_id=0x%03x, ch=%u, ssc=0x%02x, colorcd=%03x", lra, wacn_id, sys_id, chan[0], ssc, colorcd);
-				break;
-			case 0x7c: // Adjacent Status Broadcast Abbreviated
-				lra     =   byte_buf[msg_ptr+1];
-				cfva    =  (byte_buf[msg_ptr+2] >> 4);
-				sys_id  = ((byte_buf[msg_ptr+2] & 0x0f) << 8) + byte_buf[msg_ptr+3];
-				rfss    =   byte_buf[msg_ptr+4];
-				site_id =   byte_buf[msg_ptr+5];
-				chan[0] =  (byte_buf[msg_ptr+6] << 8) + byte_buf[msg_ptr+7];
-				ssc     =   byte_buf[msg_ptr+8];
-				if (d_debug >= 10)
-					fprintf(stderr, ", lra=0x%02x, cfva=0x%01x, sys_id=0x%03x, rfss=%u, site=%u, ch=%u, ssc=0x%02x", lra, cfva, sys_id, rfss, site_id, chan[0], ssc);
-				break;
-			case 0xfc: // Adjacent Status Broadcast Extended
-				break;
-			case 0xfb: // Network Status Broadcast Extended
-				colorcd = ((byte_buf[msg_ptr+11] & 0x0f) << 8) + byte_buf[msg_ptr+12];
-				if (d_debug >= 10)
-					fprintf(stderr, ", colorcd=%03x", colorcd);
-				break;
-               	}
-		msg_ptr = (msg_len == 0) ? len : (msg_ptr + msg_len); // TODO: handle variable length messages
-		if ((d_debug >= 10) && (msg_ptr < len))
-			fprintf(stderr,", ");
-	}
 }
 
 int p25p2_tdma::handle_acch_frame(const uint8_t dibits[], bool fast, bool is_lcch) 
@@ -472,15 +320,14 @@ int p25p2_tdma::handle_acch_frame(const uint8_t dibits[], bool fast, bool is_lcc
 
 	bool crc_ok = (is_lcch) ? (crc16(bits, len) == 0) : crc12_ok(bits, len);
 	int olen = (is_lcch) ? 23 : len/8;
+	if (d_debug >= 1)
+		fprintf(stderr, "p25p2_tdma: crc%d result: %s, length %d\n", (is_lcch) ? 16 : 12, (crc_ok) ? "ok" : "failed", olen);
 	rc = -1;
 	if (crc_ok) { // TODO: rewrite crc12 so we don't have to do so much bit manipulation
-		// fprintf(stderr, "crc12 ok\n");
 		for (int i=0; i<olen; i++) {
 			byte_buf[i] = (bits[i*8 + 0] << 7) + (bits[i*8 + 1] << 6) + (bits[i*8 + 2] << 5) + (bits[i*8 + 3] << 4) + (bits[i*8 + 4] << 3) + (bits[i*8 + 5] << 2) + (bits[i*8 + 6] << 1) + (bits[i*8 + 7] << 0);
 		}
 		rc = process_mac_pdu(byte_buf, olen);
-	} else {
-		// fprintf(stderr, "crc12 failed\n");
 	}
 	return rc;
 }
@@ -537,16 +384,14 @@ int p25p2_tdma::handle_frame(void)
 int p25p2_tdma::handle_packet(const uint8_t dibits[]) 
 {
 	int rc = -1;
-	static const int which_slot[] = {0,1,0,1,0,1,0,1,0,1,1,0};
 	packets++;
 	sync.check_confidence(dibits);
 	if (!sync.in_sync())
 		return -1;
 	const uint8_t* burstp = &dibits[10];
 	uint8_t xored_burst[BURST_SIZE - 10];
+	bool my_slot = (which_slot[sync.tdma_slotid()] == d_slotid);
 	int burst_type = duid.duid_lookup(duid.extract_duid(burstp));
-	if (which_slot[sync.tdma_slotid()] != d_slotid && burst_type != 13) // ignore if on oppo. slot and not CC
-		return -1;
 	for (int i=0; i<BURST_SIZE - 10; i++) {
 		xored_burst[i] = burstp[i] ^ tdma_xormask[sync.tdma_slotid() * BURST_SIZE + i];
 	}
@@ -554,6 +399,8 @@ int p25p2_tdma::handle_packet(const uint8_t dibits[])
 		fprintf(stderr, "%s TDMA burst type=%d\n", logts.get(), burst_type);
 	}
 	if (burst_type == 0 || burst_type == 6)	{       // 4V or 2V burst
+		if (!my_slot) // ignore if on oppo. slot
+			return -1;
                 track_vb(burst_type);
                 handle_4V2V_ess(&xored_burst[84]);
                 if ( !encrypted() ) {

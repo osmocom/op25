@@ -96,7 +96,6 @@ private:
         void handle_mac_idle(const uint8_t byte_buf[], const unsigned int len) ;
         void handle_mac_active(const uint8_t byte_buf[], const unsigned int len) ;
         void handle_mac_hangtime(const uint8_t byte_buf[], const unsigned int len) ;
-        void decode_mac_msg(const uint8_t byte_buf[], const unsigned int len) ;
         void handle_4V2V_ess(const uint8_t dibits[]);
         inline bool encrypted() { return (ess_algid != 0x80); }
 

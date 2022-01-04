@@ -24,13 +24,15 @@ import os
 import time
 import subprocess
 import json
+import threading
+import glob
 
 from gnuradio import gr, gru, eng_notation
 from gnuradio import blocks, audio
 from gnuradio.eng_option import eng_option
 import numpy as np
 from gnuradio import gr
-from math import pi
+from math import pi, sin, cos
 
 _def_debug = 0
 _def_sps = 10
@@ -54,6 +56,14 @@ def limit(a,lim):
 	if a > lim:
 		return lim
 	return a
+
+def ensure_str(s):      # for python 2/3
+    if isinstance(s[0], str):
+        return s
+    ns = ''
+    for i in range(len(s)):
+        ns += chr(s[i])
+    return ns
 
 PSEQ = 0
 
@@ -126,6 +136,9 @@ class wrap_gp(object):
 
 	def set_output_dir(self, v):
 		self.output_dir = v
+
+	def set_sps(self, sps):
+		self.sps = sps
 
 	def plot(self, buf, bufsz, mode='eye'):
 		BUFSZ = bufsz
@@ -203,6 +216,25 @@ class wrap_gp(object):
 				s += '%f\n' % (b)
 			s += 'e\n'
 			plots.append('"-" with lines')
+		elif mode == 'sync':
+			s_abs = np.abs(self.buf)
+			sums = np.zeros(self.sps)
+			for i in range(self.sps):
+				sums[i] = np.sum(s_abs[range(i, len(self.buf), self.sps)])
+			am = np.argmax(sums)
+			samples = self.buf[am:]
+
+			a1 = -np.angle(samples[0])
+			rz = cos(a1) + 1j * sin(a1)
+
+			while len(samples) >= self.sps+1:
+				for i in range(self.sps+1):
+					z = samples[i] * rz
+					s += '%f\t%f\n' % (z.real, z.imag)
+				s += 'e\n'
+				plots.append('"-" with linespoints')
+				samples = samples[self.sps:]
+
 		self.buf = np.array([])
 
 		# FFT processing needs to be completed to maintain the weighted average buckets
@@ -285,6 +317,12 @@ class wrap_gp(object):
 			h+= 'set yrange [-4:4]\n'
 			h+= 'set title "Datascope %s" %s\n' % (self.title, label_color)
 			plot_color = ''
+		elif mode == 'sync':
+			h += 'set object 1 rect from screen 0,0 to screen 1,1 %s behind\n' % (background_color)
+			h += 'set size square\n'
+			h += 'set xtics %s\n' % (tic_color)
+			h += 'set ytics %s\n' % (tic_color)
+			h += 'set border %s\n' % (border_color)
 		elif mode == 'symbol':
 			h+= background
 			h+= 'set yrange [-4:4]\n'
@@ -319,6 +357,8 @@ class wrap_gp(object):
 				title = self.title
 			h+= 'set yrange [-1.1:1.1]\n'
 			h+= 'set title "%s" %s\n' % (title, label_color)
+		if self.output_dir:
+			s += 'set output\n'	## flush output png
 		dat = '%s%splot %s %s\n%s' % (h0, h, ','.join(plots), plot_color, s)
 		if self.logfile is not None:
 			with open(self.logfile, 'a') as fd:
@@ -328,7 +368,11 @@ class wrap_gp(object):
 		self.gp.poll()
 		if self.gp.returncode is None:	# make sure gnuplot is still running 
 			try:
-				self.gp.stdin.write(dat)
+				rc = self.gp.stdin.write(dat)
+			except (IOError, ValueError):
+				pass
+			try:
+				self.gp.stdin.flush()
 			except (IOError, ValueError):
 				pass
 		if filename:
@@ -479,6 +523,89 @@ class mixer_sink_c(gr.sync_block):
             in0 = input_items[0]
             self.gnuplot.plot(in0, FFT_BINS, mode='mixer')
         return len(input_items[0])
+
+    def set_title(self, title):
+        self.gnuplot.set_title(title)
+
+    def kill(self):
+        self.gnuplot.kill()
+
+class sync_plot(threading.Thread):
+    """
+    """
+    def __init__(self, debug = _def_debug, block = None, **kwds):
+        threading.Thread.__init__ (self, **kwds)
+        self.setDaemon(1)
+        self.SLEEP_TIME = 3	## TODO - make more configurable
+        self.sleep_until = time.time() + self.SLEEP_TIME
+        self.last_file_time = time.time()
+        self.keep_running = True
+        self.debug = debug
+        self.warned = False
+
+        block.enable_sync_plot(True)	# block must refer to a gardner/costas instance
+        self.blk_id = block.unique_id()
+
+        self.gnuplot = wrap_gp(sps = _def_sps)
+        self.start()
+
+    def run(self):
+        while self.keep_running == True:
+            curr_time = time.time()
+            if curr_time < self.sleep_until:
+                time.sleep(1.0)
+                if self.keep_running == False:
+                    break
+            else:
+                self.sleep_until = time.time() + self.SLEEP_TIME
+                self.check_update()
+
+    def read_raw_file(self, fn):
+        s = open(fn, 'rb').read()
+        s_msg = ensure_str(s)
+        p = s_msg.find('\n')
+        if p < 1 or p > 24:
+            return None # error
+        hdrline = s_msg[:p]
+        rest = s[p+1:]
+        params = hdrline.split()
+        params = [int(p) for p in params]	#idx, p1p2, sps, error
+        idx = params[0]
+        p1p2 = params[1]
+        sps = params[2]
+        error_amt = params[3]
+        self.gnuplot.set_sps(sps)
+        if error_amt != 0:
+            self.set_title("Tuning Error %d" % error_amt)
+        else:
+            self.set_title("")
+        samples = np.frombuffer(rest, dtype=np.complex64)
+        samples2 = np.concatenate((samples[idx:], samples[:idx]))
+        needed = sps * 25 if p1p2 == 1 else sps * 21
+        if len(samples2) < needed:
+            if not self.warned:
+                self.warned = True
+                sys.stderr.write('read_raw_file: insufficient samples %d, needed %d\n' % (needed, len(samples2)))
+        elif len(samples2) > needed:
+            trim = len(samples2) - needed
+            samples2 = samples2[trim:]
+        return samples2		# return trimmed buf in np.complex64 format
+
+    def check_update(self):
+        patt = 'sample-%d*.dat' % (self.blk_id)
+        names = glob.glob(patt)
+        if len(names) < 1:	# no files to work with
+            return
+        d = {n: os.stat(n).st_mtime for n in names}
+        ds = sorted(d.items(), key=lambda x:x[1], reverse = True)[0]
+        if ds[1] <= self.last_file_time:
+            return
+        self.last_file_time = ds[1]
+        dat = self.read_raw_file(ds[0])
+        self.gnuplot.plot(dat, len(dat), mode='sync')
+
+    def kill(self):
+        self.keep_running = False
 
     def set_title(self, title):
         self.gnuplot.set_title(title)

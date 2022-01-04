@@ -78,6 +78,7 @@ namespace gr {
   inline bool is_muted(void) { return d_muted; }
   inline void set_tdma(bool v) { d_is_tdma = v; }
   inline bool is_tdma(void) { return d_is_tdma; }
+  inline void enable_sync_plot(bool v) { d_enable_sync_plot = v; }
 
 protected:
   bool input_sample0(gr_complex, gr_complex& outp);
@@ -121,9 +122,18 @@ protected:
   int				d_fm_count;
   bool                          d_muted;
   bool                          d_is_tdma;
+  bool				d_enable_sync_plot;
+
+  gr_complex			*d_prev_sample;
+  unsigned int			d_n_prev_sample;
+  unsigned int			d_prev_sample_p;
+
+  struct timeval		d_next_sample_time;
+  int				d_sample_file_id;
 
   float phase_error_detector_qpsk(gr_complex sample);
   void phase_error_tracking(gr_complex sample);
+  void dump_samples(int);
   };
 
   } // namespace op25_repeater
