@@ -1377,14 +1377,43 @@ class rx_ctl (object):
         curr_time = time.time()
         msgtext = msg.to_string()
         aa55 = get_ordinals(msgtext[:2])
-        if mtype >= 0 or mtype in [-1, -3, -5, -6]:
+        if mtype >= 0 or mtype in [-1, -3, -5, -6, -7]:
             assert aa55 == 0xaa55
             msgq_id = get_ordinals(msgtext[2:4])
             msgtext = msgtext[4:]
         else:
             assert aa55 != 0xaa55
             msgq_id = None
-        if mtype == -3:		# P25 call signalling data
+        if mtype == -7:		# P25 phase 1 link control
+            nac = get_ordinals(msgtext[:2])
+            msgtext = msgtext[2:]
+            msg = get_ordinals(msgtext)
+            if self.debug > 10:
+                sys.stderr.write("%f process_qmsg: LC info: %x\n" % (time.time(), msg))
+            opcode = (msg >> 64) & 0x3f
+            if opcode == 40:	# rfss
+                lra = (msg >> 56) & 0xff
+                ch1 = (msg  >> 40) & 0xffff
+                rfss = (msg >> 32) & 0xff
+                stid = (msg >> 24) & 0xff
+                ch2 = (msg  >> 8) & 0xffff
+                ssclass =  msg       & 0xff
+                if self.debug > 10:
+                    sys.stderr.write("%f p25p1 LC: LCRSBX: nac 0x%x lra 0x%x ch1 %x rfss 0x%x stid 0x%x ch2 %x ssclass 0x%x\n" %(time.time(), nac, lra, ch1, rfss, stid, ch2, ssclass))
+            elif opcode == 39:	# adjacent
+                lra = (msg >> 56) & 0xff
+                ch1 = (msg  >> 40) & 0xffff
+                rfss = (msg >> 32) & 0xff
+                stid = (msg >> 24) & 0xff
+                ch2 = (msg  >> 8) & 0xffff
+                flags =  msg       & 0xff
+                if self.debug > 10:
+                    sys.stderr.write("%f p25p1 LC: LCASBX: nac 0x%x lra 0x%x ch1 %x rfss 0x%x stid 0x%x ch2 %x flags 0x%x\n" %(time.time(), nac, lra, ch1, rfss, stid, ch2, flags))
+            else:
+                if self.debug > 0:
+                    sys.stderr.write("%f p25p1 LC: unhandled LCO: nac 0x%x 0x%x\n" % (time.time(), nac, opcode))
+            return
+        elif mtype == -3:		# P25 call signalling data
             if self.debug > 10:
                 sys.stderr.write("%f process_qmsg: P25 info: %s\n" % (time.time(), msgtext))
             js = json.loads(msgtext)

@@ -479,6 +479,15 @@ p25p1_fdma::process_LCW(std::vector<uint8_t>& HB)
 	if (d_debug >= 10)
 		fprintf(stderr, "LCW: ec=%d, pb=%d, sf=%d, lco=%d", ec, pb, sf, lco);
 
+	char s_msg[9];
+        for (i=0; i<9; i++) {
+		s_msg[i] = lcw[i];
+	}
+        char nac[2];
+        nac[0] = (framer->nac >> 8) & 0xff;
+        nac[1] = (framer->nac     ) & 0xff;
+	send_msg(std::string(nac, 2) + std::string(s_msg, 9), -7);
+
 	if (pb == 0) { // only decode if unencrypted
 		if ((sf == 0) && ((lcw[1] == 0x00) || (lcw[1] == 0x01) || (lcw[1] == 0x90))) {	// sf=0, explicit MFID in standard or Motorola format
 			switch (lco) {
