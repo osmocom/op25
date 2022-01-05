@@ -131,9 +131,13 @@ protected:
   struct timeval		d_next_sample_time;
   int				d_sample_file_id;
 
+  unsigned int			d_sample_count;
+  unsigned int			d_sync_valid_until;
+
   float phase_error_detector_qpsk(gr_complex sample);
   void phase_error_tracking(gr_complex sample);
   void dump_samples(int);
+  bool recent_sync(void) { return d_sample_count <= d_sync_valid_until; }
   };
 
   } // namespace op25_repeater
