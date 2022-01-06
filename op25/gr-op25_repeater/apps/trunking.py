@@ -461,6 +461,7 @@ class trunked_system (object):
         if self.debug > 10:
             sys.stderr.write('decode_mbt_data: %x %x\n' %(opcode, mbt_data))
         if opcode == 0x0:  # grp voice channel grant
+            mfrid = (header >> 72) & 0xff
             srcaddr = (header >> 48) & 0xffffff
             opts = (header >> 24) & 0xff
             ch1  = (mbt_data >> 64) & 0xffff
@@ -469,7 +470,7 @@ class trunked_system (object):
             f = self.channel_id_to_frequency(ch1)
             if self.debug > 0 and src != srcaddr:
                 sys.stderr.write('decode_mbt_data: grp_v_ch_grant: src %d does not match srcaddr %d\n' % (src, srcaddr))
-            d = {'cc_event': 'grp_v_ch_grant_mbt', 'options': opts, 'frequency': f, 'group': self.mk_tg_dict(ga), 'srcaddr': self.mk_src_dict(srcaddr), 'opcode': opcode, 'tdma_slot': self.get_tdma_slot(ch1) }
+            d = {'cc_event': 'grp_v_ch_grant_mbt', 'mfrid': mfrid, 'options': opts, 'frequency': f, 'group': self.mk_tg_dict(ga), 'srcaddr': self.mk_src_dict(srcaddr), 'opcode': opcode, 'tdma_slot': self.get_tdma_slot(ch1) }
             self.post_event(d)
             self.update_voice_frequency(f, tgid=ga, tdma_slot=self.get_tdma_slot(ch1), srcaddr=srcaddr, protected=opts&64 == 64)
             if f:
@@ -518,6 +519,19 @@ class trunked_system (object):
                 self.rfss_txchan = f2
             if self.debug > 10:
                 sys.stderr.write('mbt3a rfss stat sys %x rfid %x stid %x ch1 %s ch2 %s\n' %(syid, rfid, stid, self.channel_id_to_string(ch1), self.channel_id_to_string(ch2)))
+        elif opcode == 0x31:  # AUTH_DMD
+            mfrid = (header >> 72) & 0xff
+            target_address = (header >> 48) & 0xffffff
+            wacn_p1 = (header >> 16) & 0xffff
+            msg_wacn = (wacn_p1 << 4) | (mbt_data >> 188) & 0xf
+            msg_sysid = (mbt_data >> 176) & 0xfff
+            target_id = (mbt_data >> 152) & 0xffffff
+            rs = (mbt_data >> 72) & 0x3ff
+            rand1 = (mbt_data >> 32) & 0x1f
+            d = {'cc_event': 'auth_dmd', 'mfrid': mfrid, 'target_address': self.mk_src_dict(target_address), 'target_id': self.mk_src_dict(target_id), 'opcode': opcode, 'msg_sysid': msg_sysid, 'msg_wacn': msg_wacn, 'rs': rs, 'rand1': rand1 }
+            self.post_event(d)
+            if self.debug > 10:
+                sys.stderr.write('mbt31 auth_dmd target %d wacn 0x%x sysid 0x%x target id %d rs 0x%x rand1 0x%x\n' % (target_address, msg_wacn, msg_sysid, target_id, rs, rand1))
         else:
             sys.stderr.write('decode_mbt_data(): received unsupported mbt opcode %x\n' % opcode)
         return updated
