@@ -188,7 +188,7 @@ class channel(object):
             self.symbol_rate = config['symbol_rate']
         self.config = config
         self.verbosity = verbosity
-        self.frequency = 0
+        self.frequency = config['frequency'] if self.device.args.startswith('audio-if') else 0
         self.tdma_state = False
         self.xor_cache = {}
 
@@ -328,8 +328,9 @@ class channel(object):
         assert frequency
         if self.device.tunable:
             self.device.set_frequency(frequency)
-        relative_freq = self.device.frequency + self.device.offset + self.tuning_error - frequency
-        if (not self.device.tunable) and abs(relative_freq) > ((self.demod.input_rate / 2) - (self.demod.if1 / 2)):
+        f = self.frequency if self.device.args.startswith('audio-if') else frequency
+        relative_freq = self.device.frequency + self.device.offset + self.tuning_error - f
+        if (not self.device.tunable) and (not self.device.args.startswith('audio-if')) and abs(relative_freq) > ((self.demod.input_rate / 2) - (self.demod.if1 / 2)):
             if frequency not in self.warned_frequencies:
                 sys.stderr.write('warning: set frequency %f to non-tunable device %s rejected.\n' % (frequency / 1000000.0, self.device.name))
                 self.warned_frequencies[frequency] = 0
@@ -338,7 +339,8 @@ class channel(object):
             return False
         self.demod.set_relative_frequency(relative_freq)
         self.last_set_freq_at = time.time()
-        self.frequency = frequency
+        if not self.device.args.startswith('audio-if'):
+            self.frequency = frequency
 
     def error_tracking(self, last_change_freq):
         curr_time = time.time()
