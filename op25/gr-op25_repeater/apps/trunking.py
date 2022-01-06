@@ -596,7 +596,6 @@ class trunked_system (object):
             ch1 = (msg >> 8) & 0xffff
             table = (ch1 >> 12) & 0xf
             cls = msg & 0xff
-            print ('tdma adacent: %d %d %d %x' % (syid, rfid, stid, ch1))
             f1 = self.channel_id_to_frequency(ch1)
             if f1 and table in self.freq_table:
                 self.adjacent[f1] = 'rfid: %d stid:%d uplink:%f tbl:%d sysid:0x%x' % (rfid, stid, (f1 + self.freq_table[table]['offset']) / 1000000.0, table, syid)
@@ -1768,7 +1767,8 @@ class rx_ctl (object):
                 self.tgid_hold = self.current_tgid
                 self.tgid_hold_until = curr_time + 86400 * 10000
                 self.hold_mode = True
-                print ('set hold until %f' % self.tgid_hold_until)
+                if self.debug > 0:
+                    sys.stderr.write ('%f set hold until %f\n' % (time.time(), self.tgid_hold_until))
         elif command == 'unset_hold':
             self.last_command = {'command': command, 'time': curr_time}
             if self.current_tgid:
