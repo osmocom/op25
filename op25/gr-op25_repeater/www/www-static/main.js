@@ -1,5 +1,5 @@
-// Copyright 2017, 2018, 2019, 2020, 2021 Max H. Parke KA1RBI
-// Copyright 2020, 2021 Michael Rose
+// Copyright 2017, 2018, 2019, 2020, 2021, 2022 Max H. Parke KA1RBI
+// Copyright 2020, 2021, 2022 Michael Rose
 // 
 // This file is part of OP25
 //
@@ -18,7 +18,7 @@
 // Software Foundation, Inc., 51 Franklin Street, Boston, MA
 // 02110-1301, USA.
 
-var lastUpdated = "29-Aug-2021";
+var lastUpdated = "09-Jan-2022";
 
 var d_debug = 0;
 var http_req = new XMLHttpRequest();
@@ -47,6 +47,7 @@ var last_keyid = [];
 var tgid_files = {};
 var srcid_files = {};
 var channel_id = {};
+var freqTable = true;
 var event_source = null;  // must be in global scope for Babysitter to work.
 
 window.g_change_freq = [];
@@ -234,8 +235,10 @@ function rx_update(d) {
 function change_freq(d) {    // d json_type = change_freq
     t = 'TDMA';
     var t = 'FDMA';
-    if ((d['tdma'] == 0) || (d['tdma'] == 1))
-        t = 'TDMA ' + d['tdma'];
+    if ((d['tdma'] == 0) || (d['tdma'] == 1)) {
+        t = '<span style="color: lime;">TDMA ' + d['tdma'] + '</span>';
+    }
+        
     $('#stx').html(t);
 
     var displayTgid = '&mdash;';
@@ -550,10 +553,14 @@ function trunk_detail(d) { // d json_type = trunk_update
 
         // system frequencies table  // d json_type = trunk_update
         html += '<br>';
+        
+	if (freqTable == true) { // show/hide table with F key
+	
         html += '<table class="fixed" id="sysfreq">';
         
-        html += '<col width="100px">';  	// 1 Freq 
-        html += '<col width=" 75px">';  	// 2 Last
+        html += '<col width="100px">';  	// 1 Freq
+        if (cbState('showLast'))
+	        html += '<col width=" 75px">';  	// 2 Last
         html += '<col width=" 80px">';  	// 3 tgid
         html += '<col width="175px">';  	// 4 tgtag
         html += '<col width=" 25px">';  	// 5 enc        
@@ -562,7 +569,8 @@ function trunk_detail(d) { // d json_type = trunk_update
 
         html += '<tr>';
         html += '<th>Frequency </th>';      			// 1
-        html += '<th>Last </th>';						// 2
+		if (cbState('showLast'))
+        	html += '<th>Last </th>';					// 2
         html += '<th colspan="3">Talkgroup</th>';       // 3 / 4 / 5
         html += '<th colspan="2">Source</th>';        	// 6 / 7
         html += '</tr>';
@@ -579,7 +587,6 @@ function trunk_detail(d) { // d json_type = trunk_update
         sf_timeout = 0;		// delay before clearing the tg info
 		
 		// #frequency#
-			var sf_tdma;
 
 			//calls
 				var sf_count = [];	// "count"
@@ -623,7 +630,15 @@ function trunk_detail(d) { // d json_type = trunk_update
 		      sf_la[1] = 0;		
 
         for (var freq in d[nac][ft]) {
-
+        
+        // temp for testing  -- semi-perm?
+        if ( d[nac][ft][freq]['tdma'] == true ) {
+        	zt = "<span style='color: #070;'>T</span>";
+        } else {
+            zt = " ";
+        }
+		// end temp
+		
 		slot = 0;
 						
 			for (var call of d[nac][ft][freq][calls]) {
@@ -716,13 +731,15 @@ function trunk_detail(d) { // d json_type = trunk_update
 				var sfile = d[nac]['unit_id_tags_file'];
 					
 				// Active Frequencies Table
-						
-				html += '<tr>';				
+				
+				html += '<tr>';			
+				
 				if (slot == 0)
-					html += '<td style="cursor: crosshair;" title="' + sf_freq + ' Hits: ' + sf_count[slot] + '">' + sf_freq + '</td>';    						// 1
+					html += '<td style="cursor: crosshair;" title="' + sf_freq + ' Hits: ' + sf_count[slot] + '">' + sf_freq + ' ' + zt + '</td>';    						// 1
 				if (slot == 1)
-					html += '<td align="right" style="cursor: crosshair;" title="' + sf_freq + ' Hits: ' + sf_count[slot] + '"> / 2 &nbsp;&nbsp;&nbsp; </td>';	// 1
-				html += '<td>' + sf_la[slot] + '</td>';            																								// 2
+					html += '<td align="right" style="cursor: crosshair;" title="' + sf_freq + ' Hits: ' + sf_count[slot] + '"> <span class="label-sm">/</span> 2 &nbsp;&nbsp;&nbsp; </td>';	// 1
+			    if (cbState('showLast'))
+					html += '<td>' + sf_la[slot] + '</td>';            																								// 2
 				html += '<td name="tgid" ondblclick="editTsv(this, 1, \'' + tfile + '\', ' + nac +');">' + sc + sf_tgid[slot]  + '</td>';            			// 3 								
 				html += '<td name="tag" ondblclick="editTsv(this, 1, \'' + tfile + '\', ' + nac +');">' + sc + sf_tgtag[slot] + '</td>';            			// 4
 				html += '<td><span class="enc">' + sf_enc[slot] + '</span></td>';       																		// 5
@@ -730,13 +747,14 @@ function trunk_detail(d) { // d json_type = trunk_update
 				html += '<td name="srctag" ondblclick="editTsv(this, 1, \'' + sfile + '\', ' + nac +');">' + sc_src + sf_srctag[slot] + '</td>';          		// 7				
 					
 				html += '</tr>';
-
-				if (!p2) break;
+// 				if (!p2 || zt == " " ) break;
+				if (!p2 || zt == " " || ( sf_la[slot] > 120 && cbState('colSlot2')) ) break;
 			} // end for slot
          } // end for freq
         
         html += '</table>';
-        
+    } // end (freqTable == true)
+    
         if (cbState('show_adj'))
 	       html += adjacent_data(d[nac]['adjacent_data']);
 
@@ -1001,6 +1019,7 @@ function dispatch_commands(txt) {
         switch (j_type) {
         
         	case 'freq_error_tracking':
+
         		var ele, bx, cx, dx, ex, fx, gx;
         		$('#error_tracking').show();
         		bx = d.device;
@@ -1013,6 +1032,7 @@ function dispatch_commands(txt) {
         		break;
         
             case 'change_freq':
+            
                 cb = cbState('log_cf');
                 time = getTime(d['effective_time'] * 1000);
                 if (d.tgid && !d.tag) {
@@ -1054,6 +1074,7 @@ function dispatch_commands(txt) {
                 break;
                 
             case 'trunk_update':
+   	        	
                 cb = cbState('log_tu');
                 	var tf, sf, sid, a, z;
 					var sysid, site, rfid, color;
@@ -1124,12 +1145,12 @@ function dispatch_commands(txt) {
                     appendJsonTable(time, j_type, ps, 'Fine Tune: ' + ft, 'Tune Err: ' + d['error'], 'OP25', 'RX Update', '--', 'history');
                 }  // this Events table entry doesn't add much value either.
 
-//                 window.g_rx_update = d;
                 sessionStorage.fineTune = d['fine_tune'] ? d['fine_tune'] : "&mdash;";
                 sessionStorage.errorVal = d['error'] ? d['error'] : "&mdash;";
                 break;
                 
             case 'cc_event':
+
             	time = getTime(d['time'] * 1000);
                 cb = cbState('log_cc');
                 var opcode, n_opcode, sysid, tag, target, source, srctag, src_c, color;
@@ -1169,9 +1190,8 @@ function dispatch_commands(txt) {
 				
 				if (d['srcaddr']) {
                 	source = (d.srcaddr.unit_id) ? d.srcaddr.unit_id : "&mdash; No ID";	// This condition is reached when there is traffic
-                																		// but no source unit id is present. on ebrcs, this
+                	srctag = (d.srcaddr.tag) ? d.srcaddr.tag : "&nbsp;";				// but no source unit id is present. on ebrcs, this
                 																		// happens when an old u/vhf system is patched onto ebrcs.
-                	srctag = (d.srcaddr.tag) ? d.srcaddr.tag : "&nbsp;";
                 }
 				
             	// handle manufacturer opcodes:   
@@ -1377,6 +1397,14 @@ function dispatch_commands(txt) {
 						noLog = cbState('je_log') ? 0 : 1;	
 						break;
 
+					case "31":  // 0x31 - AUTH_DMD - Authentication Demand
+						source = d.source.unit_id;
+						srctag = d.source.tag;
+						target = d.target.unit_id;
+						tag = d.target.tag;						
+						noLog = cbState('je_log') ? 0 : 1;
+						break;	
+
 					case "33": // 0x33 - iden up tdma
 						var sysid 	= d.sysid;
 						var type	= 'TDMA';						
@@ -1562,6 +1590,14 @@ document.onkeydown = function(evt) {
  		return; // don't do anything if user is typing in an input field
 
     switch (evt.keyCode) {
+    
+        case 70:
+        	//  'f' key - show/hide frequency table
+        	$('#lastCommand').html('F - Freq Tbl<br><br>').show();
+            freqTable = !freqTable;    	
+        	setTimeout(function() {$('#lastCommand').html('').hide();}, 2000);
+            break;
+    
         case 71:
             // 'g' key - GOTO
         	$('#lastCommand').html('G - GOTO<br><br>').show();            
@@ -1685,20 +1721,17 @@ function appendJsonTable(a, b, c, d, e, f, srctag, opcode, target) {
     
     if (target == 'history' && b == 'trunk_update' && window.g_trunk_update_c && window.g_trunk_update_d) {
         if (c == window.g_trunk_update_c && d == window.g_trunk_update_d && a == prevTime) {
-//             console.log('skip cond 1');
             skip = 1;
         }
     }
     if (target == 'history' && b.includes('cc_event') && window.g_cc_event_c && window.g_cc_event_e) {
         if (c == window.g_cc_event_c && (e == window.g_cc_event_e || f == window.g_cc_event_f) && a == prevTime) {
             skip = 1;
-// 			     console.log('skip cond 2');       
         }
 
     }
     if (target == 'history' && b.includes('change_freq') && window.g_change_freq_c && window.g_change_freq_e) {
         if (c == window.g_change_freq_c && e == window.g_change_freq_e && a == prevTime) {
-//             console.log('skip cond 3');
             skip = 1;
         }
     }
@@ -1779,7 +1812,6 @@ function appendCallHistory(a, b, c, d, e, f, target, options, xp, sysid, nac, td
 	// Search previous 9 rows, compares current data with existing tgid, srcaddr, and time
 	// if tgid and srcaddr are equal and time is within 2 seconds, skip the entry,
 	search: {
-
 		for (x = 1; x < 8; x++) {
 			if (!table.rows[x]) {
 				break search;
@@ -1802,11 +1834,10 @@ function appendCallHistory(a, b, c, d, e, f, target, options, xp, sysid, nac, td
 	}
 	
 	// do not append the Call History table if not enabled on Home tab
-	if (enable_status[nac] == false)
+	if (enable_status[nac] == false) {
 		skip = 1;
-	
-// 	console.log('callHistory slot=' + slot);
-	
+	}
+		
 	var tslot = '';
 	if (cbState('showSlot') == true && tdma_slot != null) {
 		tslot = 'S' + ( tdma_slot +1 ) + ' ';
@@ -1823,11 +1854,11 @@ function appendCallHistory(a, b, c, d, e, f, target, options, xp, sysid, nac, td
         var cell4 = row.insertCell(4);
         var cell5 = row.insertCell(5);
         var cell6 = row.insertCell(6);        
-        
+    
         cell0.innerHTML = a;
         cell1.innerHTML = '<div align="center">' + hex(sysid).toUpperCase() + '</div>';
         cell2.innerHTML = '<div align="center">' + tslot + enc + pri + '</div>';
-			cell3.innerHTML = c;
+		cell3.innerHTML = c;
         cell4.innerHTML = d;
         cell5.innerHTML = e;
         cell6.innerHTML = f;
@@ -2049,7 +2080,7 @@ function is_digit(s) {
 
 function getTime(x) {
     //expects Unix timestamp, returns 24 hour time, hrs:min:sec
-    date = new Date(x);
+    date = new Date(parseInt(x));
     var time = zeroPad(date.getHours(), 2) + ':' + zeroPad(date.getMinutes(), 2) + ':' + zeroPad(date.getSeconds(), 2);
     return time;
 }
@@ -2060,7 +2091,6 @@ function cbState(x) {
 }
 
 function csvTable(table_id, separator = ',') {       // Quick and simple export target #table_id into a csv
-    // console.log('trying CSV table...');
     // Select rows from table_id
     var rows = document.querySelectorAll('table#' + table_id + ' tr');
     // Construct csv
@@ -2250,7 +2280,9 @@ function saveDisplaySettings() {
 		"showBandPlan",
 		"showSlot",
 		"oplogip",
-		"oplogport" ];
+		"oplogport",
+		"showLast",
+		"colSlot2" ];
 	
 	for (r in s) {
 		if ($('#' + s[r]).attr('type') == "checkbox") {				
@@ -2266,7 +2298,6 @@ function saveDisplaySettings() {
 
 
 function loadHelp(){  // this is also called from editor.js
-
 	f = 'help.html';
 	$.ajax({
 		url     : f,
@@ -2385,8 +2416,6 @@ function getSiteAlias() {
 	    });
 }
 
-
-
 function loadSiteAlias(json) {
 	window.siteAlias = json;
 	localStorage.AliasTableUpdated == false;
@@ -2493,6 +2522,7 @@ var g_opcode = {  // global opcodes
     '2d': 'Force SU Reg',    			// UnitRegCommand - U_REG_CMD - This transaction is to be used to force an SU to initiate Unit Registration
     '2e': 'UnitAuthCommand',
     '2f': 'Logout',    					// UnitDeregAck
+    '31': 'Auth Demand',
     '36': 'RoamingAddrCommand',
     '37': 'RoamingAddrUpdate',
     '38': 'SystemServiceBroadcast',    	// This broadcast will inform the subscriber units of the current system services supported and currently offered on the Primary control channel of this site. 
