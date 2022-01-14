@@ -318,8 +318,8 @@ function change_freq(d) {    // d json_type = change_freq
   	// color/style for main display
   	
     var fontStyle = $('#valFontStyle').val();
-    var tgSize = $('#valTagFont').val();
-    var sysSize = $('#valSystemFont').val();    
+    var tgSize = parseInt($('#valTagFont').val());
+    var sysSize = parseInt($('#valSystemFont').val());
 	var defColor = $('#sysColor').val();
     var sysColor = "";
     var tagColor = "";  
@@ -329,9 +329,8 @@ function change_freq(d) {    // d json_type = change_freq
 	
 	sysColor = (cbState('color_main_sys') && d['tag_color']) ? clr : defColor;
 	tagColor = (cbState('color_main_tag') && d['tag_color']) ? clr : defColor;
-	
-    $('#dSys').css({"color": sysColor, "font-size": tgSize, "font-weight": fontStyle});
-    $('#dTag').css({"color": tagColor, "font-size": tgSize, "font-weight": fontStyle, "animation": ani, "background-color": bg});
+    $('#dSys').css({"color": sysColor, "font-size": sysSize, "font-weight": fontStyle});
+	$('#dTag').css({"color": tagColor, "font-size": tgSize, "font-weight": fontStyle, "animation": ani, "background-color": bg});
     
 } // end change_freq
 
@@ -1202,7 +1201,7 @@ function dispatch_commands(txt) {
             	//		   0xD8 = Tait
             	//		   0xF8 = Vertex Standard
             	//   trunking.py sends the following opcodes:
-            	//   -1, 0x00, 01, 02, 03, 09, 20, 27, 28, 2a, 2b, 2c, 2d, 2f, 33, 34, 3d
+            	//   -1, 0x00, 01, 02, 03, 09, 20, 27, 28, 2a, 2b, 2c, 2d, 2f, 31, 33, 34, 3d
             	
             	switch (opcode) {
             	
@@ -1398,11 +1397,10 @@ function dispatch_commands(txt) {
 						break;
 
 					case "31":  // 0x31 - AUTH_DMD - Authentication Demand
-						source = d.source.unit_id;
-						srctag = d.source.tag;
-						target = d.target.unit_id;
-						tag = d.target.tag;						
-						noLog = cbState('je_log') ? 0 : 1;
+						source = d.target_id.unit_id;
+						srctag = d.target_id.tag;
+						target = d.target_address.unit_id;
+						tag = d.target_address.tag;						
 						break;	
 
 					case "33": // 0x33 - iden up tdma
