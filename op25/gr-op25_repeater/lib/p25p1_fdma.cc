@@ -283,6 +283,12 @@ p25p1_fdma::process_HDU(const bit_vector& A)
 		ess_keyid = ((HB[j+2] & 0x03) << 14) + (HB[j+3] << 8) + (HB[j+4] << 2) + (HB[j+5] >> 4);	// 16 bit KeyId
 		vf_tgid   = ((HB[j+5] & 0x0f) << 12) + (HB[j+6] << 6) +  HB[j+7];				// 16 bit TGID
 
+		if (ess_algid == 0) {	// workaround spurious algid
+			ess_algid = 128;	// unenc
+			if (d_debug)
+				fprintf(stderr, "***HDU detected zero algid, msgq_id %d***\n", d_msgq_id);
+		}
+
 		if (d_debug >= 10) {
 			fprintf (stderr, "ESS: tgid=%d, mfid=%x, algid=%x, keyid=%x, mi=", vf_tgid, MFID, ess_algid, ess_keyid);
 			for (i = 0; i < 9; i++) {
@@ -373,6 +379,12 @@ p25p1_fdma::process_LDU2(const bit_vector& A)
 			}
 			ess_algid =  (HB[j  ]         <<  2) + (HB[j+1] >> 4);					// 8 bit AlgId
 			ess_keyid = ((HB[j+1] & 0x0f) << 12) + (HB[j+2] << 6) + HB[j+3];			// 16 bit KeyId
+
+			if (ess_algid == 0) {	// workaround spurious algid
+				ess_algid = 128;	// unenc
+				if (d_debug)
+					fprintf(stderr, "***LDU2 detected zero algid, msgq_id %d***\n", d_msgq_id);
+			}
 
 			if (d_debug >= 10) {
 				fprintf(stderr, "ESS: algid=%x, keyid=%x, mi=", ess_algid, ess_keyid);

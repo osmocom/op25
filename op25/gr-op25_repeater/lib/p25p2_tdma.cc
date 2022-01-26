@@ -206,6 +206,13 @@ void p25p2_tdma::handle_mac_ptt(const uint8_t byte_buf[], const unsigned int len
         }
         ess_algid = byte_buf[10];
         ess_keyid = (byte_buf[11] << 8) + byte_buf[12];
+
+	if (ess_algid == 0) {	// workaround spurious algid
+		ess_algid = 128;	// unenc
+		if (d_debug)
+			fprintf(stderr, "***mac_ptt detected zero algid, msgq_id %d***\n", d_msgq_id);
+	}
+
         if (d_debug >= 10) {
                 fprintf(stderr, ", algid=%x, keyid=%x, mi=", ess_algid, ess_keyid);
                 for (int i = 0; i < 9; i++) {
@@ -454,6 +461,12 @@ void p25p2_tdma::handle_4V2V_ess(const uint8_t dibits[])
                 if (ec >= 0) { // save info if good decode
                         ess_algid = (ESS_B[0] << 2) + (ESS_B[1] >> 4);
                         ess_keyid = ((ESS_B[1] & 15) << 12) + (ESS_B[2] << 6) + ESS_B[3]; 
+
+			if (ess_algid == 0) {	// workaround spurious algid
+				ess_algid = 128;	// unenc
+				if (d_debug)
+					fprintf(stderr, "***burst detected zero algid, msgq_id %d***\n", d_msgq_id);
+			}
 
                         j = 0;
                         for (i = 0; i < 9;) {
