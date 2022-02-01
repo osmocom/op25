@@ -165,6 +165,38 @@ body {
 	background-color: var(--bg-color);
 }
 
+/* BEGIN 2 COLUMN LAYOUT ELEMENTS */
+
+	* {
+	  box-sizing: border-box;
+	}
+
+	/* Create two equal columns that floats next to each other */
+	.column {
+	  float: left;
+	  width: 50%;
+	  padding: 5px;
+/* 	  height: 300px; /* Should be removed. Only for demonstration */ */
+	}
+
+	/* Clear floats after the columns */
+	.row:after {
+	  content: "";
+	  display: table;
+	  clear: both;
+	}
+
+	/* Responsive layout - makes the two columns stack on top of each other instead of next to each other */
+	@media screen and (max-width: 740px) {
+	  .column {
+		width: 100%;
+	  }
+	}
+
+
+/* END 2 COLUMN LAYOUT ELEMENTS */
+
+
 .main {
   margin-top: 5px;
 /*   make margin-top 60px for fixed nav-bar, see also .nav-bar below. */
@@ -671,6 +703,18 @@ div.adjacent {  /* adjacent sites container that holds the table */
 	background: linear-gradient(var(--nav-grad-1), var(--nav-grad-2));
 	color:    var(--button-text-2);
 	width: 85px;
+	border:   0px;
+	padding:   20px;
+	display:   block;
+	font-size: 14px;
+	font-weight: bold;
+}
+
+.nav-button2 {
+	background-color: var(--nav-background);
+	background: linear-gradient(var(--nav-grad-1), var(--nav-grad-2));
+	color:    var(--button-text-2);
+	width: 15px;
 	border:   0px;
 	padding:   20px;
 	display:   block;

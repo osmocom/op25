@@ -35,6 +35,8 @@
       <script src="jquery.alerts.js"></script>        
    </head>
    <body onload="javascript:do_onload();">
+   <div class="row">   <!--  START OF 2 COLUMN LAYOUT -->
+   <div class="column" style="width: 740px;"> <!-- START FIRST COLUMN -->
       <div class="main">
          <form method="post" action="#" id="form_scan">
             <!-- nav bar -->
@@ -48,7 +50,8 @@
                   <li id="li5" class="nav-li"><input id="b5" class="nav-button" type="button" name="B5" value="View" onclick="this.blur(); javascript:toggleCSS();"></li>
                   <li id="li6" class="nav-li"><input id="b6" class="nav-button" type="button" name="B6" value="Popout" onclick="this.blur(); javascript:this.blur(); popOut();"></li>
                   <li id="li7" class="nav-li"><input id="b7" class="nav-button" type="button" name="B7" value="About" onclick="this.blur(); javascript:f_select('about');"></li>
-                  <li id="li8">&nbsp;</li>
+                  <li id="li8"> </li>
+
                </ul>
             </div>
             <!-- end div nav-bar -->
@@ -339,7 +342,7 @@
                </td>
             </tr>
             <tr>
-               <td style="border-right: 0px solid;">&nbsp; </td>
+               <td style="border-right: 0px solid;">&#8212; </td>
                <td style="border-left: 0px solid;">&nbsp;</td>          
                <td>
                   <input type="checkbox" id="showLast"> <label for="showLast"><span></span>  Show Last Seen Time in Frequency Table</label>
@@ -347,7 +350,7 @@
             </tr>
             
             <tr>
-               <td style="border-right: 0px solid;">&nbsp; </td>
+               <td style="border-right: 0px solid;">&#8212; </td>
                <td style="border-left: 0px solid;">&nbsp;</td>          
                <td>
                   <input type="checkbox" id="colSlot2"> <label for="colSlot2"><span title="Collapses Slot 2 in Active Frequency Table after 2 minutes of inactivity."></span>  Collapse Slot 2 Display After 2 min.</label>
@@ -735,8 +738,8 @@
       
       
       </div> <!-- end hide settings -->
-      
-      
+      </div> <!-- END FIRST COLUMN -->
+      <div class="column">   <!-- START SECOND COLUMN -->
       
       <!-- end div_settings -->
       <div id="div_rx" style="display: none; border: 0px solid black;">&nbsp; </div>
@@ -845,5 +848,7 @@
          <!-- end div log container 2 -->
       </div>
       <!-- end div_logs -->
+      </div> <!-- END SECOND COLUMN -->
+    </div>  <!--  END OF 2 COLUMN LAYOUT -->
    </body>
 </html>

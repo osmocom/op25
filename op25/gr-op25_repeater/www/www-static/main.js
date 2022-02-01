@@ -48,6 +48,9 @@ var tgid_files = {};
 var srcid_files = {};
 var channel_id = {};
 var freqTable = true;
+var chsize = 1;
+var evsize = 1;
+var ersize = 1;
 var event_source = null;  // must be in global scope for Babysitter to work.
 
 window.g_change_freq = [];
@@ -288,7 +291,7 @@ function change_freq(d) {    // d json_type = change_freq
 
     html += '<td style="width: 422px;" colspan=2><span class="systgid" id="dTag">' + displayTag + '</span></td>';
     html += '<td align="center" style="width: 88px;">';
-    html += '<span class="label-sm">Talkgroup ID</span><br><span class="value" id="dTgid">' + displayTgid + '</span>';
+    html += '<span class="label-sm">Talkgroup</span><br><span class="value" id="dTgid">' + displayTgid + '</span>';
     html += '</td>';
 
     html += '</tr>';
@@ -1581,14 +1584,17 @@ function comma(x) {
 }
 
 document.onkeydown = function(evt) {
+
+	console.log(evt.altKey);
 	// keyboard shortcuts
     evt = evt || window.event;
     var x = document.activeElement.tagName;
- 	if (x == "INPUT") 
- 		return; // don't do anything if user is typing in an input field
+ 	if (x == "INPUT" || evt.altKey == true || evt.ctrlKey == true) 
+ 		return; // don't do anything if user is typing in an input field or if alt, ctrl key is bing used
 
     switch (evt.keyCode) {
     
+    	
         case 70:
         	//  'f' key - show/hide frequency table
         	$('#lastCommand').html('F - Freq Tbl<br><br>').show();
@@ -1935,18 +1941,28 @@ function smartColor(t) {
 } // end smartColor()
             
 function divExpand(div) {
-	switch ($('#' + div).height()) {
-		case 1:
+	console.log(div);
+	var h = $('#' + div).height();
+	console.log(typeof(h));
+	switch (true) {
+		case (h < 2):
+			console.log('case 1:' + h);
 			$('#' + div).height(301);
 			$('#' + div).show();			
 			break;		
-		case 301:
+		case (h <= 301):
+			console.log('case 2:' + h);
 			$('#' + div).height(702);
 			break;
-		case 702:
+		case (h < 9999):
+			console.log('case 3:' + h);
 			$('#' + div).height(1);
 			$('#' + div).hide();
-			break;			
+			break;
+		default:
+			console.log(h < 2);
+			console.log(h < 301);
+			console.log(h < 9999);						
 	}
 }
 
