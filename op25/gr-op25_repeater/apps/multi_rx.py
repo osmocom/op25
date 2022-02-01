@@ -124,7 +124,21 @@ class device(object):
 
     def init_audio(self, config):
         filename = config['args'].replace('audio:', '')
-        src = audio.source(self.sample_rate, filename)
+        if filename.startswith('file:'):
+            filename = filename.replace('file:', '')
+            repeat = False
+            s2f = blocks.short_to_float()
+            K = 1 / 32767.0
+            src = blocks.multiply_const_ff(K)
+            throttle = blocks.throttle(gr.sizeof_short, self.sample_rate)	# may be redundant in stdin case ?
+            if filename == '-':
+                fd = 0	# stdin
+                fsrc = blocks.file_descriptor_source(gr.sizeof_short, fd, repeat)
+            else:
+                fsrc = blocks.file_source(gr.sizeof_short, filename, repeat)
+            self.tb.connect(fsrc, throttle, s2f, src)
+        else:
+            src = audio.source(self.sample_rate, filename)
         gain = 1.0
         if config['gains'].startswith('audio:'):
            gain = float(config['gains'].replace('audio:', ''))
