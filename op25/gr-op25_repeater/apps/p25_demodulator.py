@@ -358,6 +358,7 @@ class p25_demod_cb(p25_demod_base):
         self.clock.set_omega(self.sps)
 
     def set_relative_frequency(self, freq):
+        N = 500	# Hz, we tune the bpf in discrete steps of size N
         if abs(freq) > self.relative_limit:
             #print 'set_relative_frequency: error, relative frequency %d exceeds limit %d' % (freq, self.input_rate/2)
             return False
@@ -365,14 +366,21 @@ class p25_demod_cb(p25_demod_base):
             return True
         self.lo_freq = freq
         if self.if1:
-            if freq not in self.t_cache.keys():
-                self.t_cache[freq] = filter.firdes.complex_band_pass(1.0, self.input_rate, -freq - self.if1/2, -freq + self.if1/2, self.if1/2, filter.firdes.WIN_HAMMING)
-            self.bpf.set_taps(self.t_cache[freq])
+            r = freq % N
+            bpf_freq = freq - r
+            if r > N//2:
+                bpf_freq += N	# round to nearest N Hz
+            if bpf_freq not in self.t_cache.keys():
+                if abs(bpf_freq) > self.relative_limit:
+                    sys.stderr.write( 'set_relative_frequency: error, relative frequency %d(%d) exceeds limit %d\n' % (bpf_freq, freq, self.relative_limit))
+                    return False
+                self.t_cache[bpf_freq] = filter.firdes.complex_band_pass(1.0, self.input_rate, -bpf_freq - self.if1/2, -bpf_freq + self.if1/2, self.if1/2, filter.firdes.WIN_HAMMING)
+            self.bpf.set_taps(self.t_cache[bpf_freq])
             bfo_f = self.decim * -freq / float(self.input_rate)
             bfo_f -= int(bfo_f)
-            if bfo_f < -0.5:
+            while bfo_f < -0.5:
                 bfo_f += 1.0
-            if bfo_f > 0.5:
+            while bfo_f > 0.5:
                 bfo_f -= 1.0
             self.bfo.set_frequency(-bfo_f * self.if1)
         else:
