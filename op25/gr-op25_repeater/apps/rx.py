@@ -82,6 +82,8 @@ WIRESHARK_PORT = 23456
 
 _def_interval = 3.0	# sec
 _def_file_dir = '../www/images'
+_def_error_update_time = 3.0	# freq error tracking interval
+_def_lo_adj_limit = 2500	# Hz
 
 class udp_source_c(gr.hier_block2):
 	def __init__(self, hostname, udp_port):
@@ -136,6 +138,8 @@ class p25_rx_block (gr.top_block):
         self.next_status_png = time.time()
         self.last_process_update = 0
         self.sql_db = sql_dbi()
+        self.last_center_freq = 0
+        self.last_relative_freq = 0
 
         self.src = None
         if (not options.input) and (not options.audio) and (not options.audio_if) and (not options.args.startswith('udp:')):
@@ -359,7 +363,16 @@ class p25_rx_block (gr.top_block):
 
         self.trunk_rx = trunking.rx_ctl(frequency_set = self.change_freq, debug = self.options.verbosity, conf_file = self.options.trunk_conf_file, logfile_workers=logfile_workers, send_event=self.send_event)
 
-        self.du_watcher = du_queue_watcher(self.rx_q, self.trunk_rx.process_qmsg)
+        self.du_watcher = du_queue_watcher(self.rx_q, self.preprocess_qmsg)
+
+    def preprocess_qmsg(self, msg):
+        self.trunk_rx.process_qmsg(msg)
+        if self.options.freq_error_tracking:
+            if self.last_error_update + _def_error_update_time > time.time() \
+                or self.last_change_freq_at + _def_error_update_time > time.time():
+                pass
+            else:
+                self.error_tracking()
 
     # Connect up the flow graph
     #
@@ -417,9 +430,8 @@ class p25_rx_block (gr.top_block):
         self.demod.clock.set_omega(float(sps))
 
     def error_tracking(self):
-        UPDATE_TIME = 3
-        if self.last_error_update + UPDATE_TIME > time.time() \
-            or self.last_change_freq_at + UPDATE_TIME > time.time():
+        if self.last_error_update + _def_error_update_time > time.time() \
+            or self.last_change_freq_at + _def_error_update_time > time.time():
             return
         self.last_error_update = time.time()
         band = self.demod.get_error_band()
@@ -440,24 +452,47 @@ class p25_rx_block (gr.top_block):
             e = (self.tuning_error*1e6) / float(self.last_change_freq)
         if self.options.verbosity >= 10:
             sys.stderr.write('frequency_tracking\t%d\t%d\t%d\t%d\t%f\n' % (freq_error, self.error_band, self.tuning_error, self.freq_correction, e))
-        if self.input_q.full_p():
-            return
+
+        self.adjust_lo_freq()	# adjust lo based on updated tuning error
+
         d = {'time':   time.time(), 'json_type': 'freq_error_tracking', 'name': 'rx.py', 'device': self.options.args, 'freq_error': freq_error, 'band': band, 'error_band': self.error_band, 'tuning_error': self.tuning_error, 'freq_correction': self.freq_correction}
         js = json.dumps(d)
-        msg = gr.message().make_from_string(js, -4, 0, 0)
-        self.input_q.insert_tail(msg)
         if self.options.verbosity > 0:
             sys.stderr.write('%f error tracking: %s\n' % (time.time(), js))
+        if self.input_q.full_p():
+            if self.options.verbosity > 0:
+                sys.stderr.write('%f error_tracking: qfull\n' % (time.time()))
+            return
+        msg = gr.message().make_from_string(js, -4, 0, 0)
+        self.input_q.insert_tail(msg)
+
+    def adjust_lo_freq(self):
+        # apply tuning error updates to adjust lo frequency
+        center_freq = self.last_center_freq
+        offset = self.options.offset
+        if not center_freq:
+            new_lo_freq = offset + self.tuning_error
+        else:
+            new_lo_freq = self.last_relative_freq + offset + self.tuning_error 
+        if abs(self.lo_freq - new_lo_freq) > _def_lo_adj_limit:
+            sys.stderr.write('adjust_lo_freq: adjustment exceeds limit: previous %d requested %d\n' % (self.lo_freq, new_lo_freq))
+            return
+        self.lo_freq = new_lo_freq
+        self.demod.set_relative_frequency(self.lo_freq)
 
     def change_freq(self, params):
+        if self.options.verbosity > 1:
+            sys.stderr.write('%f change_freq: %s\n' % (time.time(), params))
         self.last_freq_params = params
         freq = params['freq']
         offset = self.options.offset
         center_freq = params['center_frequency']
+        self.last_center_freq = center_freq
         if self.options.freq_error_tracking:
             self.error_tracking()
-        self.last_change_freq = freq
-        self.last_change_freq_at = time.time()
+        if self.last_change_freq != freq:
+            self.last_change_freq = freq
+            self.last_change_freq_at = time.time()
 
         self.configure_tdma(params)
 
@@ -472,6 +507,7 @@ class p25_rx_block (gr.top_block):
             return
 
         relative_freq = center_freq - freq
+        self.last_relative_freq = relative_freq
 
         if abs(relative_freq + offset + self.tuning_error) > self.channel_rate / 2:
             self.lo_freq = offset + self.tuning_error		# relative tune not possible
@@ -566,8 +602,9 @@ class p25_rx_block (gr.top_block):
             #if self.show_debug_info:
             #    self.myform['baseband'].set_value(r.baseband_freq)
             #    self.myform['ddc'].set_value(r.dxc_freq)
-            self.last_set_freq = tune_freq
-            self.last_set_freq_at = time.time()
+            if self.last_set_freq != tune_freq:
+                self.last_set_freq = tune_freq
+                self.last_set_freq_at = time.time()
             return True
 
         return False
