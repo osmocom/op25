@@ -18,7 +18,7 @@
 // Software Foundation, Inc., 51 Franklin Street, Boston, MA
 // 02110-1301, USA.
 
-var lastUpdated = "09-Jan-2022";
+var lastUpdated = "04-Mar-2022";
 
 var d_debug = 0;
 var http_req = new XMLHttpRequest();
@@ -115,7 +115,7 @@ function eventsource_listener(event) {
     dispatch_commands(event.data);
 }
 
-// Babysitter - watches /stream, reacts when lost/restored
+// Watchdog - watches /stream, reacts when lost/restored
 function setReconnect() {
 	// readyState values: 0 = connecting, 1 = open, 2 = closed
 	var reconnecting = false;
@@ -249,7 +249,7 @@ function change_freq(d) {    // d json_type = change_freq
     var display_src = '&mdash;';
     var display_alg = '&mdash;';
     var display_keyid = '&mdash;';
-    var display_srctag = '&mdash;';
+    var display_srctag = '';
     var e_class = 'value';
 	var trunc = $('#valTruncate').val();
 
@@ -275,39 +275,62 @@ function change_freq(d) {    // d json_type = change_freq
         }
     }
     
-    // main display - system, talkgroup, encryption, keyid, source addr display
+    // main display - system, talkgroup, encryption, keyid, source addr display 
     
     var d_sys = 'system' in d ? d['system'].substring(0, trunc) : 'Undefined';
+    var html = '<table style="width: 510px; height: 168px;">'; // (3 columns, 3 or 4 rows)
     
-    var html = '<table style="width: 510px; height: 168px;">';
+// row 1
     html += '<tr>';
-
+//col 1
     html += '<td style="width: 422px;" colspan=2><span class="systgid" id="dSys">' + d_sys + '</span></td>';
+// col 2
+    html += '<td> </td>';
+// col 3
     html += '<td align="center" style="width: 88px;">';
     html += '<span class="label-sm">Frequency</span><br><span class="value">' + freqDisplay(d['freq'] / 1000000) + '</span></td>';
-
     html += '</tr>';
+    
+// row 2
     html += '<tr>';
-
+// col 1
     html += '<td style="width: 422px;" colspan=2><span class="systgid" id="dTag">' + displayTag + '</span></td>';
-    html += '<td align="center" style="width: 88px;">';
-    html += '<span class="label-sm">Talkgroup</span><br><span class="value" id="dTgid">' + displayTgid + '</span>';
+// col 2
+    html += '<td align="center" style="width: 88px;"> </td>';
+// col 3
+    html += '<td align="center"><span class="label-sm">Talkgroup</span><br><span class="value" id="dTgid">' + displayTgid + '</span>';
     html += '</td>';
-
     html += '</tr>';
+    
+// row 3
     html += '<tr>';
-
-    html += '<td align="left">';
-    html += '<span class="label-sm">Encryption</span><br><span class="' + e_class + '" id="dAlg">' + display_alg + '</span>';
-    html += '</td>';
+// col 1
+    html += '<td style="width: 422px;" colspan=2><span class="systgid" id="dSrcTag">' + display_srctag + '</span></td>';
+// col 2
     html += '<td align="center" style="width: 88px;">';
-    html += '<span class="label-sm">Key ID</span><br><span class="value" id="dKey">' + display_keyid + '</span>';
+    html += '&nbsp;';
     html += '</td>';
+// col 3
     html += '<td align="center" style="width: 88px;">';
-    html += '<span class="label-sm">Source Addr</span><br><span class="value" id="dSrc">' + display_src + '</span>';
+    html += '<span class="label-sm">Source</span><br><span class="value" id="dSrc">' + display_src + '</span>';
     html += '</td>';
-
     html += '</tr>';
+
+// row 4 - encryption info block 
+    if (cbState('showEnc')) {
+			html += '<tr>';
+		// col 1
+			html += '<td>Encryption <span class="' + e_class + '" id="dAlg">' + display_alg + '</span>'
+			html += '</td>';
+		// col 2
+			html += '<td> </td>';
+		// col 3
+			html += '<td style="text-align:right;">Key ID</td>';
+			html += '<td style="text-align:center;"><span class="value" id="dKey">' + display_keyid + '</span>';
+			html += '</tr>';
+    }
+// end encryption info block
+
     html += '</table>';    
     
     $('#div_s2').html(html).show();
@@ -323,17 +346,26 @@ function change_freq(d) {    // d json_type = change_freq
     var fontStyle = $('#valFontStyle').val();
     var tgSize = parseInt($('#valTagFont').val());
     var sysSize = parseInt($('#valSystemFont').val());
-	var defColor = $('#sysColor').val();
+	var defColor = $('#sysColor').val();   // default color
     var sysColor = "";
-    var tagColor = "";  
+    var tagColor = "";
+    var srcColor = "";  
 	var clr = getProperty('.c' + d.tag_color, 'color', 'tgcolors');
+	var srcClr = getProperty('.c' + d.srcaddr_color, 'color', 'tgcolors');
+	
 	var ani = getProperty('.c' + d.tag_color, 'animation', 'tgcolors');
 	var bg  = getProperty('.c' + d.tag_color, 'backgroundColor', 'tgcolors');
 	
 	sysColor = (cbState('color_main_sys') && d['tag_color']) ? clr : defColor;
 	tagColor = (cbState('color_main_tag') && d['tag_color']) ? clr : defColor;
+	srcColor = (cbState('color_main_tag') && d['srcaddr_color']) ? srcClr : defColor;
+
     $('#dSys').css({"color": sysColor, "font-size": sysSize, "font-weight": fontStyle});
 	$('#dTag').css({"color": tagColor, "font-size": tgSize, "font-weight": fontStyle, "animation": ani, "background-color": bg});
+	
+	
+    $('#dSrcTag').css({"color": srcColor, "font-size": tgSize, "font-weight": fontStyle, "animation": ani, "background-color": bg});
+//     console.log(display_srctag, 'srcColor=' + srcColor, 'defColor=' + defColor, d.srcaddr_color);
     
 } // end change_freq
 
@@ -588,6 +620,8 @@ function trunk_detail(d) { // d json_type = trunk_update
 		
         sf_timeout = 0;		// delay before clearing the tg info
 		
+		// 'sf' = system frequencies
+		
 		// #frequency#
 
 			//calls
@@ -749,6 +783,27 @@ function trunk_detail(d) { // d json_type = trunk_update
 				html += '<td name="srctag" ondblclick="editTsv(this, 1, \'' + sfile + '\', ' + nac +');">' + sc_src + sf_srctag[slot] + '</td>';          		// 7				
 					
 				html += '</tr>';
+
+				// Sloppy Source ID Tag Hack 04/2022 -- this displays the source ID tag in the Main Display better than previous implementations. 
+				// RID display is problematic when using 0x02 opcode, which the Main Display is sometimes populated with.
+			
+					if (sf_srctag[slot].length == 1 && sf_srcaddr[slot] > 1 && cbState('showSourceId') ) {				
+						sf_srctag[slot] = "ID: " + sf_srcaddr[slot];
+					}
+
+					if (sf_tgtag[slot] == $('#dTag').text()) {
+						if (sf_srcaddr[slot] == ' ') {
+							// something here to catch when no source address is present -- usually when a patch is used
+							// the display layout gets a little messed up when these vars are null.
+							sf_srcaddr[slot] = 'NO P25 ID';
+
+						}
+						$('#dSrcTag').text(sf_srctag[slot]);
+						$('#dSrc').text(sf_srcaddr[slot]);				
+					}
+				
+				// end 'sloppy'
+				
 // 				if (!p2 || zt == " " ) break;
 				if (!p2 || zt == " " || ( sf_la[slot] > 120 && cbState('colSlot2')) ) break;
 			} // end for slot
@@ -915,6 +970,12 @@ function trunk_update(d) {
     var html;
     if (summary_mode) {
         html = trunk_summary(d); // home screen
+
+		// this is part of the 'sloppy' Source ID Tag display routine.
+		// Need trunk_detail to fire so the frequency table bits run even though they are not displayed.
+		// If trunk_detail() does not run, then the 'sloppy' implementation does not work on the RX tab.
+	        trunk_detail(d);
+	        
     } else {
         html = trunk_detail(d); // RX screen
         
@@ -954,12 +1015,12 @@ function update_data(d) { // d json type = trunk_update
     
     var e_class = 'value';
     
-    if (last_srcaddr[active_nac] != null) {
-        display_src = last_srcaddr[active_nac];
-        var ele = document.getElementById('dSrc');
-        if (ele != null)
-            ele.innerHTML = display_src;
-    }
+//     if (last_srcaddr[active_nac] != null) {
+//         display_src = last_srcaddr[active_nac];
+//         var ele = document.getElementById('dSrc');
+//         if (ele != null)
+//             ele.innerHTML = display_src;
+//     }
     
     if (last_srctag[active_nac] != null) {
         display_srctag = last_srctag[active_nac];
@@ -1193,7 +1254,7 @@ function dispatch_commands(txt) {
 				if (d['srcaddr']) {
                 	source = (d.srcaddr.unit_id) ? d.srcaddr.unit_id : "&mdash; No ID";	// This condition is reached when there is traffic
                 	srctag = (d.srcaddr.tag) ? d.srcaddr.tag : "&nbsp;";				// but no source unit id is present. on ebrcs, this
-                																		// happens when an old u/vhf system is patched onto ebrcs.
+                																		// happens when a u/vhf system is patched onto ebrcs.
                 }
 				
             	// handle manufacturer opcodes:   
@@ -1584,8 +1645,7 @@ function comma(x) {
 }
 
 document.onkeydown = function(evt) {
-
-	console.log(evt.altKey);
+// 	console.log(evt.altKey);
 	// keyboard shortcuts
     evt = evt || window.event;
     var x = document.activeElement.tagName;
@@ -1594,7 +1654,6 @@ document.onkeydown = function(evt) {
 
     switch (evt.keyCode) {
     
-    	
         case 70:
         	//  'f' key - show/hide frequency table
         	$('#lastCommand').html('F - Freq Tbl<br><br>').show();
@@ -2296,7 +2355,9 @@ function saveDisplaySettings() {
 		"oplogip",
 		"oplogport",
 		"showLast",
-		"colSlot2" ];
+		"colSlot2",
+		"showEnc",
+		"showSourceId"];
 	
 	for (r in s) {
 		if ($('#' + s[r]).attr('type') == "checkbox") {				

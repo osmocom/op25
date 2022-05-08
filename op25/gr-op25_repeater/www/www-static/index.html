@@ -1,6 +1,6 @@
 <!--  
    Copyright 2017, 2018 Max H. Parke KA1RBI
-   Copyright 2020, 2021 Michael Rose
+   Copyright 2020, 2021, 2022 Michael Rose
    
    This file is part of OP25
    
@@ -19,7 +19,7 @@
    Software Foundation, Inc., 51 Franklin Street, Boston, MA
    02110-1301, USA.
    
-   UPDATED: 19-May-2021
+   UPDATED: 04-Mar-2022
    
    -->
 <!DOCTYPE html>
@@ -124,7 +124,7 @@
                      <table style="border-collapse: collapse;">
                         <tr>
                            <td>Copyright:</td>
-                           <td>&copy; 2017&dash;2021 Max H. Parke KA1RBI</td>
+                           <td>&copy; 2017&dash;2022 Max H. Parke KA1RBI</td>
                         </tr>
                         <tr>
                            <td>License:</td>
@@ -324,7 +324,6 @@
             <tr>
                <td style="border-right: 0px solid;" title="Default = 50">Max Display String Length: </td>
                <td style="border-left: 0px solid;">
-<!--                   <input name="valTruncate" type="text" id="valTruncate" style="width: 30px; text-align: center;" value="50"> -->
                   <select name="valTruncate" id="valTagFont" titl="Default: 50" style="width: 75px;">
                      <option value="20">20</option>
                      <option value="25">25</option>
@@ -335,22 +334,29 @@
                      <option value="100">100</option>
                   </select>                  
                   
-                   
                </td>
                <td>
                   <input type="checkbox" id="showSlot"> <label for="showSlot"><span></span>  Show Timeslots in Call History Log</label>
                </td>
             </tr>
             <tr>
-               <td style="border-right: 0px solid;">&#8212; </td>
-               <td style="border-left: 0px solid;">&nbsp;</td>          
+               <td style="border-right: 0px solid;">
+               <input type="checkbox" id="showEnc"> <label for="showEnc"><span></span>  Show Encryption Information in Main Display</label> 
+               </td>
+
+               <td style="border-left: 0px solid;">
+				&nbsp;
+               </td>
+               </td>          
                <td>
                   <input type="checkbox" id="showLast"> <label for="showLast"><span></span>  Show Last Seen Time in Frequency Table</label>
                </td>
             </tr>
             
             <tr>
-               <td style="border-right: 0px solid;">&#8212; </td>
+               <td style="border-right: 0px solid;">
+               <input type="checkbox" id="showSourceId"> <label for="showSourceId"><span title="Show subscriber ID in Main Display when source tag is not present."></span>  Show Source ID if source tag not present.</label>
+               </td>
                <td style="border-left: 0px solid;">&nbsp;</td>          
                <td>
                   <input type="checkbox" id="colSlot2"> <label for="colSlot2"><span title="Collapses Slot 2 in Active Frequency Table after 2 minutes of inactivity."></span>  Collapse Slot 2 Display After 2 min.</label>
@@ -460,8 +466,6 @@
          
 <!--  Hide config settings stuff until we figure out what to do with it.         -->
  <div style="display: none;">        
- 
- 
          <form method="post" action="#" id="form_settings">
             <p>
             <div id="cfg_list_area" class="cfg_list"></div>
