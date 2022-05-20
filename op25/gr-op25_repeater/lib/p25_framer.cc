@@ -7,10 +7,10 @@
 #include <vector>
 #include <stdio.h>
 #include <stdint.h>
-#include <bch.h>
+#include "bch.h"
 #include <sys/time.h>
-#include <op25_p25_frame.h>
-#include <p25_framer.h>
+#include "op25_p25_frame.h"
+#include "p25_framer.h"
 
 #include "check_frame_sync.h"
 

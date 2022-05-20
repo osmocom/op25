@@ -30,7 +30,7 @@
 #include "p25p2_vf.h"
 #include "nxdn_tx_sb_impl.h"
 #include "nxdn_const.h"
-#include <op25_imbe_frame.h>
+#include "op25_imbe_frame.h"
 
 #include <vector>
 #include <stdint.h>

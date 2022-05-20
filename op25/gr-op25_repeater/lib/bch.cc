@@ -1,7 +1,7 @@
 
 #include <stdio.h>
 #include <vector>
-#include <bch.h>
+#include "bch.h"
 /*
  * Copyright 2010, KA1RBI 
  */

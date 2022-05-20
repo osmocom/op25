@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <sys/time.h>
-#include <p25p2_framer.h>
+#include "p25p2_framer.h"
 
 #include "check_frame_sync.h"
 
