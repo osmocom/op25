@@ -31,7 +31,7 @@ import sys
 import os
 import math
 import json
-from gnuradio import gr, gru, audio, eng_notation
+from gnuradio import gr, audio, eng_notation
 from gnuradio import filter, blocks, analog, digital
 from gnuradio.eng_option import eng_option
 from optparse import OptionParser

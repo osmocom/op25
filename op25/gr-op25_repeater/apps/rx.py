@@ -44,7 +44,7 @@ try:
 except:
     pass
 
-from gnuradio import audio, eng_notation, gr, gru, filter, blocks, fft, analog, digital
+from gnuradio import audio, eng_notation, gr, filter, blocks, fft, analog, digital
 from gnuradio.eng_option import eng_option
 from math import pi
 from optparse import OptionParser
