@@ -48,11 +48,11 @@ namespace gr {
        * creating new instances.
        */
       static sptr make(const char* options, int debug, gr::msg_queue::sptr queue, int msgq_id);
-      virtual void set_xormask(const char*p) {}
-      virtual void set_nac(int nac) {}
-      virtual void set_slotid(int slotid) {}
-      virtual void insert_whitelist(int grpaddr) {}
-      virtual void insert_blacklist(int grpaddr) {}
+      virtual void set_xormask(const char*p) = 0;
+      virtual void set_nac(int nac) = 0;
+      virtual void set_slotid(int slotid) = 0;
+      virtual void insert_whitelist(int grpaddr) = 0;
+      virtual void insert_blacklist(int grpaddr) = 0;
     };
 
   } // namespace op25_repeater

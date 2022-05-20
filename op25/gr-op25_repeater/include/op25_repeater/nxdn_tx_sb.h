@@ -48,7 +48,7 @@ namespace gr {
        * creating new instances.
        */
       static sptr make(int versbose_flag, const char * conf_file, bool nxdn96_mode);
-      virtual void set_gain_adjust(float gain_adjust) {}
+      virtual void set_gain_adjust(float gain_adjust) = 0;
     };
 
   } // namespace op25_repeater

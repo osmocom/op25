@@ -47,7 +47,7 @@ namespace gr {
        * creating new instances.
        */
       static sptr make(bool encode_flag, bool verbose_flag, int stretch_amt, char* udp_host, int udp_port, bool raw_vectors_flag);
-      virtual void set_gain_adjust(float gain_adjust) {}
+      virtual void set_gain_adjust(float gain_adjust) = 0;
     };
 
   } // namespace op25_repeater
