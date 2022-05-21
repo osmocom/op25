@@ -221,7 +221,7 @@ class p25_mod_bf(gr.hier_block2):
             input_sample_rate = 2400   # only exception is nxdn48 = 2400 rate
 
         intermediate_rate = 48000
-        self._interp_factor = intermediate_rate / input_sample_rate
+        self._interp_factor = intermediate_rate // input_sample_rate
 
         self.dstar = dstar
         self.bt = bt
