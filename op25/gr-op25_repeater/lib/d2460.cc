@@ -18,13 +18,13 @@
 
 #include <stdint.h>
 
-#include <mbelib.h>
-#include <ambe.h>
-#include <p25p2_vf.h>
-#include <imbe_decoder.h>
-#include <software_imbe_decoder.h>
+#include "mbelib.h"
+#include "ambe.h"
+#include "p25p2_vf.h"
+#include "imbe_decoder.h"
+#include "software_imbe_decoder.h"
 #include "imbe_vocoder/imbe_vocoder.h"
-#include <ambe_encoder.h>
+#include "ambe_encoder.h"
 
 static const float GAIN_ADJUST=7.0;  /* attenuation (dB) */
 
