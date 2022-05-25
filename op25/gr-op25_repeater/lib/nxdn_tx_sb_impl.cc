@@ -265,7 +265,7 @@ nxdn_tx_sb_impl::config()
 	FILE * fp1 = fopen(d_config_file, "r");
 	char line[256];
 	char * cp;
-	unsigned int li[9];
+	unsigned int li[10];
 	long int ran;
 	long int lich, lich2;
 	if (!fp1) {
