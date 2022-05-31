@@ -1,0 +1,33 @@
+
+Running OP25 in Gnuradio 3.9 and 3.10       Date: May 31, 2022
+==============================================================
+
+Installation
+------------
+
+0. First remove any existing OP25 installation
+    cd ...path-to-existing/op25/build
+    sudo make uninstall
+
+1. Apply the patch for gr3.8 as described in file README-gr3.8.patch
+   in this directory.
+
+2. Run the command 
+   ./install-gr3.9.sh
+   (Note, do not use the standard install.sh script for gr3.9 and/or gr3.10).
+
+Bugs
+----
+
+1. The location for WIN_HANN, WIN_HAMMING, and so forth has moved to 
+   fft.window (formerly filter.firdes).  The python has not yet been 
+   updated to reflect.
+
+2. A strange hang condition has been observed in rx.py - the bug is not 
+   fully understood.  The strace output shows many futex calls ending
+   with a "timeout" - not clear if some missing event might be causing this
+   stall condition...  User feedback is requested...
+
+3. Currently the cmake process is not centralized; 'make uninstall' must
+   therefore be run once from each of the 'build' and 'build_repeater'
+   directories under 'src/'.
