@@ -1,5 +1,12 @@
 #! /usr/bin/python3
 
+# Copyright 2022, Max H. Parke KA1RBI
+#
+# This file is part of GNU Radio and part of OP25
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+
 import sys
 import os
 import glob
@@ -7,6 +14,15 @@ import shutil
 from gnuradio.modtool.core.newmod import ModToolNewModule
 from gnuradio.modtool.core.add import ModToolAdd
 from gnuradio.modtool.core.bind import ModToolGenBindings
+
+msg = """
+This is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 3, or (at your option)
+any later version.
+"""
+
+print('\n%s Copyright 2022, Max H. Parke KA1RBI\nhttps://osmocom.org/projects/op25\n%s' % (sys.argv[0], msg))
 
 TLD = 'op25'
 
