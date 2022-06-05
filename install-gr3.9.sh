@@ -28,13 +28,6 @@ if [ ! -d $TREE_DIR ]; then
 	exit 1
 fi
 
-f="$TREE_DIR/op25/gr-op25_repeater/CMakeLists.txt"
-echo "editing cmake file $f"
-if [ ! -f $f ]; then
-	echo ==== Error, file $f not found 
-fi
-sed -i 's/^find_package(Gnuradio .*REQUIRED)/find_package(Gnuradio "3.9" REQUIRED COMPONENTS blocks fft filter)/' $f
-
 cd $TREE_DIR
 
 mkdir build
