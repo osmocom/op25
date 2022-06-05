@@ -261,13 +261,13 @@ namespace gr {
     }
 
     void
-    decoder_bf_impl::set_key(const key_type& key)
+    decoder_bf_impl::set_key(const crypto_algorithm::key_type& key)
     {
       d_crypto_module->set_key(key);
     }
 
     void
-    decoder_bf_impl::set_key_map(const key_map_type& keys)
+    decoder_bf_impl::set_key_map(const crypto_algorithm::key_map_type& keys)
     {
       d_crypto_module->set_key_map(keys);
     }

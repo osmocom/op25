@@ -160,9 +160,9 @@ namespace gr {
 
       void set_logging(bool verbose = true);
 
-      void set_key(const key_type& key);
+      void set_key(const crypto_algorithm::key_type& key);
 
-      void set_key_map(const key_map_type& keys);
+      void set_key_map(const crypto_algorithm::key_map_type& keys);
     };
   } // namespace op25
 } // namespace gr
