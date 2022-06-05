@@ -33,7 +33,7 @@ namespace gr {
     {
      private:
       const float d_block_rate;
-      boost::scoped_array<float> d_history;
+      boost::scoped_array<float> my_d_history;
       size_t d_history_last;
       gr::msg_queue::sptr d_queue;
       double d_symbol_clock;
