@@ -20,6 +20,18 @@
 #include "ambe3600x2250_const.h"
 #include "ambe3600x2400_const.h"
 
+#ifndef M_PI
+# define M_PI           3.14159265358979323846  /* pi */
+#endif 
+
+#ifndef M_E
+# define M_E            2.7182818284590452354   /* e */
+#endif 
+
+#ifndef M_SQRT2
+# define M_SQRT2        1.41421356237309504880  /* sqrt(2) */
+#endif 
+
 static int
 mbe_dequantizeAmbeParms (mbe_parms * cur_mp, mbe_parms * prev_mp, const int *b, int dstar)
 {
