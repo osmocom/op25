@@ -57,6 +57,8 @@ op25_dir = DEST_DIR + '/op25'
 os.mkdir(op25_dir)
 os.chdir(op25_dir)
 
+SCRIPTS = SRC_DIR + '/scripts'
+
 def edit_cmake(filename, mod, srcfiles):
 	lines = open(filename).read().rstrip().split('\n')
 	srcdefs = []
@@ -131,30 +133,39 @@ for mod in sorted(MODS.keys()):
 	incl = '%s/include/%s' % (pfx, mod)
 	d_pfx = '%s/op25/gr-%s' % (DEST_DIR, mod)
 	d_lib = '%s/lib' % d_pfx
-	d_incl = '%s/include/%s' % (d_pfx, mod)
+	d_incl_alt1 = '%s/include/%s' % (d_pfx, mod)
+	d_incl_alt2 = '%s/include/gnuradio/%s' % (d_pfx, mod)
+	if os.path.isdir(d_incl_alt1):
+		d_incl = d_incl_alt1
+	elif os.path.isdir(d_incl_alt2):
+		d_incl = d_incl_alt2
+		sl = 'gnuradio/%s' % mod
+		os.symlink(sl, '%s/include/%s' % (d_pfx, mod))
+	else:
+		sys.stderr.write('neither %s nor %s found, aborting\n' % (d_incl_alt1, d_incl_alt2))
+		sys.exit(1)
+
 	for block in MODS[mod]:
 		include = '%s/%s.h' % (incl, block)
 		args = get_args_from_h(include)
-		t = 'sync' if block == 'fsk4_slicer_fb' else 'general'
+		t = 'sync' if block == 'fsk4_slicer_fb' or block == 'pcap_source_b' else 'general'
 		print ('add %s %s type %s directory %s args %s' % (mod, block, t, os.getcwd(), args))
 		m = ModToolAdd(blockname=block,block_type=t,lang='cpp',copyright='Steve Glass, OP25 Group', argument_list=args)
 		m.run()
+
+	assert os.path.isdir(d_incl)
+	os.system('/bin/bash %s/%s %s' % (SCRIPTS, 'do_sedm.sh', d_incl))
 
 	srcfiles = []
 	srcfiles += glob.glob('%s/lib/*.cc' % pfx)
 	srcfiles += glob.glob('%s/lib/*.cpp' % pfx)
 	srcfiles += glob.glob('%s/lib/*.c' % pfx)
 	srcfiles += glob.glob('%s/lib/*.h' % pfx)
-	hfiles = []
-	hfiles += glob.glob('%s/include/%s/*.h' % (pfx, mod))
 
 	assert os.path.isdir(d_lib)
-	assert os.path.isdir(d_incl)
 
 	for f in srcfiles:
 		shutil.copy(f, d_lib)
-	for f in hfiles:
-		shutil.copy(f, d_incl)
 
 	if mod == 'op25_repeater':
 		for d in 'imbe_vocoder ezpwd'.split():
@@ -167,11 +178,19 @@ for mod in sorted(MODS.keys()):
 
 	edit_cmake('%s/CMakeLists.txt' % d_lib, mod, srcfiles)
 
-	os.system('/bin/bash %s/do_sed.sh' % (SRC_DIR))
+	os.system('/bin/bash %s/do_sed.sh' % (SCRIPTS))
+	f = '%s/CMakeLists.txt' % (d_pfx)
+	if mod == 'op25':
+		exe = '%s/do_sedb.sh %s' % (SCRIPTS, f)
+	elif mod == 'op25_repeater':
+		exe = '%s/do_sedc.sh %s' % (SCRIPTS, f)
+	os.system('/bin/bash %s %s' % (exe, f))
+	os.system('/bin/bash %s/do_sedp.sh %s' % (SCRIPTS, f))
+	os.system('/bin/bash %s/do_sedp2.sh %s' % (SCRIPTS, d_pfx))
 
 	for block in MODS[mod]:
 		print ('bind %s %s' % (mod, block))
-		m = ModToolGenBindings(block, addl_includes='', define_symbols='')
+		m = ModToolGenBindings(block, addl_includes='', define_symbols='', update_hash_only=False)
 		m.run()
 
 	os.chdir(op25_dir)
