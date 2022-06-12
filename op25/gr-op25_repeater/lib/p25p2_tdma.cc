@@ -326,7 +326,7 @@ int p25p2_tdma::handle_acch_frame(const uint8_t dibits[], bool fast, bool is_lcc
 
 	bool crc_ok = (is_lcch) ? (crc16(bits, len) == 0) : crc12_ok(bits, len);
 	int olen = (is_lcch) ? 23 : len/8;
-	if (d_debug >= 1)
+	if (d_debug >= 10)
 		fprintf(stderr, "p25p2_tdma: crc%d result: %s, length %d\n", (is_lcch) ? 16 : 12, (crc_ok) ? "ok" : "failed", olen);
 	rc = -1;
 	if (crc_ok) { // TODO: rewrite crc12 so we don't have to do so much bit manipulation
