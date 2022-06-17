@@ -154,18 +154,23 @@ for mod in sorted(MODS.keys()):
 		m.run()
 
 	assert os.path.isdir(d_incl)
-	os.system('/bin/bash %s/%s %s' % (SCRIPTS, 'do_sedm.sh', d_incl))
 
 	srcfiles = []
 	srcfiles += glob.glob('%s/lib/*.cc' % pfx)
 	srcfiles += glob.glob('%s/lib/*.cpp' % pfx)
 	srcfiles += glob.glob('%s/lib/*.c' % pfx)
 	srcfiles += glob.glob('%s/lib/*.h' % pfx)
+	hfiles = glob.glob('%s/*.h' % incl)
 
 	assert os.path.isdir(d_lib)
 
 	for f in srcfiles:
 		shutil.copy(f, d_lib)
+
+	for f in hfiles:
+		shutil.copy(f, d_incl)
+
+	os.system('/bin/bash %s/%s %s' % (SCRIPTS, 'do_sedm.sh', d_incl))
 
 	if mod == 'op25_repeater':
 		for d in 'imbe_vocoder ezpwd'.split():
