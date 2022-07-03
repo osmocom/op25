@@ -386,6 +386,15 @@ int p25p2_tdma::handle_frame(void)
 	return rc;
 }
 
+static inline bool null_codeword(const uint8_t*bp) {
+	static const int l = 36;	// dibits per voice frame
+	for (int i=0; i<l; i++) {
+		if (bp[i])
+			return false;
+	}
+	return true;
+}
+
 /* returns true if in sync and slot matches current active slot d_slotid */
 int p25p2_tdma::handle_packet(const uint8_t dibits[]) 
 {
@@ -410,11 +419,15 @@ int p25p2_tdma::handle_packet(const uint8_t dibits[])
                 track_vb(burst_type);
                 handle_4V2V_ess(&xored_burst[84]);
                 if ( !encrypted() ) {
-                        handle_voice_frame(&xored_burst[11]);
-                        handle_voice_frame(&xored_burst[48]);
+                        if(!null_codeword(&burstp[11]))
+	                        handle_voice_frame(&xored_burst[11]);
+                        if(!null_codeword(&burstp[48]))
+	                        handle_voice_frame(&xored_burst[48]);
                         if (burst_type == 0) {
-                                handle_voice_frame(&xored_burst[96]);
-                                handle_voice_frame(&xored_burst[133]);
+                                if(!null_codeword(&burstp[96]))
+	                                handle_voice_frame(&xored_burst[96]);
+                                if(!null_codeword(&burstp[133]))
+	                                handle_voice_frame(&xored_burst[133]);
                         }
                 }
 		return -1;
