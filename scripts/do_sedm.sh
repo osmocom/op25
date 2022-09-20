@@ -1,15 +1,19 @@
 #! /bin/bash
 
 me=$0
-dir=$1
-files=`grep -l msg_queue ${dir}/*.h`
+srcs=`find lib include -name '*.c' -o -name '*.h' -o -name '*.cc'`
+dir=`pwd`
 
-echo "$me processing directory $dir, files $files"
-
+files=`grep -l -e 'gr::message' -e 'gr::msg_queue' $srcs`
 for f in $files; do
-	echo processing $f
-	sed -i -f - $f << EOF
-/include.*block.h/a\
-#include <gnuradio/msg_queue.h>
-EOF
+	echo $me editing file $f in $dir
+	sed -i 's%gr::msg_queue%gr::op25::msg_queue%g' $f
+	sed -i 's%gr::message%gr::op25::message%g' $f
+done
+
+files=`grep -l -e 'include.*gnuradio/message' -e 'include.*gnuradio/msg_queue' $srcs`
+for f in $files; do
+	echo $me editing file $f in $dir
+	sed -i 's%gnuradio/msg_queue%op25/msg_queue%g' $f
+	sed -i 's%gnuradio/message%op25/message%g' $f
 done
