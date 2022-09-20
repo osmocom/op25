@@ -28,7 +28,7 @@ P25 C4FM/CQPSK demodulation block.
 
 import sys
 from gnuradio import gr, eng_notation
-from gnuradio import filter, analog, digital, blocks
+from gnuradio import filter, analog, digital, blocks, fft
 from gnuradio.eng_option import eng_option
 import op25
 import op25_repeater

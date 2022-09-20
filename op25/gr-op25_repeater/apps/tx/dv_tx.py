@@ -26,7 +26,7 @@ import sys
 import os
 import math
 from gnuradio import gr, audio, eng_notation
-from gnuradio import filter, blocks, analog, digital
+from gnuradio import filter, blocks, analog, digital, fft
 from gnuradio.eng_option import eng_option
 from optparse import OptionParser
 

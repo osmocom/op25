@@ -41,7 +41,7 @@ running this script when using method B.
 """
 
 from gnuradio import gr, eng_notation, blocks, digital
-from gnuradio import audio, filter, analog
+from gnuradio import audio, filter, analog, fft
 from gnuradio.eng_option import eng_option
 from optparse import OptionParser
 from usrpm import usrp_dbid
