@@ -30,6 +30,7 @@ import threading
 import glob
 import subprocess
 import zmq
+import op25
 
 from gnuradio import gr
 from waitress.server import create_server

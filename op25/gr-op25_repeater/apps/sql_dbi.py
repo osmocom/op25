@@ -27,6 +27,7 @@ import threading
 import traceback
 import sqlite3
 
+import op25
 from gnuradio import gr
 
 from emap import events_map, cc_events

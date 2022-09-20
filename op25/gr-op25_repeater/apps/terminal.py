@@ -30,6 +30,7 @@ import threading
 import traceback
 import socket
 
+import op25
 from gnuradio import gr
 
 KEEPALIVE_TIME = 3.0   # no data received in (seconds)
