@@ -104,9 +104,14 @@ void bind_message(py::module& m)
 
 
         
-        .def("to_string",&message::to_string,       
-            D(message,to_string)
-        )
+        //.def("to_string",&message::to_string,       
+        //    D(message,to_string)
+        //)
+        .def("to_string",
+             [](std::shared_ptr<message> msg) {
+                 std::string s = msg->to_string();
+                 return py::bytes(s); // Return the data without transcoding
+             })
 
         ;
 

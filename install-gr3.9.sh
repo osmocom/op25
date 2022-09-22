@@ -14,6 +14,8 @@ if [ ! -d op25/gr-op25 ]; then
 	exit
 fi
 
+TOP_DIR=$PWD
+
 sudo apt-get update
 sudo apt-get build-dep gnuradio
 sudo apt-get install gnuradio gnuradio-dev gr-osmosdr librtlsdr-dev libuhd-dev  libhackrf-dev libitpp-dev libpcap-dev cmake git swig build-essential pkg-config doxygen python3-numpy python3-waitress python3-requests python3-pip pybind11-dev clang-format libsndfile1-dev
@@ -45,6 +47,9 @@ make
 sudo make install
 sudo ldconfig
 cd ../
+
+cd $TOP_DIR/op25
+sh ../scripts/do_sedpy.sh
 
 echo ====== 
 echo ====== NOTICE 

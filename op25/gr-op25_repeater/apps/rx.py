@@ -156,7 +156,7 @@ class p25_rx_block (gr.top_block):
                 self.rtl_found = True
 
             gain_names = self.src.get_gain_names()
-            for name in gain_names:
+            if 0:  #  pending fix crash ### for name in gain_names:
                 range1 = self.src.get_gain_range(name)
                 print ("gain: name: %s range: start %d stop %d step %d" % (name, range1[0].start(), range1[0].stop(), range1[0].step()))
             if options.gains:
