@@ -12,7 +12,7 @@ class CryptoState
 {
 public:
 	CryptoState() :
-	kid(0), algid(0), mi(MESSAGE_INDICATOR_LENGTH)
+	mi(MESSAGE_INDICATOR_LENGTH), kid(0), algid(0)
 	{ }
 public:
 	std::vector<uint8_t> mi;
