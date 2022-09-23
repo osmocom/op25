@@ -33,3 +33,10 @@ echo ====== you must install gnuplot, e.g., manually as follows:
 echo ====== 
 echo ====== sudo apt-get install gnuplot-x11
 echo ====== 
+echo ====== 
+echo ====== Separately, we suggest you set device and driver permissions:
+echo ====== \$ cd scripts
+echo ====== \$ ./udev_rules.sh
+echo ====== It is only necessary to do this once.  Currently this script 
+echo ====== handles the rtl-sdr and airspy only.
+echo ====== 
