@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/python3
 
 from p25craft import make_fakecc_tsdu
 

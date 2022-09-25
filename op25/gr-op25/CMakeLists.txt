@@ -68,6 +68,9 @@ endif()
 ########################################################################
 find_package(CppUnit)
 
+set(ENABLE_PYTHON "TRUE" CACHE BOOL "enable python")
+cmake_policy(SET CMP0012 NEW)
+
 # To run a more advanced search for GNU Radio and it's components and
 # versions, use the following. Add any components required to the list
 # of GR_REQUIRED_COMPONENTS (in all caps) and change "version" to the
@@ -76,11 +79,12 @@ find_package(CppUnit)
 # set(GR_REQUIRED_COMPONENTS RUNTIME BLOCKS FILTER ...)
 # find_package(Gnuradio "version")
 set(GR_REQUIRED_COMPONENTS RUNTIME BLOCKS FILTER PMT)
-find_package(Gnuradio)
-
-if(NOT GNURADIO_RUNTIME_FOUND)
-    message(FATAL_ERROR "GnuRadio Runtime required to compile op25")
+SET(MIN_GR_VERSION "3.8.0")
+find_package(Gnuradio REQUIRED)
+if("${Gnuradio_VERSION}" VERSION_LESS MIN_GR_VERSION)
+    MESSAGE(FATAL_ERROR "GnuRadio version required: >=\"" ${MIN_GR_VERSION} "\" found: \"" ${Gnuradio_VERSION} "\"")
 endif()
+
 if(NOT CPPUNIT_FOUND)
     message(FATAL_ERROR "CppUnit required to compile op25")
 endif()

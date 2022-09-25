@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 # Copyright 2017, 2018, 2019, 2020 Max H. Parke KA1RBI
 # 

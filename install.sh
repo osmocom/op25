@@ -10,9 +10,12 @@ if [ ! -d op25/gr-op25 ]; then
 	exit
 fi
 
+sudo sed -i -- 's/^# *deb-src/deb-src/' /etc/apt/sources.list
+
 sudo apt-get update
 sudo apt-get build-dep gnuradio
-sudo apt-get install gnuradio gnuradio-dev gr-osmosdr librtlsdr-dev libuhd-dev  libhackrf-dev libitpp-dev libpcap-dev cmake git swig build-essential pkg-config doxygen python-numpy python-waitress python-requests
+sudo apt-get install gnuradio gnuradio-dev gr-osmosdr librtlsdr-dev libuhd-dev  libhackrf-dev libitpp-dev libpcap-dev cmake git swig build-essential pkg-config doxygen python3-numpy python3-waitress python3-requests
+sudo apt-get install liborc-dev
 
 mkdir build
 cd build

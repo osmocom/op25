@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # p25craft.py - utility for crafting APCO P25 packets
 #

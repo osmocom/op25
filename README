@@ -1,0 +1,23 @@
+
+As of this writing (Sept. 2022) OP25 builds for python3 and GNU Radio 3.8.
+
+The full list of supported versions is as follows:
+
+PYTHON 2 AND GNU RADIO 3.7
+==========================
+It should still be possible to use the file gr3.8.patch (in reverse) to 
+downgrade the source tree to build against Python 2 and GNU Radio 3.7,
+although this has not been tested.
+	$ cat gr3.8.patch | patch -p1 -R
+Once this has been done, proceed by running the install.sh script.
+
+PYTHON 3 AND GNU RADIO 3.8
+==========================
+It is no longer necessary to apply the gr3.8 patch to the op25 source tree,
+as Python3/GNU Radio 3.8 is now the default.  You can proceed directly to
+running the install.sh script.
+
+PYTHON 3 AND GNU RADIO 3.9 / 3.10
+=================================
+It is no longer necessary to apply the gr3.8 patch to the op25 source tree,
+See the file README-gr3.9 for procedures for both GNU Radio 3.9 and 3.10.

@@ -21,7 +21,7 @@
 # Include swig generation macros
 ########################################################################
 find_package(SWIG)
-find_package(PythonLibs 2)
+find_package(PythonLibs 3)
 if(NOT SWIG_FOUND OR NOT PYTHONLIBS_FOUND)
     return()
 endif()
@@ -31,9 +31,7 @@ include(GrPython)
 ########################################################################
 # Setup swig generation
 ########################################################################
-foreach(incdir ${GNURADIO_RUNTIME_INCLUDE_DIRS})
-    list(APPEND GR_SWIG_INCLUDE_DIRS ${incdir}/gnuradio/swig)
-endforeach(incdir)
+set(GR_SWIG_INCLUDE_DIRS $<TARGET_PROPERTY:gnuradio::runtime_swig,INTERFACE_INCLUDE_DIRECTORIES>)
 
 set(GR_SWIG_LIBRARIES gnuradio-op25)
 set(GR_SWIG_DOC_FILE ${CMAKE_CURRENT_BINARY_DIR}/op25_swig_doc.i)
@@ -44,7 +42,7 @@ GR_SWIG_MAKE(op25_swig op25_swig.i)
 ########################################################################
 # Install the build swig module
 ########################################################################
-GR_SWIG_INSTALL(TARGETS op25_swig DESTINATION ${GR_PYTHON_DIR}/op25)
+GR_SWIG_INSTALL(TARGETS op25_swig DESTINATION ${OP25_PYTHON_DIR}/op25)
 
 ########################################################################
 # Install swig .i files for development

@@ -63,7 +63,7 @@ list(APPEND op25_sources
 )
 
 add_library(gnuradio-op25 SHARED ${op25_sources})
-target_link_libraries(gnuradio-op25 ${Boost_LIBRARIES} ${GNURADIO_RUNTIME_LIBRARIES} itpp pcap)
+target_link_libraries(gnuradio-op25 ${Boost_LIBRARIES} gnuradio::gnuradio-runtime itpp pcap)
 set_target_properties(gnuradio-op25 PROPERTIES DEFINE_SYMBOL "gnuradio_op25_EXPORTS")
 
 ########################################################################
