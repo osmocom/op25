@@ -48,8 +48,8 @@ class du_queue_runner(threading.Thread):
 		self.keep_running = True
 		self.uncommitted = 0
 		self.max_q = 0
-		self.start()
 		self.next_t = time.time()
+		self.start()
 
 	def run(self):
 		self.connect()
