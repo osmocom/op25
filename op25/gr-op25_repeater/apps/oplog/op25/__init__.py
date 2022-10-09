@@ -51,12 +51,13 @@ app.config['SQLALCHEMY_ECHO'] = False  # set to True to send sql statements to t
 app.secret_key = b'kH8HT0ucrh' # random bytes - this key not used anywhere else
 
 db = SQLAlchemy(app)
+db.init_app(app)
 
-try:
-    db.reflect(app=app)
-    db.init_app(app)
-except OperationalError as e:
-    raise(e) # database is locked by another process
+with app.app_context():
+    try:
+        db.reflect()
+    except OperationalError as e:
+        raise(e) # database is locked by another process
 
 class MyDateType(types.TypeDecorator):
     impl = types.REAL
