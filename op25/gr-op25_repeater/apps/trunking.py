@@ -956,6 +956,31 @@ class trunked_system (object):
                 self.rfss_txchan = f1 + self.freq_table[chan >> 12]['offset']
             if self.debug > 10:
                 sys.stderr.write('tsbk3a rfss status: syid: %x rfid %x stid %d ch1 %x(%s)\n' %(syid, rfid, stid, chan, self.channel_id_to_string(chan)))
+        elif opcode == 0x29:   # secondary cc explicit
+            rfid = (tsbk >> 72) & 0xff	# octet 2
+            stid = (tsbk >> 64) & 0xff	# octet 3
+            ch_t = (tsbk >> 48) & 0xffff	# octet 4,5
+            ch_r = (tsbk >> 24) & 0xffff	# octet 7,8
+            ss = (tsbk >> 16) & 0xff		# octet 9
+            ft = self.channel_id_to_frequency(ch_t)
+            if ft:
+                self.secondary[ft] = 1
+            if self.debug > 10:
+                sys.stderr.write('tsbk29 sccb_exp: rfid %x stid %d %x(%s) %x(%s)\n' %(rfid, stid, ch_t, self.channel_id_to_string(ch_t), ch_r, self.channel_id_to_string(ch_r)))
+        elif opcode == 0x35:   # time and date
+            flags = (tsbk >> 76) & 0xf	# octet 2 upper nib
+            local_time_offset = (tsbk >> 64) & 0xfff	# octet 2 lower nib and octet 3
+            dt = (tsbk >> 40) & 0xffffff	# octet 4-6
+            tm = (tsbk >> 16) & 0xffffff	# octet 7-9
+            # TODO: FIXME: check 'flags' bits to verify time/date/offset valid prior to use
+            yy = (dt >> 2) & 0x1fff
+            dd = (dt >> 15) & 0x1f
+            mm = (dt >> 20) & 0xf
+            hh = (tm >> 19) & 0x1f
+            mn = (tm >> 13) & 0x3f
+            ss = (tm >> 7) & 0x3f
+            if self.debug > 10:
+                sys.stderr.write('tsbk35 time and date: flags %x offset %d %02d/%02d/%02d %02d:%02d:%02d\n' % (flags, local_time_offset, yy, mm, dd, hh, mn, ss))
         elif opcode == 0x39:   # secondary cc
             rfid = (tsbk >> 72) & 0xff
             stid = (tsbk >> 64) & 0xff
@@ -1081,11 +1106,12 @@ class trunked_system (object):
             d = {'cc_event': 'ext_fnct_cmd', 'mfrid': mfrid, 'efclass': efclass, 'efoperand': efoperand, 'efargs': self.mk_src_dict(efargs), 'target': target, 'opcode': opcode}
             self.post_event(d)
             if self.debug > 10:
-                sys.stderr.write('tsbk24 ext_fnct_cmd: efclass %d efoperand %d efargs %s sysid %s target %s\n' % (efclass, efoperand, efargs, sysid, target))
+                sys.stderr.write('tsbk24 ext_fnct_cmd: efclass %d efoperand %d efargs %s target %s\n' % (efclass, efoperand, efargs, target))
 
 
-        #else:
-        #	sys.stderr.write('tsbk other %x\n' % opcode)
+        else:
+            if self.debug > 1:
+                sys.stderr.write('received unsupported TSBK opcode %x (%x)\n' % (opcode, tsbk))
         return updated
 
     def hunt_cc(self, curr_time):
