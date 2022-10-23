@@ -1383,7 +1383,7 @@ function dispatch_commands(txt) {
 						var efargs = d.efargs;
 						var target = d.target;
 						n_opcode = "Ext Fnct Cmd: " + efoperand;
-						source = efargs;	
+						source = efargs['unit_id'];	
 						noLog = 0;
 						break;							
 	
@@ -1469,12 +1469,12 @@ function dispatch_commands(txt) {
 
 					case "33": // 0x33 - iden up tdma
 						var sysid 	= d.sysid;
-						var type	= 'TDMA';						
 						var iden 	= d.iden;
 						var freq 	= d.freq / 1000000;
 						var offset 	= d.offset / 1000000;
 						var step 	= d.step/100000;
 						var slots 	= d.slots;
+						var type = (slots == 1) ? 'FDMA' : 'TDMA';
 						channelId (sysid, iden, type, freq, offset, step, slots);
 						noLog = 1;
 						break;

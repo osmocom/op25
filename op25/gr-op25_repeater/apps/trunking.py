@@ -636,8 +636,9 @@ class trunked_system (object):
             self.freq_table[iden]['offset'] = toff * spac * 125
             self.freq_table[iden]['step'] = spac * 125
             self.freq_table[iden]['frequency'] = f1 * 5
-            self.freq_table[iden]['tdma'] = slots_per_carrier[channel_type]
-            d = {'cc_event': 'iden_up_tdma', 'iden': iden, 'offset': self.freq_table[iden]['offset'], 'step':  self.freq_table[iden]['step'], 'freq': self.freq_table[iden]['frequency'], 'slots':  self.freq_table[iden]['tdma'], 'opcode': opcode }
+            if slots_per_carrier[channel_type] > 1:
+                self.freq_table[iden]['tdma'] = slots_per_carrier[channel_type]
+            d = {'cc_event': 'iden_up_tdma', 'iden': iden, 'offset': self.freq_table[iden]['offset'], 'step':  self.freq_table[iden]['step'], 'freq': self.freq_table[iden]['frequency'], 'slots': slots_per_carrier[channel_type], 'opcode': opcode }
             self.post_event(d)          
             if self.debug > 10:
                 sys.stderr.write('tsbk33 iden up tdma id %d f %d offset %d spacing %d slots/carrier %d\n' % (iden, self.freq_table[iden]['frequency'], self.freq_table[iden]['offset'], self.freq_table[iden]['step'], self.freq_table[iden]['tdma']))
@@ -918,8 +919,9 @@ class trunked_system (object):
             self.freq_table[iden]['offset'] = toff * spac * 125
             self.freq_table[iden]['step'] = spac * 125
             self.freq_table[iden]['frequency'] = f1 * 5
-            self.freq_table[iden]['tdma'] = slots_per_carrier[channel_type]
-            d = {'cc_event': 'iden_up_tdma', 'iden': iden, 'offset': self.freq_table[iden]['offset'], 'step':  self.freq_table[iden]['step'], 'freq': self.freq_table[iden]['frequency'], 'slots':  self.freq_table[iden]['tdma'], 'opcode': opcode }
+            if slots_per_carrier[channel_type] > 1:
+                self.freq_table[iden]['tdma'] = slots_per_carrier[channel_type]
+            d = {'cc_event': 'iden_up_tdma', 'iden': iden, 'offset': self.freq_table[iden]['offset'], 'step':  self.freq_table[iden]['step'], 'freq': self.freq_table[iden]['frequency'], 'slots': slots_per_carrier[channel_type], 'opcode': opcode }
             self.post_event(d)          
             if self.debug > 10:
                 sys.stderr.write('tsbk33 iden up tdma id %d f %d offset %d spacing %d slots/carrier %d\n' % (iden, self.freq_table[iden]['frequency'], self.freq_table[iden]['offset'], self.freq_table[iden]['step'], self.freq_table[iden]['tdma']))
