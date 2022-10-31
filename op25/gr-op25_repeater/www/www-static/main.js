@@ -18,7 +18,7 @@
 // Software Foundation, Inc., 51 Franklin Street, Boston, MA
 // 02110-1301, USA.
 
-var lastUpdated = "04-Mar-2022";
+var lastUpdated = "28-Oct-2022";
 
 var d_debug = 0;
 var http_req = new XMLHttpRequest();
@@ -148,7 +148,6 @@ function rstFileReload() {
 	localStorage.ColorsTableUpdated == true;
 }
 
-
 function navOplog() {
 	window.open($('#oplogUrl').val());
 }
@@ -237,7 +236,8 @@ function rx_update(d) {
 // frequency, system, and talkgroup display
 function change_freq(d) {    // d json_type = change_freq
     t = 'TDMA';
-    var t = 'FDMA';
+    var t = 'FDMA';         // TODO: t= wtf??
+    
     if ((d['tdma'] == 0) || (d['tdma'] == 1)) {
         t = '<span style="color: lime;">TDMA ' + d['tdma'] + '</span>';
     }
@@ -258,10 +258,12 @@ function change_freq(d) {    // d json_type = change_freq
     last_algid[d['nac']] = d['algid'];
     last_keyid[d['nac']] = d['keyid'];
     last_srctag[d['nac']] = d['srcaddr.tag'];
+		
     if (d['tgid'] != null) {
         displayTgid = d['tgid'];
         displayTag = d['tag'].substring(0, trunc);
-
+		
+		
         if (d['srcaddr'] != null && d['srcaddr'] > 0) {
             display_src = d['srcaddr'];
 	        display_srctag = d['srcaddr_tag'];
@@ -329,11 +331,20 @@ function change_freq(d) {    // d json_type = change_freq
 			html += '<td style="text-align:center;"><span class="value" id="dKey">' + display_keyid + '</span>';
 			html += '</tr>';
     }
+
 // end encryption info block
 
-    html += '</table>';    
-    
     $('#div_s2').html(html).show();
+    
+// "Go To" Presets 
+    if (cbState('usePresets')) {
+    	$('#div_presets').show();
+    	for (let i = 1; i < 8; i++) {
+	    	$('#btnPreset' + i).css('color', $('#psc' + i).val()).html($('#preset-tag' + i).val());
+    	}
+		} else {
+			$('#div_presets').hide();    
+		}
     
     active_nac = d['nac'];
     active_tgid = d['tgid'];
@@ -352,20 +363,20 @@ function change_freq(d) {    // d json_type = change_freq
     var srcColor = "";  
 	var clr = getProperty('.c' + d.tag_color, 'color', 'tgcolors');
 	var srcClr = getProperty('.c' + d.srcaddr_color, 'color', 'tgcolors');
-	
+
 	var ani = getProperty('.c' + d.tag_color, 'animation', 'tgcolors');
 	var bg  = getProperty('.c' + d.tag_color, 'backgroundColor', 'tgcolors');
 	
 	sysColor = (cbState('color_main_sys') && d['tag_color']) ? clr : defColor;
 	tagColor = (cbState('color_main_tag') && d['tag_color']) ? clr : defColor;
 	srcColor = (cbState('color_main_tag') && d['srcaddr_color']) ? srcClr : defColor;
-
+	
+// 	console.log(d['srcaddr_tag'] + '---' + d['srcaddr_color']);
+	
     $('#dSys').css({"color": sysColor, "font-size": sysSize, "font-weight": fontStyle});
 	$('#dTag').css({"color": tagColor, "font-size": tgSize, "font-weight": fontStyle, "animation": ani, "background-color": bg});
-	
-	
+// 	console.log(srcColor);
     $('#dSrcTag').css({"color": srcColor, "font-size": tgSize, "font-weight": fontStyle, "animation": ani, "background-color": bg});
-//     console.log(display_srctag, 'srcColor=' + srcColor, 'defColor=' + defColor, d.srcaddr_color);
     
 } // end change_freq
 
@@ -768,6 +779,9 @@ function trunk_detail(d) { // d json_type = trunk_update
 					
 				// Active Frequencies Table
 				
+				if (sf_tgtag[slot] == $('#dTag').text()) {
+					sf_enc[slot] += ' A';				
+				}				
 				html += '<tr>';			
 				
 				if (slot == 0)
@@ -786,6 +800,9 @@ function trunk_detail(d) { // d json_type = trunk_update
 
 				// Sloppy Source ID Tag Hack 04/2022 -- this displays the source ID tag in the Main Display better than previous implementations. 
 				// RID display is problematic when using 0x02 opcode, which the Main Display is sometimes populated with.
+				
+				// Sloppy Source Tag Color Hack 10/2022 -- color is supposed to be set in change_freq() but sometimes it does not 
+				//		(src color might not be present in the json from python? not sure)
 			
 					if (sf_srctag[slot].length == 1 && sf_srcaddr[slot] > 1 && cbState('showSourceId') ) {				
 						sf_srctag[slot] = "ID: " + sf_srcaddr[slot];
@@ -796,13 +813,20 @@ function trunk_detail(d) { // d json_type = trunk_update
 							// something here to catch when no source address is present -- usually when a patch is used
 							// the display layout gets a little messed up when these vars are null.
 							sf_srcaddr[slot] = 'NO P25 ID';
-
 						}
 						$('#dSrcTag').text(sf_srctag[slot]);
-						$('#dSrc').text(sf_srcaddr[slot]);				
+						$('#dSrc').text(sf_srcaddr[slot]);
+
+						// redo the color for the source tag
+						var fontStyle = $('#valFontStyle').val();
+						var tgSize = parseInt($('#valTagFont').val());
+						var sysSize = parseInt($('#valSystemFont').val());
+						var ani = getProperty('.c' + d.tag_color, 'animation', 'tgcolors');
+						var bg  = getProperty('.c' + d.tag_color, 'backgroundColor', 'tgcolors');
+						var srcColor = getProperty('.c' + sf_srccolor[slot], 'color', 'tgcolors');
+						$('#dSrcTag').css({"color": srcColor, "font-size": tgSize, "font-weight": fontStyle, "animation": ani, "background-color": bg});			
 					}
-				
-				// end 'sloppy'
+				// end 'sloppy' -- not my proudest achievement... :(
 				
 // 				if (!p2 || zt == " " ) break;
 				if (!p2 || zt == " " || ( sf_la[slot] > 120 && cbState('colSlot2')) ) break;
@@ -995,6 +1019,7 @@ function trunk_update(d) {
     
     // display last command unless it was more than 10 seconds ago
     x2 = d['data']['last_command'];
+    if (x2=='skip') { x2 = 'scan'; }
     if (x2 && d['data']['last_command_time'] > -10) {
         $('#lastCommand').html('Last Command<br><b>' + x2.toUpperCase() + '</b><br>' + ' ' + d['data']['last_command_time'] * -1 + ' secs ago');
     } else {
@@ -1265,7 +1290,7 @@ function dispatch_commands(txt) {
             	//		   0xD8 = Tait
             	//		   0xF8 = Vertex Standard
             	//   trunking.py sends the following opcodes:
-            	//   -1, 0x00, 01, 02, 03, 09, 20, 27, 28, 2a, 2b, 2c, 2d, 2f, 31, 33, 34, 3d
+            	//   -1, 0x00, 01, 02, 03, 09, 20, 24, 27, 28, 2a, 2b, 2c, 2d, 2f, 31, 33, 34, 3d
             	
             	switch (opcode) {
             	
@@ -1377,15 +1402,26 @@ function dispatch_commands(txt) {
 						noLog = 1;
 						break;
 						
-					case "24":  // 0x24 - Extended Function Command (inhibit)  TODO: get reason code, log it
+					case "24":  // 0x24 - Extended Function Command (mostly inhibit commands)
 						var efclass = d.efclass;
 						var efoperand = d.efoperand;
 						var efargs = d.efargs;
 						var target = d.target;
 						n_opcode = "Ext Fnct Cmd: " + efoperand;
-						source = efargs['unit_id'];	
-						noLog = 0;
-						break;							
+							switch(efoperand) {
+								case 127:
+									n_opcode = "Radio Inhibit (7F)";
+									break;
+								case 126:
+									n_opcode = "Radio Uninhibit (7E)";
+									break;
+								case 125:
+									n_opcode = "Radio Detach (7D)";
+									break;
+							}
+						source = efargs['unit_id'];
+						noLog = cbState('je_extfunc') ? 0 : 1;
+						break;		
 	
 					case "27":  // 0x27 - DENY_RSP
 						source = d.target.unit_id;
@@ -1589,6 +1625,7 @@ function f_goto_button(command) {
         if (current_tgid != null)
             _tgid = current_tgid;
         _tgid = parseInt(prompt('Enter TGID to hold.', _tgid));
+        
         if (isNaN(_tgid) || _tgid < 0 || _tgid > 65535) {
             return;  // Cancel was pressed or invalid entry
         }
@@ -1603,6 +1640,30 @@ function f_goto_button(command) {
 	}	
         send_command(command, _tgid);
     }
+}
+
+function doPreset(ps) {
+
+	t = $('#preset-tg' + ps).val();
+	
+	if (isNaN(t) || t < 0 || t > 65535) {
+		return;  // Cancel was pressed or invalid entry
+	}	
+
+	// it's necessary to release current hold before trying to hold on a new tg	
+	if ($('#holdIndicator').is(':visible') ) {
+		send_command('skip', -1);
+		setTimeout(function() {
+			send_command('hold', parseInt(t));
+		}, 500);
+	
+		return;
+	}	
+	send_command('hold', parseInt(t));
+}
+
+function presetTable() {
+	(cbState('usePresets')) ? $('#configPresets').show() : $('#configPresets').hide();
 }
 
 function f_debug(d) {
@@ -1683,7 +1744,7 @@ document.onkeydown = function(evt) {
             break;            
         case 83:
             //  's' key - SKIP
-        	$('#lastCommand').html('S - Skip<br><br>').show();                   
+        	$('#lastCommand').html('S - Scan<br><br>').show();                   
             f_scan_button('skip');
             break;
         case 86:
@@ -2357,7 +2418,30 @@ function saveDisplaySettings() {
 		"showLast",
 		"colSlot2",
 		"showEnc",
-		"showSourceId"];
+		"showSourceId",
+		"je_extfunc",
+		"usePresets",
+		"preset-tg1",
+		"preset-tg2",
+		"preset-tg3",
+		"preset-tg4",
+		"preset-tg5",
+		"preset-tg6",
+		"preset-tg7",
+		"preset-tag1",
+		"preset-tag2",
+		"preset-tag3",
+		"preset-tag4",
+		"preset-tag5",
+		"preset-tag6",
+		"preset-tag7",
+		"psc1",
+		"psc2",
+		"psc3",
+		"psc4",
+		"psc5",
+		"psc6",
+		"psc7" ];
 	
 	for (r in s) {
 		if ($('#' + s[r]).attr('type') == "checkbox") {				
@@ -2369,6 +2453,7 @@ function saveDisplaySettings() {
 	
 	var settingsJSON = JSON.stringify(settings, null, 2);	
 	send_command('config-savesettings', settingsJSON);
+	
 }
 
 
@@ -2403,6 +2488,7 @@ function loadJsonDisplaySettings(settings) {
 
 	var ele, m;
 	for (item in settings) {
+
 		ele = document.getElementById(item);
 		if (ele) {
 			if (ele.type == "checkbox") {
@@ -2416,6 +2502,7 @@ function loadJsonDisplaySettings(settings) {
 			}
 		
 			ele.value = settings[item];
+// 			console.log(ele.value + ' --- ' + item);
 		}		
 		
 		if (item == "selDispMode") {
@@ -2445,6 +2532,8 @@ function loadJsonDisplaySettings(settings) {
 	} // end for item	
 	
 	uiColorRefresh();
+	
+	(cbState('usePresets')) ? $('#configPresets').show() : $('#configPresets').hide();
 	
 }
 

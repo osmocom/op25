@@ -467,7 +467,7 @@ hr {
  	width: 725px;                /* 730 */
 	border: 0px solid var(--div-border-1);
 	vertical-align: top;
-	height: 178px;
+	height: 178px;      
 	padding: 2px;
 	box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2), 0 3px 10px 0 rgba(0,0,0,0.19);
 	background: var(--status-grad-1); /* For browsers that do not support gradients */
@@ -617,7 +617,7 @@ div.adjacent {  /* adjacent sites container that holds the table */
 
 .systgid {    /* System and Talkgroup Text */
 	font-family: Arial, Helvetica, sans-serif;
-	color: var(--system-text);
+/* 	color: var(--system-text); */
 	font-weight: bold;
 	font-size: 24px;
 }
@@ -696,6 +696,12 @@ div.adjacent {  /* adjacent sites container that holds the table */
  */
 }
 
+.psbutton { /* Preset buttons */
+  width: 95px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: "";  
+}
 
 
 .nav-button {
@@ -704,7 +710,7 @@ div.adjacent {  /* adjacent sites container that holds the table */
 	color:    var(--button-text-2);
 	width: 85px;
 	border:   0px;
-	padding:   20px;
+	padding:   8px;   /* 20 */
 	display:   block;
 	font-size: 14px;
 	font-weight: bold;
@@ -716,7 +722,7 @@ div.adjacent {  /* adjacent sites container that holds the table */
 	color:    var(--button-text-2);
 	width: 15px;
 	border:   0px;
-	padding:   20px;
+	padding:   8px;    /* 20 */
 	display:   block;
 	font-size: 14px;
 	font-weight: bold;
@@ -728,7 +734,7 @@ div.adjacent {  /* adjacent sites container that holds the table */
 	color: var(--button-text-1);
 	width: 85px;
 	border:   0px;
-	padding:   20px;
+	padding:   8px;   /* 20 */
 	display:   block;
 	font-size: 14px;
 	font-weight: bold;

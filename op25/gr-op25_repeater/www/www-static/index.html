@@ -185,10 +185,23 @@
                <br>
             </div>
          </div>
+         
+         <div id="div_presets" style="display: none;">
+			 <button id="btnPreset1" onclick="this.blur(); doPreset(1);" style="width: 98px;" class="psbutton">Preset 1</button>
+			 <button id="btnPreset2" onclick="this.blur(); doPreset(2);" style="width: 98px;" class="psbutton">Preset 2</button>
+			 <button id="btnPreset3" onclick="this.blur(); doPreset(3);" style="width: 98px;" class="psbutton">Preset 3</button>
+			 <button id="btnPreset4" onclick="this.blur(); doPreset(4);" style="width: 98px;" class="psbutton">Preset 4</button>
+			 <button id="btnPreset5" onclick="this.blur(); doPreset(5);" style="width: 98px;" class="psbutton">Preset 5</button>
+			 <button id="btnPreset6" onclick="this.blur(); doPreset(6);" style="width: 98px;" class="psbutton">Preset 6</button>
+			 <button id="btnPreset7" onclick="this.blur(); doPreset(7);" style="width: 98px;" class="psbutton">Preset 7</button>       
+         </div>
+
          <div id="preload" style="display: none;"><img src="loading.gif" style="height: 20px;" id="loading-pre" alt="loading"></div>
          <div id="babysitter" style="text-align: center; width: 720px;">
             <span class="label"><br>OP25 EventSource not present. Waiting for data.  Status: <span id="estat">OK</span><br><br><img src="loading.gif" style="height: 20px;" alt="loading"></span>
          </div>
+
+         
          <!-- for testing / debug -->
          <div id="div_s1" class="s1">
             <!-- system freq and adjacent sites -->
@@ -405,6 +418,29 @@
                   </table>
                </td>
             </tr>
+
+              <tr> <!-- Presets -->
+
+            	<td colspan="3">
+            	<span class="label"><b>Go To Presets</b></span><br><br>
+            	  <input type="checkbox" id="usePresets" onclick="presetTable();" checked><label for="usePresets"> <span></span> Use Go To Preset Controls</label> <br>
+
+            <div id="configPresets">
+            	<br>
+            	  <table width="100%">
+            	  <tr><th>Preset</th><th>TGID</th><th>Button Tag</th><th>Color</th></tr>
+            	  
+            	  <tr><td> 1 </td> <td> <input type="text" id="preset-tg1" value="1111"> </td> <td> <input type="text" id="preset-tag1" value="Preset 1"> </td><td> <input type="color" class="accColor" id="psc1" value="#00FFFF"> </td></tr>
+            	  <tr><td> 2 </td> <td> <input type="text" id="preset-tg2" value="2222"> </td> <td> <input type="text" id="preset-tag2" value="Preset 2"> </td><td> <input type="color" class="accColor" id="psc2" value="#00FFFF"> </td></tr>
+            	  <tr><td> 3 </td> <td> <input type="text" id="preset-tg3" value="3333"> </td> <td> <input type="text" id="preset-tag3" value="Preset 3"> </td><td> <input type="color" class="accColor" id="psc3" value="#00FFFF"> </td></tr>
+            	  <tr><td> 4 </td> <td> <input type="text" id="preset-tg4" value="4444"> </td> <td> <input type="text" id="preset-tag4" value="Preset 4"> </td><td> <input type="color" class="accColor" id="psc4" value="#00FFFF"> </td></tr>
+            	  <tr><td> 5 </td> <td> <input type="text" id="preset-tg5" value="5555"> </td> <td> <input type="text" id="preset-tag5" value="Preset 5"> </td><td> <input type="color" class="accColor" id="psc5" value="#00FFFF"> </td></tr>
+            	  <tr><td> 6 </td> <td> <input type="text" id="preset-tg6" value="6666"> </td> <td> <input type="text" id="preset-tag6" value="Preset 6"> </td><td> <input type="color" class="accColor" id="psc6" value="#00FFFF"> </td></tr>
+            	  <tr><td> 7 </td> <td> <input type="text" id="preset-tg7" value="7777"> </td> <td> <input type="text" id="preset-tag7" value="Preset 7"> </td><td> <input type="color" class="accColor" id="psc7" value="#00FFFF"> </td></tr>
+            	  </table>
+            	</div>
+            	</td>
+            </tr>
             <tr>
                <td colspan="3">
                   <span class="label">
@@ -417,7 +453,10 @@
                      &nbsp;&nbsp;&nbsp;
                      <input type="checkbox" id="je_calls" checked> <label for="je_calls"> <span></span> Calls (00)</label>
                      &nbsp;&nbsp;&nbsp;
-                     <input type="checkbox" id="je_deny" checked> <label for="je_deny"> <span></span> Denials (27. 2b)</label>    
+                     <input type="checkbox" id="je_deny" checked> <label for="je_deny"> <span></span> Denials (27. 2b)</label>   
+                     <br>
+                     &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+                     <input type="checkbox" id="je_extfunc" checked> <label for="je_extfunc"> <span></span> Extended Functions (24)</label> 
                      <br>
                      <input type="checkbox" id="log_cf"> <label for="log_cf"> <span></span> Change Frequency</label> <br>
                      <input type="checkbox" id="log_tu"> <label for="log_tu"> <span></span> Trunk Update </label><br>
