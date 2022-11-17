@@ -747,7 +747,10 @@ class rx_block (gr.top_block):
             sys.stderr.write('assigning channel "%s" (channel id %d) to device "%s"\n' % (chan.name, chan.msgq_id, dev.name))
             if 'log_if' in cfg.keys():
                 chan.logfile_if = blocks.file_sink(gr.sizeof_gr_complex, 'if-%d-%s' % (chan.config['if_rate'], cfg['log_if']))
-                chan.demod.connect_complex('agc', chan.logfile_if)
+                if cfg['demod_type'] == 'cqpsk':
+                    chan.demod.connect_complex('agc', chan.logfile_if)
+                else:
+                    chan.demod.connect_complex('if_out', chan.logfile_if)
             if 'log_symbols' in cfg.keys():
                 chan.logfile = blocks.file_sink(gr.sizeof_char, cfg['log_symbols'])
                 self.connect(chan.demod, chan.logfile)
