@@ -162,6 +162,13 @@ class wrap_gp(object):
 				s += '\n'.join(['%f' % self.buf[i*self.sps+j] for j in range(self.sps+1)])
 				s += '\ne\n'
 				plots.append('"-" with lines')
+		elif mode == 'cpm':
+			nplots = len(self.buf)
+			ab = np.abs(self.buf)
+			for i in range(len(ab)):
+				s += '%f\n' % ab[i]
+			s += '\ne\n'
+			plots.append('"-" with lines')
 		elif mode == 'constellation':
 			plot_size = (240,240)
 			self.buf = self.buf[:100]
@@ -317,6 +324,11 @@ class wrap_gp(object):
 			h+= 'set yrange [-4:4]\n'
 			h+= 'set title "Datascope %s" %s\n' % (self.title, label_color)
 			plot_color = ''
+		elif mode == 'cpm':
+			h+= background
+			#h+= 'set yrange [-4:4]\n'
+			h+= 'set title "CPM RSSI %s" %s\n' % (self.title, label_color)
+			#plot_color = ''
 		elif mode == 'sync':
 			h += 'set object 1 rect from screen 0,0 to screen 1,1 %s behind\n' % (background_color)
 			h += 'set size square\n'
@@ -412,6 +424,30 @@ class eye_sink_f(gr.sync_block):
     def work(self, input_items, output_items):
         in0 = input_items[0]
         consumed = self.gnuplot.plot(in0, 100*self.sps, mode='eye')
+        return consumed ### len(input_items[0])
+
+    def set_title(self, title):
+        self.gnuplot.set_title(title)
+
+    def kill(self):
+        self.gnuplot.kill()
+
+class cpm_sink_c(gr.sync_block):
+    """
+    """
+    def __init__(self, debug = _def_debug, sps = _def_sps):
+        gr.sync_block.__init__(self,
+            name="cpm_sink_c",
+            in_sig=[np.complex64],
+            out_sig=None)
+        self.debug = debug
+        self.sps = sps
+        self.gnuplot = wrap_gp(sps=self.sps)
+
+    def work(self, input_items, output_items):
+        in0 = input_items[0]
+        l = len(in0)
+        consumed = self.gnuplot.plot(in0, self.sps*3000, mode='cpm')
         return consumed ### len(input_items[0])
 
     def set_title(self, title):

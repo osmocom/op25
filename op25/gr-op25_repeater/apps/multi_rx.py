@@ -50,6 +50,7 @@ from gr_gnuplot import symbol_sink_f
 from gr_gnuplot import eye_sink_f
 from gr_gnuplot import setup_correlation
 from gr_gnuplot import sync_plot
+from gr_gnuplot import cpm_sink_c
 
 from nxdn_trunking import cac_message
 
@@ -288,6 +289,14 @@ class channel(object):
                 sink.set_title(self.name)
                 self.sinks.append(sink)
                 self.demod.connect_bb('symbol_filter', sink)
+                self.kill_sink.append(sink)
+            elif plot.startswith('cpm'):
+                if self.symbol_rate != 6000:	# fixed rate value for p25p2
+                    sys.stderr.write('warning: symbol rate %d may be incorrect for CPM channel %s\n' % (self.symbol_rate, self.name))
+                sink = cpm_sink_c(sps=config['if_rate'] // self.symbol_rate)
+                sink.set_title(self.name)
+                self.sinks.append(sink)
+                self.demod.connect_complex('if_out', sink)
                 self.kill_sink.append(sink)
             elif plot == 'symbol':
                 sink = symbol_sink_f()
