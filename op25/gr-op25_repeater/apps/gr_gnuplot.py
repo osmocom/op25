@@ -36,6 +36,7 @@ from math import pi, sin, cos
 
 _def_debug = 0
 _def_sps = 10
+_def_cpm_mode = 'cpm'
 
 GNUPLOT = '/usr/bin/gnuplot'
 
@@ -105,6 +106,8 @@ class wrap_gp(object):
 			for color in ccfg:
 				self.colors[color] = ccfg[color]
 
+		self.next_cpmd = time.time()
+
 		self.attach_gp()
 
 	def attach_gp(self):
@@ -167,8 +170,37 @@ class wrap_gp(object):
 			ab = np.abs(self.buf)
 			for i in range(len(ab)):
 				s += '%f\n' % ab[i]
-			s += '\ne\n'
+			s += 'e\n'
 			plots.append('"-" with lines')
+		elif mode == 'cpmd':
+			if time.time() < self.next_cpmd:
+				self.buf = np.array([])
+				return 0
+			self.next_cpmd = time.time() + 0.5
+			ab = np.abs(self.buf)
+			thresh = np.max(ab) / 2.0
+			mask1 = np.array(ab > thresh, dtype=np.int)
+			maskdf = mask1[1:] - mask1[:-1]
+			nz = np.array(np.nonzero(maskdf), dtype=np.int)[0]
+			nzd = nz[1:]-nz[:-1] 
+			nzdn = nzd // self.sps
+			sel = (nzdn > 165) & (nzdn < 185)
+			valid = np.array(np.nonzero(sel), dtype=np.int)[0]
+			if len(valid) < 1:
+				self.buf = np.array([])
+				return 0
+			v0 = valid[0]
+			i0 = nz[v0]
+			samples = self.buf[i0 : i0+170*self.sps+2]
+			fmd = np.angle(samples[1:] * np.conj(samples[:-1]))
+			fmd = fmd[12*self.sps:]
+			for n in range(0,len(fmd),self.sps):
+				sl = fmd[n:n+self.sps+1]
+				if len(sl) != self.sps+1:
+					break
+				s += '\n'.join(['%f' % (x*self.sps) for x in sl])
+				s += '\ne\n'
+				plots.append('"-" with lines')
 		elif mode == 'constellation':
 			plot_size = (240,240)
 			self.buf = self.buf[:100]
@@ -329,6 +361,11 @@ class wrap_gp(object):
 			#h+= 'set yrange [-4:4]\n'
 			h+= 'set title "CPM RSSI %s" %s\n' % (self.title, label_color)
 			#plot_color = ''
+		elif mode == 'cpmd':
+			h+= background
+			h+= 'set yrange [-4:4]\n'
+			h+= 'set title "CPM Datascope %s" %s\n' % (self.title, label_color)
+			plot_color = ''
 		elif mode == 'sync':
 			h += 'set object 1 rect from screen 0,0 to screen 1,1 %s behind\n' % (background_color)
 			h += 'set size square\n'
@@ -435,7 +472,7 @@ class eye_sink_f(gr.sync_block):
 class cpm_sink_c(gr.sync_block):
     """
     """
-    def __init__(self, debug = _def_debug, sps = _def_sps):
+    def __init__(self, debug = _def_debug, sps = _def_sps, plot_mode=_def_cpm_mode):
         gr.sync_block.__init__(self,
             name="cpm_sink_c",
             in_sig=[np.complex64],
@@ -443,12 +480,13 @@ class cpm_sink_c(gr.sync_block):
         self.debug = debug
         self.sps = sps
         self.gnuplot = wrap_gp(sps=self.sps)
+        self.plot_mode=plot_mode
 
     def work(self, input_items, output_items):
         in0 = input_items[0]
         l = len(in0)
-        consumed = self.gnuplot.plot(in0, self.sps*3000, mode='cpm')
-        return consumed ### len(input_items[0])
+        consumed = self.gnuplot.plot(in0, self.sps*180*10, mode=self.plot_mode)
+        return len(input_items[0])
 
     def set_title(self, title):
         self.gnuplot.set_title(title)

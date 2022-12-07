@@ -293,7 +293,7 @@ class channel(object):
             elif plot.startswith('cpm'):
                 if self.symbol_rate != 6000:	# fixed rate value for p25p2
                     sys.stderr.write('warning: symbol rate %d may be incorrect for CPM channel %s\n' % (self.symbol_rate, self.name))
-                sink = cpm_sink_c(sps=config['if_rate'] // self.symbol_rate)
+                sink = cpm_sink_c(sps=config['if_rate'] // self.symbol_rate, plot_mode=plot)
                 sink.set_title(self.name)
                 self.sinks.append(sink)
                 self.demod.connect_complex('if_out', sink)
