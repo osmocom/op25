@@ -209,14 +209,19 @@ class trunked_system (object):
         return channel & 1
 
 # return frequency in Hz
-    def channel_id_to_frequency(self, id):
+    def channel_id_to_frequency(self, id, uplink=False):
         table = (id >> 12) & 0xf
         channel = id & 0xfff
         if table not in self.freq_table:
             return None
         if 'tdma' not in self.freq_table[table]:
-            return self.freq_table[table]['frequency'] + self.freq_table[table]['step'] * channel
-        return self.freq_table[table]['frequency'] + self.freq_table[table]['step'] * int(channel / self.freq_table[table]['tdma'])
+            f = self.freq_table[table]['frequency'] + self.freq_table[table]['step'] * channel
+        else:
+            f = self.freq_table[table]['frequency'] + self.freq_table[table]['step'] * int(channel / self.freq_table[table]['tdma'])
+        uplink_f = f + self.freq_table[table]['offset']
+        if uplink:
+                f = uplink_f
+        return f
 
     def channel_id_to_string(self, id):
         f = self.channel_id_to_frequency(id)
@@ -351,7 +356,7 @@ class trunked_system (object):
                 self.end_call(call, 4)
             self.frequency_table[frequency]['calls'][1] = None
 
-    def update_talkgroup(self, frequency, tgid, tdma_slot, srcaddr):
+    def update_talkgroup(self, frequency, tgid, tdma_slot, srcaddr, uplink):
         if self.debug >= 5:
             sys.stderr.write('%f set tgid=%s, srcaddr=%s\n' % (time.time(), tgid, srcaddr))
 
@@ -364,6 +369,7 @@ class trunked_system (object):
         self.talkgroups[tgid]['tdma_slot'] = tdma_slot
         self.talkgroups[tgid]['prio'] = self.get_prio(tgid)
         self.talkgroups[tgid]['tag_color'] = self.get_tag_color(tgid)
+        self.talkgroups[tgid]['uplink'] = uplink
 
         if srcaddr is None or not srcaddr:
             self.talkgroups[tgid]['srcaddr'] = 0
@@ -374,11 +380,11 @@ class trunked_system (object):
             self.talkgroups[tgid]['srcaddr_tag'] = self.get_unit_id_tag(srcaddr)
             self.talkgroups[tgid]['srcaddr_color'] = self.get_unit_id_color(srcaddr)
 
-    def update_voice_frequency(self, frequency, tgid=None, tdma_slot=None, srcaddr=None, protected=None):
+    def update_voice_frequency(self, frequency, tgid=None, tdma_slot=None, srcaddr=None, protected=None, uplink=None):
         if not frequency:	# e.g., channel identifier not yet known
             return
         self.frequency_tracking(frequency, tgid, tdma_slot, srcaddr, protected)
-        self.update_talkgroup(frequency, tgid, tdma_slot, srcaddr)
+        self.update_talkgroup(frequency, tgid, tdma_slot, srcaddr, uplink)
         if frequency not in self.voice_frequencies:
             self.voice_frequencies[frequency] = {'counter':0}
             sorted_freqs = collections.OrderedDict(sorted(self.voice_frequencies.items()))
@@ -440,8 +446,8 @@ class trunked_system (object):
                 tgt_tgid = active_tgid
                    
         if tgt_tgid is not None and self.talkgroups[tgt_tgid]['time'] >= start_time:
-            return self.talkgroups[tgt_tgid]['frequency'], tgt_tgid, self.talkgroups[tgt_tgid]['tdma_slot'], self.talkgroups[tgt_tgid]['srcaddr']
-        return None, None, None, None
+            return self.talkgroups[tgt_tgid]['frequency'], tgt_tgid, self.talkgroups[tgt_tgid]['tdma_slot'], self.talkgroups[tgt_tgid]['srcaddr'], self.talkgroups[tgt_tgid]['uplink']
+        return None, None, None, None, None
 
     def dump_tgids(self):
         sys.stderr.write("Known tgids: { ")
@@ -468,11 +474,12 @@ class trunked_system (object):
             ch2  = (mbt_data >> 48) & 0xffff
             ga   = (mbt_data >> 32) & 0xffff
             f = self.channel_id_to_frequency(ch1)
+            uplink = self.channel_id_to_frequency(ch2)
             if self.debug > 0 and src != srcaddr:
                 sys.stderr.write('decode_mbt_data: grp_v_ch_grant: src %d does not match srcaddr %d\n' % (src, srcaddr))
             d = {'cc_event': 'grp_v_ch_grant_mbt', 'mfrid': mfrid, 'options': opts, 'frequency': f, 'group': self.mk_tg_dict(ga), 'srcaddr': self.mk_src_dict(srcaddr), 'opcode': opcode, 'tdma_slot': self.get_tdma_slot(ch1) }
             self.post_event(d)
-            self.update_voice_frequency(f, tgid=ga, tdma_slot=self.get_tdma_slot(ch1), srcaddr=srcaddr, protected=opts&64 == 64)
+            self.update_voice_frequency(f, tgid=ga, tdma_slot=self.get_tdma_slot(ch1), srcaddr=srcaddr, protected=opts&64 == 64, uplink=uplink)
             if f:
                 updated += 1
             if self.debug > 10:
@@ -589,13 +596,15 @@ class trunked_system (object):
             ga2 = (msg      ) & 0xffff
             f1 = self.channel_id_to_frequency(ch1)
             f2 = self.channel_id_to_frequency(ch2)
+            uplink1 = self.channel_id_to_frequency(ch1, uplink=True)
+            uplink2 = self.channel_id_to_frequency(ch2, uplink=True)
             if self.debug > 1:
                 sys.stderr.write('decode_blk: group voice channel grant update ga1 %d ch1 %s ga2 %d ch2 %s\n' % (ga1, f1, ga2, f2))
             opcode = 2	# (p25p1 opcode)
             d = {'cc_event': 'grp_v_ch_grant_updt', 'mfrid': 0, 'frequency1': f1, 'group1': self.mk_tg_dict(ga1), 'opcode': opcode, 'tdma_slot': self.get_tdma_slot(ch1) }
-            self.update_voice_frequency(f1, tgid=ga1, tdma_slot=self.get_tdma_slot(ch1))
+            self.update_voice_frequency(f1, tgid=ga1, tdma_slot=self.get_tdma_slot(ch1), uplink=uplink1)
             if f1 != f2:
-                self.update_voice_frequency(f2, tgid=ga2, tdma_slot=self.get_tdma_slot(ch2))
+                self.update_voice_frequency(f2, tgid=ga2, tdma_slot=self.get_tdma_slot(ch2), uplink=uplink2)
                 d['frequency2'] = f2
                 d['group2'] = self.mk_tg_dict(ga2)
             self.post_event(d)
@@ -782,9 +791,10 @@ class trunked_system (object):
             sg  = (tsbk >> 40) & 0xffff
             sa  = (tsbk >> 16) & 0xffffff
             f = self.channel_id_to_frequency(ch)
+            uplink = self.channel_id_to_frequency(ch, uplink=True)
             d = {'cc_event': 'mot_grg_cn_grant', 'mfrid': mfrid, 'frequency': f, 'sg': self.mk_tg_dict(sg), 'sa': self.mk_src_dict(sa), 'opcode': opcode }
             self.post_event(d)
-            self.update_voice_frequency(f, tgid=sg, tdma_slot=self.get_tdma_slot(ch), srcaddr=sa)
+            self.update_voice_frequency(f, tgid=sg, tdma_slot=self.get_tdma_slot(ch), srcaddr=sa, uplink=uplink)
             if f:
                 updated += 1
             if self.debug > 10:
@@ -796,10 +806,12 @@ class trunked_system (object):
             sg2  = (tsbk >> 16) & 0xffff
             f1 = self.channel_id_to_frequency(ch1)
             f2 = self.channel_id_to_frequency(ch2)
+            uplink1 = self.channel_id_to_frequency(ch1, uplink=True)
+            uplink2 = self.channel_id_to_frequency(ch2, uplink=True)
             d = {'cc_event': 'mot_grg_cn_grant_updt', 'mfrid': mfrid, 'frequency1': f1, 'sg1': self.mk_tg_dict(sg1), 'opcode': opcode }
-            self.update_voice_frequency(f1, tgid=sg1, tdma_slot=self.get_tdma_slot(ch1))
+            self.update_voice_frequency(f1, tgid=sg1, tdma_slot=self.get_tdma_slot(ch1), uplink=uplink1)
             if f1 != f2:
-                self.update_voice_frequency(f2, tgid=sg2, tdma_slot=self.get_tdma_slot(ch2))
+                self.update_voice_frequency(f2, tgid=sg2, tdma_slot=self.get_tdma_slot(ch2), uplink=uplink2)
                 d['sg2'] = self.mk_tg_dict(sg2)
                 d['frequency2'] = f2
             self.post_event(d)
@@ -839,9 +851,10 @@ class trunked_system (object):
             ga   = (tsbk >> 40) & 0xffff
             sa   = (tsbk >> 16) & 0xffffff
             f = self.channel_id_to_frequency(ch)
+            uplink = self.channel_id_to_frequency(ch, uplink=True)
             d = {'cc_event': 'grp_v_ch_grant', 'mfrid': mfrid, 'options': opts, 'frequency': f, 'group': self.mk_tg_dict(ga), 'srcaddr': self.mk_src_dict(sa), 'opcode': opcode, 'tdma_slot': self.get_tdma_slot(ch) }
             self.post_event(d)
-            self.update_voice_frequency(f, tgid=ga, tdma_slot=self.get_tdma_slot(ch), srcaddr=sa, protected=opts&64 == 64)
+            self.update_voice_frequency(f, tgid=ga, tdma_slot=self.get_tdma_slot(ch), srcaddr=sa, protected=opts&64 == 64, uplink=uplink)
             if f:
                 updated += 1
             if self.debug > 10:
@@ -853,10 +866,12 @@ class trunked_system (object):
             ga2  = (tsbk >> 16) & 0xffff
             f1 = self.channel_id_to_frequency(ch1)
             f2 = self.channel_id_to_frequency(ch2)
+            uplink1 = self.channel_id_to_frequency(ch1, uplink=True)
+            uplink2 = self.channel_id_to_frequency(ch2, uplink=True)
             d = {'cc_event': 'grp_v_ch_grant_updt', 'mfrid': mfrid, 'frequency1': f1, 'group1': self.mk_tg_dict(ga1), 'opcode': opcode, 'tdma_slot': self.get_tdma_slot(ch1) }
-            self.update_voice_frequency(f1, tgid=ga1, tdma_slot=self.get_tdma_slot(ch1))
+            self.update_voice_frequency(f1, tgid=ga1, tdma_slot=self.get_tdma_slot(ch1), uplink=uplink1)
             if f1 != f2:
-                self.update_voice_frequency(f2, tgid=ga2, tdma_slot=self.get_tdma_slot(ch2))
+                self.update_voice_frequency(f2, tgid=ga2, tdma_slot=self.get_tdma_slot(ch2), uplink=uplink2)
                 d['frequency2'] = f2
                 d['group2'] = self.mk_tg_dict(ga2)
             if f1:
@@ -872,9 +887,10 @@ class trunked_system (object):
             ch2   = (tsbk >> 32) & 0xffff
             ga  = (tsbk >> 16) & 0xffff
             f = self.channel_id_to_frequency(ch1)
+            uplink = self.channel_id_to_frequency(ch2)
             d = {'cc_event': 'grp_v_ch_grant_updt_exp', 'mfrid': mfrid, 'options': opts, 'frequency': f, 'group': self.mk_tg_dict(ga), 'opcode': opcode, 'tdma_slot': self.get_tdma_slot(ch1) }
             self.post_event(d)
-            self.update_voice_frequency(f, tgid=ga, tdma_slot=self.get_tdma_slot(ch1))
+            self.update_voice_frequency(f, tgid=ga, tdma_slot=self.get_tdma_slot(ch1), uplink=uplink)
             if f:
                 updated += 1
             if self.debug > 10:
@@ -1690,6 +1706,7 @@ class rx_ctl (object):
         new_nac = None
         new_slot = None
         new_frequency_type = None
+        uplink = None
 
         if command == 'timeout':
             if self.current_state == self.states.CC:
@@ -1714,7 +1731,7 @@ class rx_ctl (object):
                     desired_tgid = self.tgid_hold
                 elif (self.tgid_hold is not None) and (self.hold_mode == False):
                     self.tgid_hold = None
-                new_frequency, new_tgid, tdma_slot, srcaddr = tsys.find_talkgroup(curr_time, tgid=desired_tgid, hold=self.hold_mode)
+                new_frequency, new_tgid, tdma_slot, srcaddr, uplink = tsys.find_talkgroup(curr_time, tgid=desired_tgid, hold=self.hold_mode)
                 if new_frequency:
                     new_frequency_type = 'vc'
                     if self.debug > 0:
@@ -1728,7 +1745,7 @@ class rx_ctl (object):
                     self.wait_until = curr_time + self.TSYS_HOLD_TIME
                     new_slot = tdma_slot
             elif 0: # # # # # else: # check for priority tgid preemption
-                new_frequency, new_tgid, tdma_slot, srcaddr = tsys.find_talkgroup(tsys.talkgroups[self.current_tgid]['time'], tgid=self.current_tgid, hold=self.hold_mode)
+                new_frequency, new_tgid, tdma_slot, srcaddr, uplink = tsys.find_talkgroup(tsys.talkgroups[self.current_tgid]['time'], tgid=self.current_tgid, hold=self.hold_mode)
                 if new_tgid != self.current_tgid:
                     if self.debug > 0:
                         tslot = tdma_slot if tdma_slot is not None else '-'
@@ -1878,6 +1895,8 @@ class rx_ctl (object):
 
         if new_frequency is not None:
             params = tsys.frequency_change_params(self.current_tgid, new_frequency, nac, new_slot, new_frequency_type, curr_time)
+            if uplink is not None and uplink > 0:
+                params['uplink'] = uplink
             self.status_msg = 'F %f TG %s %s at %s\n' % (params['freq'] / 1000000.0, params['tgid'], params['tag'], time.asctime())
             self.set_frequency(params)
 
