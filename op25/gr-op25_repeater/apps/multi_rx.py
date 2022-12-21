@@ -483,6 +483,16 @@ class rx_block (gr.top_block):
         else:
             self.audio = None
 
+    def find_channel_uplink(self, params):
+        channels = []
+        for chan in self.channels:
+            if chan.role != 'uplink':
+                continue
+            channels.append(chan)
+            if self.verbosity > 0:
+                sys.stderr.write('%f find_channel_uplink: selected channel %d (%s) for tuning request type %s frequency %f\n' % (time.time(), chan.msgq_id, chan.name, 'cc', params['uplink'] / 1000000.0))
+        return channels
+
     def find_channel_cc(self, params):
         channels = []
         for chan in self.channels:
@@ -536,6 +546,7 @@ class rx_block (gr.top_block):
         freq = params['freq']
         self.last_change_freq = freq
         channel_type = params['channel_type']	# vc or cc
+        self.uplink_change_freq(params)
         if channel_type == 'vc':
             channels = self.find_channel_vc(params)
         elif channel_type == 'cc':
@@ -563,6 +574,21 @@ class rx_block (gr.top_block):
                 chan.demod.set_muted(False)
             else:
                 chan.demod.set_muted(True)
+
+    def uplink_change_freq(self, params):
+        channel_type = params['channel_type']	# vc or cc
+        if 'uplink' not in params:
+            return
+        if channel_type != 'vc':
+            return
+        uplink = params['uplink']
+        channels = self.find_channel_uplink(params)
+        for chan in channels:
+            chan.device.set_frequency(uplink)
+            chan.set_frequency(uplink)
+            chan.configure_tdma(params)
+            if self.verbosity > 0:
+                sys.stderr.write('set uplink frequency %f, channel %s\n' % (uplink / 1000000.0, chan.name))
 
     def is_http_term(self):
         if self.terminal_type.startswith('http:'):
@@ -694,6 +720,8 @@ class rx_block (gr.top_block):
         chan = self.channels[msgq_id-1]
         t = msg.type()
         if chan.role == 'vc' and t in [7, 12]:	## suppress tsbk/mbt/pdu received over vc
+            return True
+        if chan.role == 'uplink' and t in [-1, 7, 12]:	## suppress as above and also timeout
             return True
         return False
 
