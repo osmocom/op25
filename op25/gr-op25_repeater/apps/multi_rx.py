@@ -305,7 +305,6 @@ class channel(object):
                 self.demod.connect_float(sink)
                 self.kill_sink.append(sink)
             elif plot == 'fft':
-                assert config['demod_type'] == 'cqpsk'   ## fft plot requires cqpsk demod type
                 i = len(self.sinks)
                 sink = fft_sink_c()
                 sink.set_title(self.name)
@@ -313,12 +312,15 @@ class channel(object):
                 self.demod.connect_complex('src', self.sinks[i])
                 self.kill_sink.append(self.sinks[i])
             elif plot == 'mixer':
-                assert config['demod_type'] == 'cqpsk'   ## mixer plot requires cqpsk demod type
+                if config['demod_type'] == 'cqpsk':
+                    blk = 'mixer'
+                else:
+                    blk = 'cutoff'
                 i = len(self.sinks)
                 sink = mixer_sink_c()
                 sink.set_title(self.name)
                 self.sinks.append(sink)
-                self.demod.connect_complex('mixer', self.sinks[i])
+                self.demod.connect_complex(blk, self.sinks[i])
                 self.kill_sink.append(self.sinks[i])
             elif plot == 'constellation':
                 i = len(self.sinks)
@@ -490,7 +492,7 @@ class rx_block (gr.top_block):
                 continue
             channels.append(chan)
             if self.verbosity > 0:
-                sys.stderr.write('%f find_channel_uplink: selected channel %d (%s) for tuning request type %s frequency %f\n' % (time.time(), chan.msgq_id, chan.name, 'cc', params['uplink'] / 1000000.0))
+                sys.stderr.write('%f find_channel_uplink: selected channel %d (%s) for tuning request type %s frequency %f\n' % (time.time(), chan.msgq_id, chan.name, 'vc', params['uplink'] / 1000000.0))
         return channels
 
     def find_channel_cc(self, params):

@@ -447,3 +447,5 @@ class p25_demod_cb(p25_demod_base):
             self.connect(self.if_out, sink)
         elif src == 'agc':
             self.connect(self.agc, sink)
+        elif src == 'cutoff':
+            self.connect(self.cutoff, sink)
