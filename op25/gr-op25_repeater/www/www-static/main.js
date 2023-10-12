@@ -103,7 +103,7 @@ $(document).ready(function() {
 });
 
 function connect() {
-    event_source = new EventSource('/stream');
+    event_source = new EventSource('./stream');
     event_source.addEventListener('message', eventsource_listener);
     event_source.onerror = function() {
     	event_source.close();
