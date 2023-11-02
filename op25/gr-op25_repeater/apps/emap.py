@@ -370,7 +370,7 @@ cc_desc = {
 	"ext_fnct_cmd":				"Extended Function Command - 0x24",
 	"grg_exenc_cmd":			"Harris Group Regroup Explicit Encryption Command - 0x30",
 	"grp_aff_q":				"Group Affiliation Query - 0x2A",
-	"grp_aff_resp":				"Group Affiliation Response - 0x2B",
+	"grp_aff_resp":				"Group Affiliation Response - 0x28",
 	"grp_v_ch_grant":			"Group Voice Channel Grant - 0x00",
 	"grp_v_ch_grant_mbt":		"Group Voice Channel Grant, Multiple Block Trunking",
 	"grp_v_ch_grant_updt":		"Group Voice Channel Grant Update - 0x02",
