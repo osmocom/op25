@@ -51,7 +51,7 @@ app.config['SQLALCHEMY_ECHO'] = False  # set to True to send sql statements to t
 app.secret_key = b'kH8HT0ucrh' # random bytes - this key not used anywhere else
 
 db = SQLAlchemy(app)
-db.init_app(app)
+# db.init_app(app)
 
 with app.app_context():
     try:
@@ -225,7 +225,7 @@ def import_tsv(argv):
 @app.route("/")
 def home():
     ds = dbstate()    
-    if ds is not 0:
+    if ds != 0:
         return redirect('error?code=%s' % ds)
     params = request.args.to_dict()
     params['ekeys'] = sorted(oplog_map.keys())
@@ -235,7 +235,7 @@ def home():
 @app.route("/about")
 def about():
     ds = dbstate()
-    if ds is not 0:
+    if ds != 0:
         return redirect('error?code=%s' % ds)
     params = request.args.to_dict()
     params['ekeys'] = sorted(oplog_map.keys())
